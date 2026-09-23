@@ -58,6 +58,19 @@ namespace LinqConvertTools.Tests.Parser
             StringAssert.Contains(expectedSql, sql);
         }
 
+        [TestCase(Provider.SqlServer, "[d].[ExternalId] IN (")]
+        [TestCase(Provider.PostgreSql, "d.\"ExternalId\" IN (")]
+        public void InOverGuidMemberTranslates(Provider provider, string expectedSql)
+        {
+            using var context = new DocumentContext(provider);
+            var predicate = new ODataExpressionConverter().Convert<Document>(
+                "externalId in (0f000000-0000-7000-8000-000000000001, deadbeef-0000-7000-8000-000000000002)");
+
+            string sql = context.Documents.Where(predicate).ToQueryString();
+
+            StringAssert.Contains(expectedSql, sql);
+        }
+
         [TestCase(Provider.SqlServer)]
         [TestCase(Provider.PostgreSql)]
         public void InvariantCaseFoldingCannotBeTranslated(Provider provider)
@@ -73,6 +86,8 @@ namespace LinqConvertTools.Tests.Parser
             public int Id { get; set; }
 
             public string? Name { get; set; }
+
+            public Guid ExternalId { get; set; }
 
             public List<Tag> Tags { get; set; } = new();
         }

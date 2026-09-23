@@ -29,6 +29,7 @@ namespace LinqConvertTools.Parser
         // Embedded quotes are accepted as-is, and a doubled '' is read as a single quote.
         private static readonly Regex StringRx = new(@"^(?:'(.*)'|""(.*)"")$", RegexOptions.Compiled | RegexOptions.Singleline);
         private static readonly Regex NegateRx = new(@"^-[^\d]*", RegexOptions.Compiled);
+        private static readonly char[] InListSeparators = { ',' };
         private static readonly Expression _nullConstantExpression = Expression.Constant(null, typeof(object));
 
         private readonly IMemberNameResolver _memberNameResolver;
@@ -154,15 +155,60 @@ namespace LinqConvertTools.Parser
                 return expression;
             }
 
-            string cleanConstantValue = constantValue.TrimStart('(').TrimEnd(')');
-            object[] values = cleanConstantValue
-                .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(value => value.Trim())
+            object[] values = SplitInList(constantValue)
                 .Select(value => TryReadStringLiteral(value, out string? literal) ? literal! : value)
                 .Select(value => toUpper ? ToUpper(value) : value)
                 .ToArray();
 
             return Expression.Constant(values);
+        }
+
+        private static bool IsInOperation(string operation)
+        {
+            return string.Equals(operation, "in", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static IEnumerable<string> SplitInList(string list)
+        {
+            return list.TrimStart('(').TrimEnd(')')
+                .Split(InListSeparators, StringSplitOptions.RemoveEmptyEntries)
+                .Select(value => value.Trim());
+        }
+
+        /// <summary>
+        /// Reads each item of an <c>in</c> list as a literal of the member's type, so the list becomes an array the
+        /// member's type can be looked up in.
+        /// </summary>
+        private ConstantExpression GetTypedInList(string list, Type memberType, IFormatProvider formatProvider)
+        {
+            string[] items = SplitInList(list).ToArray();
+            Array values = Array.CreateInstance(memberType, items.Length);
+            for (int i = 0; i < items.Length; i++)
+            {
+                values.SetValue(ReadInListItem(items[i], memberType, formatProvider), i);
+            }
+
+            return Expression.Constant(values);
+        }
+
+        private object? ReadInListItem(string item, Type memberType, IFormatProvider formatProvider)
+        {
+            Type? underlyingType = Nullable.GetUnderlyingType(memberType);
+            if (string.Equals(item, "null", StringComparison.OrdinalIgnoreCase))
+            {
+                return !memberType.IsValueType || underlyingType is not null
+                    ? null
+                    : throw new FormatException("Could not read null as " + memberType.Name + ".");
+            }
+
+            Expression value = _valueReader.Read(underlyingType ?? memberType, item, formatProvider)
+                ?? throw new FormatException("Could not read " + item + " as " + memberType.Name + ".");
+
+            // A type without a dedicated reader is read as a call to its Parse method, which is evaluated here so the
+            // list stays a constant a query provider can translate.
+            return value is ConstantExpression constant
+                ? constant.Value
+                : Expression.Lambda(value).Compile().DynamicInvoke();
         }
 
         /// <summary>
@@ -610,7 +656,9 @@ namespace LinqConvertTools.Parser
                     }
 
                     Type? rightExpressionType = tokenSet.Operation == "and" ? null : left.Type;
-                    var right = CreateExpression<T>(tokenSet.Right, parameter, lambdaParameters, rightExpressionType, formatProvider, ignoreCase);
+                    var right = IsInOperation(tokenSet.Operation) && left.Type != typeof(string)
+                        ? GetTypedInList(tokenSet.Right, left.Type, formatProvider)
+                        : CreateExpression<T>(tokenSet.Right, parameter, lambdaParameters, rightExpressionType, formatProvider, ignoreCase);
 
                     if (existing != null && combiner is not null && !string.IsNullOrWhiteSpace(combiner))
                     {
