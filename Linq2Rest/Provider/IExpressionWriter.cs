@@ -32,7 +32,7 @@ namespace LinqConvertTools.Provider
         /// </summary>
         /// <param name="expression">The <see cref="Expression"/> to visit.</param>
         /// <param name="sourceType"></param>
-        /// <returns>A string value.</returns>
-        string Write(Expression expression, Type sourceType);
+        /// <returns>A string value, or <see langword="null"/> when <paramref name="expression"/> is <see langword="null"/>.</returns>
+        string? Write(Expression? expression, Type sourceType);
     }
 }

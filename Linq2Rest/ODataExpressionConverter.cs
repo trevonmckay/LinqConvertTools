@@ -81,9 +81,9 @@ namespace LinqConvertTools
         /// </summary>
         /// <param name="expression">The expression to convert.</param>
         /// <typeparam name="T">The parameter type.</typeparam>
-        /// <returns>An OData <see cref="string"/> representation.</returns>
+        /// <returns>An OData <see cref="string"/> representation, or <see langword="null"/> when <paramref name="expression"/> is <see langword="null"/>.</returns>
         [SuppressMessage("Microsoft.Design", "CA1011:ConsiderPassingBaseTypesAsParameters", Justification = "Restriction is intended.")]
-        public string Convert<T>(Expression<Func<T, bool>> expression)
+        public string? Convert<T>(Expression<Func<T, bool>>? expression)
         {
             return _writer.Write(expression, typeof(T));
         }

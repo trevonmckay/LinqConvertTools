@@ -69,7 +69,7 @@ namespace LinqConvertTools.Provider
                             return InvokeEager(methodCall, result);
                         }
 
-                        var newFilter = _writer.Write(methodCall.Arguments[1], builder.SourceType);
+                        var newFilter = _writer.Write(methodCall.Arguments[1], builder.SourceType) ?? string.Empty;
 
                         builder.FilterParameter = string.IsNullOrWhiteSpace(builder.FilterParameter)
                                                     ? newFilter
@@ -117,7 +117,7 @@ namespace LinqConvertTools.Provider
 
                         var sourceType = builder.SourceType;
                         var sortProperty = methodCall.Arguments[1];
-                        var item = _writer.Write(sortProperty, sourceType);
+                        var item = _writer.Write(sortProperty, sourceType) ?? string.Empty;
                         builder.OrderByParameter.Add(item);
                     }
 
@@ -146,7 +146,7 @@ namespace LinqConvertTools.Provider
                             return InvokeEager(methodCall, result);
                         }
 
-                        builder.TakeParameter = _writer.Write(methodCall.Arguments[1], builder.SourceType);
+                        builder.TakeParameter = _writer.Write(methodCall.Arguments[1], builder.SourceType) ?? string.Empty;
                     }
 
                     break;
@@ -159,7 +159,7 @@ namespace LinqConvertTools.Provider
                             return InvokeEager(methodCall, result);
                         }
 
-                        builder.SkipParameter = _writer.Write(methodCall.Arguments[1], builder.SourceType);
+                        builder.SkipParameter = _writer.Write(methodCall.Arguments[1], builder.SourceType) ?? string.Empty;
                     }
 
                     break;
@@ -275,7 +275,7 @@ namespace LinqConvertTools.Provider
 
             ProcessMethodCall(methodCall.Arguments[0] as MethodCallExpression, builder, resultLoader, intermediateResultLoader);
 
-            var processResult = _writer.Write(methodCall.Arguments[1], builder.SourceType);
+            var processResult = _writer.Write(methodCall.Arguments[1], builder.SourceType) ?? string.Empty;
             var currentParameter = string.IsNullOrWhiteSpace(builder.FilterParameter)
                                     ? processResult
                                     : string.Format("({0}) and ({1})", builder.FilterParameter, processResult);

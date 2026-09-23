@@ -60,10 +60,9 @@ namespace LinqConvertTools.Provider
                                  };
         }
 
-        public string Write(Expression expression, Type sourceType)
+        public string? Write(Expression? expression, Type sourceType)
         {
-            // Callers that pass null despite the non-nullable annotation receive null.
-            return expression == null ? null! : Write(expression, expression.Type, GetRootParameterName(expression), sourceType);
+            return expression == null ? null : Write(expression, expression.Type, GetRootParameterName(expression), sourceType);
         }
 
         private static Type GetUnconvertedType(Expression expression)
