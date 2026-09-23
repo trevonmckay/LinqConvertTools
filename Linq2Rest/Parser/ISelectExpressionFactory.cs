@@ -25,7 +25,7 @@ namespace LinqConvertTools.Parser
         /// Creates a select expression.
         /// </summary>
         /// <param name="selection">The properties to select.</param>
-        /// <returns>An instance of a <see cref="Func{T1,TResult}"/>.</returns>
-        Expression<Func<T, object>> Create(string selection);
+        /// <returns>An instance of a <see cref="Func{T1,TResult}"/>, or <see langword="null"/> when <paramref name="selection"/> names no properties.</returns>
+        Expression<Func<T, object>>? Create(string selection);
     }
 }

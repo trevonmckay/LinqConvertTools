@@ -40,7 +40,7 @@ namespace LinqConvertTools.Implementations
         /// <param name="requestMimeType">The MIME type of the data we are sending.</param>
         /// <param name="responseMimeType">The MIME we accept in response.</param>
         /// <returns>Returns an HttpWebRequest initialized with the given parameters.</returns>
-        public static HttpWebRequest CreateHttpWebRequest(Uri uri, HttpMethod method, string responseMimeType, string requestMimeType)
+        public static HttpWebRequest CreateHttpWebRequest(Uri uri, HttpMethod method, string responseMimeType, string? requestMimeType)
         {
 
 

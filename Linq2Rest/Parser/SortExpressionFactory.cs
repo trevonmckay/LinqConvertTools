@@ -52,19 +52,15 @@ namespace LinqConvertTools.Parser
             return from sortToken in sortTokens
                    select sortToken.Split(new[] { " " }, StringSplitOptions.RemoveEmptyEntries)
                        into sort
-                   let property = GetPropertyExpression<T>(sort.First(), parameterExpression)
-                   where property != null
+                   let propertyToken = sort.First()
+                   where !string.IsNullOrWhiteSpace(propertyToken)
+                   let property = GetPropertyExpression<T>(propertyToken, parameterExpression)
                    let direction = sort.ElementAtOrDefault(1) == "desc" ? SortDirection.Descending : SortDirection.Ascending
                    select new SortDescription<T>(property, direction);
         }
 
         private Expression GetPropertyExpression<T>(string propertyToken, ParameterExpression parameter)
         {
-            if (string.IsNullOrWhiteSpace(propertyToken))
-            {
-                return null;
-            }
-
             var parentType = typeof(T);
 
             var propertyChain = propertyToken.Split('/');

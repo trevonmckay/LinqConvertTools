@@ -62,7 +62,8 @@ namespace LinqConvertTools.Provider
 
         public string Write(Expression expression, Type sourceType)
         {
-            return expression == null ? null : Write(expression, expression.Type, GetRootParameterName(expression), sourceType);
+            // Callers that pass null despite the non-nullable annotation receive null.
+            return expression == null ? null! : Write(expression, expression.Type, GetRootParameterName(expression), sourceType);
         }
 
         private static Type GetUnconvertedType(Expression expression)
@@ -72,7 +73,7 @@ namespace LinqConvertTools.Provider
             switch (expression.NodeType)
             {
                 case ExpressionType.Convert:
-                    var unaryExpression = expression as UnaryExpression;
+                    var unaryExpression = (UnaryExpression)expression;
 
 
 
@@ -114,7 +115,7 @@ namespace LinqConvertTools.Provider
 
         private static Expression CollapseCapturedOuterVariables(MemberExpression input)
         {
-            if (input == null || input.NodeType != ExpressionType.MemberAccess)
+            if (input.NodeType != ExpressionType.MemberAccess)
             {
                 return input;
             }
@@ -232,7 +233,7 @@ namespace LinqConvertTools.Provider
             return string.Empty;
         }
 
-        private static ParameterExpression GetRootParameterName(Expression expression)
+        private static ParameterExpression? GetRootParameterName(Expression expression)
         {
             if (expression is UnaryExpression)
             {
@@ -247,12 +248,16 @@ namespace LinqConvertTools.Provider
             return null;
         }
 
-        private string Write(Expression expression, ParameterExpression rootParameterName, Type sourceType)
+        /// <remarks>
+        /// <paramref name="expression"/> is null for the missing instance of a static method call, such as <c>Equals(a, b)</c>,
+        /// which writes as an empty operand.
+        /// </remarks>
+        private string Write(Expression? expression, ParameterExpression? rootParameterName, Type sourceType)
         {
-            return expression == null ? null : Write(expression, expression.Type, rootParameterName, sourceType);
+            return expression == null ? string.Empty : Write(expression, expression.Type, rootParameterName, sourceType);
         }
 
-        private string Write(Expression expression, Type type, ParameterExpression rootParameter, Type sourceType)
+        private string Write(Expression expression, Type type, ParameterExpression? rootParameter, Type sourceType)
         {
 
 
@@ -260,7 +265,7 @@ namespace LinqConvertTools.Provider
             switch (expression.NodeType)
             {
                 case ExpressionType.Parameter:
-                    var parameterExpression = expression as ParameterExpression;
+                    var parameterExpression = (ParameterExpression)expression;
 
 
 
@@ -319,9 +324,9 @@ namespace LinqConvertTools.Provider
             }
         }
 
-        private string WriteLambda(Expression expression, ParameterExpression rootParameter, Type sourceType)
+        private string WriteLambda(Expression expression, ParameterExpression? rootParameter, Type sourceType)
         {
-            var lambdaExpression = expression as LambdaExpression;
+            var lambdaExpression = (LambdaExpression)expression;
 
 
 
@@ -329,9 +334,9 @@ namespace LinqConvertTools.Provider
             return Write(body, rootParameter, sourceType);
         }
 
-        private string WriteFalse(Expression expression, ParameterExpression rootParameterName, Type sourceType)
+        private string WriteFalse(Expression expression, ParameterExpression? rootParameterName, Type sourceType)
         {
-            var unaryExpression = expression as UnaryExpression;
+            var unaryExpression = (UnaryExpression)expression;
 
 
 
@@ -340,9 +345,9 @@ namespace LinqConvertTools.Provider
             return string.Format("not({0})", Write(operand, rootParameterName, sourceType));
         }
 
-        private string WriteTrue(Expression expression, ParameterExpression rootParameterName, Type sourceType)
+        private string WriteTrue(Expression expression, ParameterExpression? rootParameterName, Type sourceType)
         {
-            var unaryExpression = expression as UnaryExpression;
+            var unaryExpression = (UnaryExpression)expression;
 
 
 
@@ -351,9 +356,9 @@ namespace LinqConvertTools.Provider
             return Write(operand, rootParameterName, sourceType);
         }
 
-        private string WriteConversion(Expression expression, ParameterExpression rootParameterName, Type sourceType)
+        private string WriteConversion(Expression expression, ParameterExpression? rootParameterName, Type sourceType)
         {
-            var unaryExpression = expression as UnaryExpression;
+            var unaryExpression = (UnaryExpression)expression;
 
 
 
@@ -361,18 +366,18 @@ namespace LinqConvertTools.Provider
             return Write(operand, rootParameterName, sourceType);
         }
 
-        private string WriteCall(Expression expression, ParameterExpression rootParameterName, Type sourceType)
+        private string WriteCall(Expression expression, ParameterExpression? rootParameterName, Type sourceType)
         {
-            var methodCallExpression = expression as MethodCallExpression;
+            var methodCallExpression = (MethodCallExpression)expression;
 
 
 
             return GetMethodCall(methodCallExpression, rootParameterName, sourceType);
         }
 
-        private string WriteMemberAccess(Expression expression, ParameterExpression rootParameterName, Type sourceType)
+        private string WriteMemberAccess(Expression expression, ParameterExpression? rootParameterName, Type sourceType)
         {
-            var memberExpression = expression as MemberExpression;
+            var memberExpression = (MemberExpression)expression;
 
 
 
@@ -431,9 +436,9 @@ namespace LinqConvertTools.Provider
                        : string.Format("{0}({1})", memberCall, Write(innerExpression, rootParameterName, sourceType));
         }
 
-        private string WriteNegate(Expression expression, ParameterExpression rootParameterName, Type sourceType)
+        private string WriteNegate(Expression expression, ParameterExpression? rootParameterName, Type sourceType)
         {
-            var unaryExpression = expression as UnaryExpression;
+            var unaryExpression = (UnaryExpression)expression;
 
 
 
@@ -442,9 +447,9 @@ namespace LinqConvertTools.Provider
             return string.Format("-{0}", Write(operand, rootParameterName, sourceType));
         }
 
-        private string WriteBinaryExpression(Expression expression, ParameterExpression rootParameterName, Type sourceType)
+        private string WriteBinaryExpression(Expression expression, ParameterExpression? rootParameterName, Type sourceType)
         {
-            var binaryExpression = expression as BinaryExpression;
+            var binaryExpression = (BinaryExpression)expression;
 
 
 
@@ -492,11 +497,11 @@ namespace LinqConvertTools.Provider
                 string.Format(isRightComposite ? "({0})" : "{0}", rightString));
         }
 
-        private string ResolveCompareToOperation(
-            ParameterExpression rootParameterName,
+        private string? ResolveCompareToOperation(
+            ParameterExpression? rootParameterName,
             MethodCallExpression methodCallExpression,
             string operation,
-            ConstantExpression comparisonExpression,
+            ConstantExpression? comparisonExpression,
             Type sourceType)
         {
             if (methodCallExpression != null
@@ -515,7 +520,7 @@ namespace LinqConvertTools.Provider
             return null;
         }
 
-        private string GetMethodCall(MethodCallExpression expression, ParameterExpression rootParameterName, Type sourceType)
+        private string GetMethodCall(MethodCallExpression expression, ParameterExpression? rootParameterName, Type sourceType)
         {
 
 

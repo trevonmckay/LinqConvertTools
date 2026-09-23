@@ -33,7 +33,7 @@ namespace LinqConvertTools.Provider.Writers
 
             var firstArg = expressionWriter(expression.Arguments[0]);
             var method = expression.Method.Name.ToLowerInvariant();
-            string parameter = null;
+            string? parameter = null;
             var lambdaParameter = expression.Arguments[1] as LambdaExpression;
             if (lambdaParameter != null)
             {

@@ -123,7 +123,7 @@ namespace LinqConvertTools.Parser
             return tokens;
         }
 
-        public static TokenSet GetArithmeticToken(this string expression)
+        public static TokenSet? GetArithmeticToken(this string expression)
         {
 
 

@@ -21,12 +21,12 @@ namespace LinqConvertTools
     internal class ModelFilter<T> : IModelFilter<T>
     {
         private readonly Expression<Func<T, bool>> _filterExpression;
-        private readonly Expression<Func<T, object>> _selectExpression;
+        private readonly Expression<Func<T, object>>? _selectExpression;
         private readonly int _skip;
         private readonly IEnumerable<SortDescription<T>> _sortDescriptions;
         private readonly int _top;
 
-        public ModelFilter(Expression<Func<T, bool>> filterExpression, Expression<Func<T, object>> selectExpression, IEnumerable<SortDescription<T>> sortDescriptions, int skip, int top)
+        public ModelFilter(Expression<Func<T, bool>> filterExpression, Expression<Func<T, object>>? selectExpression, IEnumerable<SortDescription<T>> sortDescriptions, int skip, int top)
         {
             _skip = skip;
             _top = top;
@@ -89,26 +89,23 @@ namespace LinqConvertTools
 
             if (_sortDescriptions.Any())
             {
-                var isFirst = true;
+                IOrderedQueryable<T>? orderedEnumerable = null;
                 foreach (var sortDescription in _sortDescriptions.Where(x => x != null))
                 {
-                    if (isFirst)
+                    if (orderedEnumerable is null)
                     {
-                        isFirst = false;
-                        result = sortDescription.Direction == SortDirection.Ascending
+                        orderedEnumerable = sortDescription.Direction == SortDirection.Ascending
                             ? result.OrderBy(sortDescription.KeySelector)
                             : result.OrderByDescending(sortDescription.KeySelector);
                     }
                     else
                     {
-                        var orderedEnumerable = result as IOrderedQueryable<T>;
-
-
-
-                        result = sortDescription.Direction == SortDirection.Ascending
+                        orderedEnumerable = sortDescription.Direction == SortDirection.Ascending
                                     ? orderedEnumerable.ThenBy(sortDescription.KeySelector)
                                     : orderedEnumerable.ThenByDescending(sortDescription.KeySelector);
                     }
+
+                    result = orderedEnumerable;
                 }
             }
 
