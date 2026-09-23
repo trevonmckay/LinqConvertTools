@@ -1,0 +1,22 @@
+[*.cs]
+
+# Public API design and naming rules. Types in this assembly are NUnit fixtures and fake domain models that
+# EF Core and the serializers bind to, not a public API, so these rules would only distort the models under test.
+
+# CA1515: NUnit only discovers public fixture classes.
+dotnet_diagnostic.CA1515.severity = none
+# CA1034: Fixtures nest classes to group related tests and their models.
+dotnet_diagnostic.CA1034.severity = none
+# CA1002, CA2227, CA1819: Fake models expose settable List<T> and array properties so EF Core and serializers can populate them.
+dotnet_diagnostic.CA1002.severity = none
+dotnet_diagnostic.CA2227.severity = none
+dotnet_diagnostic.CA1819.severity = none
+# CA1024, CA1028, CA1815: Fake models mirror the shapes the library must handle rather than framework guidelines.
+dotnet_diagnostic.CA1024.severity = none
+dotnet_diagnostic.CA1028.severity = none
+dotnet_diagnostic.CA1815.severity = none
+# CA1720, CA1721, CA1724, CA1725: Naming guidance for public API consumers; it doesn't apply to test fixtures and fakes.
+dotnet_diagnostic.CA1720.severity = none
+dotnet_diagnostic.CA1721.severity = none
+dotnet_diagnostic.CA1724.severity = none
+dotnet_diagnostic.CA1725.severity = none

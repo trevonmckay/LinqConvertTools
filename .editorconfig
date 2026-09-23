@@ -1,0 +1,17 @@
+root = true
+
+[*.cs]
+
+# CA1716: Identifiers should not match keywords.
+# Renaming IRuntimeTypeProvider.Get, IValueWriter.Handles, IValueExpressionFactory.Handles and the
+# IMemberNameResolver.ResolveAlias parameter would break every existing implementer of these public interfaces.
+dotnet_diagnostic.CA1716.severity = none
+
+# CA1062: Validate arguments of public methods.
+# Nullable reference types already declare these parameters non-null. Adding guards would change the exception
+# public callers observe from NullReferenceException to ArgumentNullException.
+dotnet_diagnostic.CA1062.severity = none
+
+# CA1308: Normalize strings to uppercase.
+# OData operators and function names are lowercase by specification, so ToLowerInvariant is the correct normalization.
+dotnet_diagnostic.CA1308.severity = none
