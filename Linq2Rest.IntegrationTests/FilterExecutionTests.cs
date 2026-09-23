@@ -50,6 +50,17 @@ namespace LinqConvertTools.IntegrationTests
             new object[] { "priority add 1 eq 3", false, "B" },
             new object[] { "createdAt ge 2025-01-01T00:00:00Z", false, "C,D" },
             new object[] { "createdAt lt datetimeoffset'2024-03-01T00:00:00Z'", false, "A" },
+            new object[] { "year(createdAt) eq 2024", false, "A,B" },
+            new object[] { "month(createdAt) eq 6", false, "B" },
+            new object[] { "day(createdAt) eq 30", false, "D" },
+            new object[] { "hour(createdAt) eq 14", false, "B" },
+            new object[] { "minute(createdAt) eq 30", false, "A" },
+            new object[] { "second(createdAt) eq 59", false, "C" },
+            new object[] { "year(createdAt) eq 2025 and month(createdAt) ge 6", false, "D" },
+            new object[] { "closedAt eq null", false, "A,C" },
+            new object[] { "year(closedAt) eq 2024", false, "B" },
+            new object[] { "year(closedAt) ne 2024", false, "A,C,D" },
+            new object[] { "month(closedAt) gt 7", false, "D" },
             new object[] { "id eq deadbeef-0000-7000-8000-00000000000b", false, "B" },
             new object[] { "id eq guid'deadbeef-0000-7000-8000-00000000000b'", false, "B" },
             new object[] { "author/name eq 'Ada'", false, "A,C" },
@@ -137,7 +148,7 @@ namespace LinqConvertTools.IntegrationTests
                 Title = "Quarterly Report",
                 Status = "Open",
                 Priority = 1,
-                CreatedAt = new DateTimeOffset(2024, 1, 15, 0, 0, 0, TimeSpan.Zero),
+                CreatedAt = new DateTimeOffset(2024, 1, 15, 8, 30, 15, TimeSpan.Zero),
                 Author = new Author { Name = "Ada" },
                 Tags = { new Tag { Value = "email" }, new Tag { Value = "finance" } },
             };
@@ -147,7 +158,8 @@ namespace LinqConvertTools.IntegrationTests
                 Title = "Annual Review",
                 Status = "Closed",
                 Priority = 2,
-                CreatedAt = new DateTimeOffset(2024, 6, 1, 0, 0, 0, TimeSpan.Zero),
+                CreatedAt = new DateTimeOffset(2024, 6, 1, 14, 45, 0, TimeSpan.Zero),
+                ClosedAt = new DateTimeOffset(2024, 7, 1, 9, 0, 0, TimeSpan.Zero),
                 Author = new Author { Name = "Grace" },
                 Tags = { new Tag { Value = "email" } },
             };
@@ -157,7 +169,7 @@ namespace LinqConvertTools.IntegrationTests
                 Title = "Draft Proposal",
                 Status = null,
                 Priority = 3,
-                CreatedAt = new DateTimeOffset(2025, 2, 10, 0, 0, 0, TimeSpan.Zero),
+                CreatedAt = new DateTimeOffset(2025, 2, 10, 23, 59, 59, TimeSpan.Zero),
                 Author = new Author { Name = "Ada" },
             };
             yield return new Document
@@ -167,6 +179,7 @@ namespace LinqConvertTools.IntegrationTests
                 Status = "Open",
                 Priority = 5,
                 CreatedAt = new DateTimeOffset(2025, 9, 30, 0, 0, 0, TimeSpan.Zero),
+                ClosedAt = new DateTimeOffset(2025, 10, 1, 9, 0, 0, TimeSpan.Zero),
                 Author = new Author { Name = "Linus" },
                 Tags = { new Tag { Value = "legal" } },
             };

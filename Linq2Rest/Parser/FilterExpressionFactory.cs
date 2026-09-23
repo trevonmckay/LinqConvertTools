@@ -189,7 +189,13 @@ namespace LinqConvertTools.Parser
 
         private Expression GetLeftRightOperation(string token, Expression left, Expression right, bool ignoreCase)
         {
-            switch (token.ToUpperInvariant())
+            string operation = token.ToUpperInvariant();
+            if (operation != "IN")
+            {
+                LiftToNullable(ref left, ref right);
+            }
+
+            switch (operation)
             {
                 case "EQ":
                     if (left.Type.IsEnum && left.Type.GetCustomAttributes(typeof(FlagsAttribute), true).Any())
@@ -283,17 +289,12 @@ namespace LinqConvertTools.Parser
                 case "TRIM":
                     return Expression.Call(left, MethodProvider.TrimMethod);
                 case "HOUR":
-                    return Expression.Property(left, MethodProvider.HourProperty);
                 case "MINUTE":
-                    return Expression.Property(left, MethodProvider.MinuteProperty);
                 case "SECOND":
-                    return Expression.Property(left, MethodProvider.SecondProperty);
                 case "DAY":
-                    return Expression.Property(left, MethodProvider.DayProperty);
                 case "MONTH":
-                    return Expression.Property(left, MethodProvider.MonthProperty);
                 case "YEAR":
-                    return Expression.Property(left, MethodProvider.YearProperty);
+                    return GetDatePart(left, function);
                 case "ROUND":
                     return Expression.Call(left.Type == typeof(double) ? MethodProvider.DoubleRoundMethod : MethodProvider.DecimalRoundMethod, left);
                 case "FLOOR":
@@ -312,6 +313,44 @@ namespace LinqConvertTools.Parser
                     }
                 default:
                     return null;
+            }
+        }
+
+        /// <summary>
+        /// Reads a date part, such as <c>Year</c>, from a <see cref="DateTime"/> or <see cref="DateTimeOffset"/> value.
+        /// A nullable value yields a nullable part that is <c>null</c> when the value is.
+        /// </summary>
+        private static Expression GetDatePart(Expression instance, string function)
+        {
+            Type? underlyingType = Nullable.GetUnderlyingType(instance.Type);
+            PropertyInfo property = MethodProvider.GetDatePartProperty(underlyingType ?? instance.Type, function)
+                ?? throw new InvalidOperationException(function + "() requires a DateTime or DateTimeOffset value, not " + instance.Type.Name + ".");
+
+            if (underlyingType is null)
+            {
+                return Expression.Property(instance, property);
+            }
+
+            Type nullablePartType = typeof(Nullable<>).MakeGenericType(property.PropertyType);
+            return Expression.Condition(
+                Expression.Property(instance, nameof(Nullable<int>.HasValue)),
+                Expression.Convert(Expression.Property(Expression.Property(instance, nameof(Nullable<int>.Value)), property), nullablePartType),
+                Expression.Constant(null, nullablePartType));
+        }
+
+        /// <summary>
+        /// Converts the non-nullable side of a binary operation to the nullable type of the other side, e.g. <c>int</c> to <c>int?</c>,
+        /// because expression trees require both operands of a comparison or arithmetic operation to have the same type.
+        /// </summary>
+        private static void LiftToNullable(ref Expression left, ref Expression right)
+        {
+            if (Nullable.GetUnderlyingType(left.Type) == right.Type)
+            {
+                right = Expression.Convert(right, left.Type);
+            }
+            else if (Nullable.GetUnderlyingType(right.Type) == left.Type)
+            {
+                left = Expression.Convert(left, right.Type);
             }
         }
 
