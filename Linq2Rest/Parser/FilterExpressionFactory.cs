@@ -123,7 +123,7 @@ namespace LinqConvertTools.Parser
             return binaryExpression.Update(left, binaryExpression.Conversion, right);
         }
 
-        private static Expression GetArrayConstant(Expression expression)
+        private static Expression GetArrayConstant(Expression expression, bool toUpper)
         {
             if (expression is not ConstantExpression constantExpression || constantExpression.Value is not string constantValue)
             {
@@ -134,9 +134,21 @@ namespace LinqConvertTools.Parser
             object[] values = cleanConstantValue
                 .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
                 .Select(value => value.Trim().Trim('\''))
+                .Select(value => toUpper ? value.ToUpperInvariant() : value)
                 .ToArray();
 
             return Expression.Constant(values);
+        }
+
+        private static Expression GetInOperation(Expression left, Expression right, bool ignoreCase)
+        {
+            if (!ignoreCase || left.Type != typeof(string))
+            {
+                return Expression.Call(typeof(Enumerable), nameof(Enumerable.Contains), new[] { left.Type }, GetArrayConstant(right, false), left);
+            }
+
+            Expression contains = Expression.Call(typeof(Enumerable), nameof(Enumerable.Contains), new[] { left.Type }, GetArrayConstant(right, true), Expression.Call(left, MethodProvider.ToUpperMethod));
+            return Expression.AndAlso(Expression.NotEqual(left, _nullConstantExpression), contains);
         }
 
         private static Expression GetLeftRightOperation(string token, Expression left, Expression right, bool ignoreCase)
@@ -168,7 +180,7 @@ namespace LinqConvertTools.Parser
                 case "OR":
                     return Expression.OrElse(left, right);
                 case "IN":
-                    return Expression.Call(typeof(Enumerable), nameof(Enumerable.Contains), new[] { left.Type }, GetArrayConstant(right), left);
+                    return GetInOperation(left, right, ignoreCase);
                 case "ADD":
                     return Expression.Add(left, right);
                 case "SUB":
@@ -216,6 +228,8 @@ namespace LinqConvertTools.Parser
             {
                 case "SUBSTRINGOF":
                     return GetCaseAwareFunction(right, MethodProvider.ContainsMethod, new[] { left }, ignoreCase);
+                case "CONTAINS":
+                    return Expression.AndAlso(Expression.NotEqual(left, _nullConstantExpression), GetCaseAwareFunction(left, MethodProvider.ContainsMethod, new[] { right }, ignoreCase));
                 case "ENDSWITH":
                     return Expression.AndAlso(Expression.NotEqual(left, _nullConstantExpression), GetCaseAwareFunction(left, MethodProvider.EndsWithMethod, new[] { right }, ignoreCase));
                 case "STARTSWITH":

@@ -22,7 +22,7 @@ namespace LinqConvertTools.Parser
         private static readonly string[] Combiners = new[] { "and", "or", "not" };
         private static readonly string[] Arithmetic = new[] { "add", "sub", "mul", "div", "mod" };
 
-        private static readonly string[] BooleanFunctions = new[] { "substringof", "endswith", "startswith" };
+        private static readonly string[] BooleanFunctions = new[] { "substringof", "contains", "endswith", "startswith" };
         private static readonly Regex CollectionFunctionRx = new(@"^[0-9a-zA-Z_]+/(all|any)\((.+)\)$", RegexOptions.Compiled);
         private static readonly Regex CleanRx = new(@"^\((.+)\)$", RegexOptions.Compiled);
         private static readonly Regex FunctionRegex = new(@"^([^()/]+)\(.+\)$");

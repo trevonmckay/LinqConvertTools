@@ -22,6 +22,7 @@ namespace LinqConvertTools.Parser
                                                                                   { "length", typeof(int) },
                                                                                   { "substring", typeof(string) },
                                                                                   { "substringof", typeof(bool) },
+                                                                                  { "contains", typeof(bool) },
                                                                                   { "endswith", typeof(bool) },
                                                                                   { "startswith", typeof(bool) },
                                                                                   { "indexof", typeof(int) },
