@@ -12,13 +12,15 @@
 
 namespace LinqConvertTools.Provider.Writers
 {
+    using System.Globalization;
+
     internal class ByteValueWriter : ValueWriterBase<byte>
     {
         public override string Write(object value)
         {
             var byteValue = (byte)value;
 
-            return byteValue.ToString("X");
+            return byteValue.ToString("X", CultureInfo.InvariantCulture);
         }
     }
 }

@@ -15,6 +15,7 @@ namespace LinqConvertTools.Provider.Writers
     using System;
     using System.Diagnostics.CodeAnalysis;
     using System.Diagnostics.Contracts;
+    using System.Globalization;
     using System.Linq.Expressions;
 
     [ContractClass(typeof(MathMethodWriterContracts))]
@@ -32,7 +33,7 @@ namespace LinqConvertTools.Provider.Writers
 
 
 
-            return string.Format("{0}({1})", MethodName, expressionWriter(mathArgument));
+            return string.Format(CultureInfo.InvariantCulture, "{0}({1})", MethodName, expressionWriter(mathArgument));
         }
     }
 

@@ -13,6 +13,7 @@
 namespace LinqConvertTools.Provider.Writers
 {
     using System;
+    using System.Globalization;
     using System.Linq.Expressions;
 
     internal class StringEndsWithMethodWriter : IMethodCallWriter
@@ -37,6 +38,7 @@ namespace LinqConvertTools.Provider.Writers
 
 
             return string.Format(
+                CultureInfo.InvariantCulture,
                 "endswith({0}, {1})",
                 expressionWriter(obj),
                 expressionWriter(argumentExpression));

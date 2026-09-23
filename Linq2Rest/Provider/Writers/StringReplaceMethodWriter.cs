@@ -13,6 +13,7 @@
 namespace LinqConvertTools.Provider.Writers
 {
     using System;
+    using System.Globalization;
     using System.Linq.Expressions;
 
     internal class StringReplaceMethodWriter : IMethodCallWriter
@@ -39,6 +40,7 @@ namespace LinqConvertTools.Provider.Writers
 
 
             return string.Format(
+                CultureInfo.InvariantCulture,
                 "replace({0}, {1}, {2})",
                 expressionWriter(obj),
                 expressionWriter(firstArgument),

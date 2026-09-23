@@ -15,6 +15,7 @@ namespace LinqConvertTools.Provider
     using LinqConvertTools.Provider.Writers;
     using System;
     using System.Collections.Generic;
+    using System.Globalization;
     using System.Linq;
     using System.Linq.Expressions;
     using System.Reflection;
@@ -90,7 +91,7 @@ namespace LinqConvertTools.Provider
             var declaringType = memberExpression.Member.DeclaringType;
             var name = memberExpression.Member.Name;
 
-            if (declaringType == typeof(string) && string.Equals(name, "Length"))
+            if (declaringType == typeof(string) && string.Equals(name, "Length", StringComparison.Ordinal))
             {
                 return name.ToLowerInvariant();
             }
@@ -341,7 +342,7 @@ namespace LinqConvertTools.Provider
 
             var operand = unaryExpression.Operand;
 
-            return string.Format("not({0})", Write(operand, rootParameterName, sourceType));
+            return string.Format(CultureInfo.InvariantCulture, "not({0})", Write(operand, rootParameterName, sourceType));
         }
 
         private string WriteTrue(Expression expression, ParameterExpression? rootParameterName, Type sourceType)
@@ -408,7 +409,7 @@ namespace LinqConvertTools.Provider
                 && currentMemberExpression.Expression is ParameterExpression
                 && ((ParameterExpression)currentMemberExpression.Expression).Name != rootParameterName.Name)
             {
-                prefix = string.Format("{0}/{1}", ((ParameterExpression)currentMemberExpression.Expression).Name, prefix);
+                prefix = string.Format(CultureInfo.InvariantCulture, "{0}/{1}", ((ParameterExpression)currentMemberExpression.Expression).Name, prefix);
             }
 
             if (!IsMemberOfParameter(memberExpression))
@@ -432,7 +433,7 @@ namespace LinqConvertTools.Provider
 
             return string.IsNullOrWhiteSpace(memberCall)
                        ? prefix
-                       : string.Format("{0}({1})", memberCall, Write(innerExpression, rootParameterName, sourceType));
+                       : string.Format(CultureInfo.InvariantCulture, "{0}({1})", memberCall, Write(innerExpression, rootParameterName, sourceType));
         }
 
         private string WriteNegate(Expression expression, ParameterExpression? rootParameterName, Type sourceType)
@@ -443,7 +444,7 @@ namespace LinqConvertTools.Provider
 
             var operand = unaryExpression.Operand;
 
-            return string.Format("-{0}", Write(operand, rootParameterName, sourceType));
+            return string.Format(CultureInfo.InvariantCulture, "-{0}", Write(operand, rootParameterName, sourceType));
         }
 
         private string WriteBinaryExpression(Expression expression, ParameterExpression? rootParameterName, Type sourceType)
@@ -490,10 +491,11 @@ namespace LinqConvertTools.Provider
             var rightString = Write(binaryExpression.Right, leftType, rootParameterName, sourceType);
 
             return string.Format(
+                CultureInfo.InvariantCulture,
                 "{0} {1} {2}",
-                string.Format(isLeftComposite ? "({0})" : "{0}", leftString),
+                string.Format(CultureInfo.InvariantCulture, isLeftComposite ? "({0})" : "{0}", leftString),
                 operation,
-                string.Format(isRightComposite ? "({0})" : "{0}", rightString));
+                string.Format(CultureInfo.InvariantCulture, isRightComposite ? "({0})" : "{0}", rightString));
         }
 
         private string? ResolveCompareToOperation(
@@ -510,6 +512,7 @@ namespace LinqConvertTools.Provider
                 && Equals(comparisonExpression.Value, 0))
             {
                 return string.Format(
+                    CultureInfo.InvariantCulture,
                     "{0} {1} {2}",
                     Write(methodCallExpression.Object, rootParameterName, sourceType),
                     operation,

@@ -13,6 +13,7 @@
 namespace LinqConvertTools.Provider.Writers
 {
     using System;
+    using System.Globalization;
     using System.Linq.Expressions;
 
     internal class StringIndexOfMethodWriter : IMethodCallWriter
@@ -36,7 +37,7 @@ namespace LinqConvertTools.Provider.Writers
 
 
 
-            return string.Format("indexof({0}, {1})", expressionWriter(obj), expressionWriter(argumentExpression));
+            return string.Format(CultureInfo.InvariantCulture, "indexof({0}, {1})", expressionWriter(obj), expressionWriter(argumentExpression));
         }
     }
 }

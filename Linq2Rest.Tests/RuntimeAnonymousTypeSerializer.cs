@@ -21,6 +21,7 @@ namespace LinqConvertTools.Tests
     using System.Linq;
     using System.Linq.Expressions;
     using System.Reflection;
+    using System.Text;
     using System.Text.Json;
 
     /// <summary>
@@ -57,7 +58,8 @@ namespace LinqConvertTools.Tests
         /// <returns>An instance of the serialized item.</returns>
         public T Deserialize(Stream input)
         {
-            var content = new StreamReader(input).ReadToEnd();
+            using var reader = new StreamReader(input, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: true);
+            var content = reader.ReadToEnd();
 
             var dictionary = JsonSerializer.Deserialize<Dictionary<string, object>>(content, _innerSerializerOptions)
                 ?? throw new JsonException("The payload does not contain an object.");
@@ -72,7 +74,8 @@ namespace LinqConvertTools.Tests
         /// <returns>An list of the serialized items.</returns>
         public IEnumerable<T> DeserializeList(Stream input)
         {
-            var content = new StreamReader(input).ReadToEnd();
+            using var reader = new StreamReader(input, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: true);
+            var content = reader.ReadToEnd();
             return ReadToAnonymousType(content);
         }
 
@@ -84,9 +87,11 @@ namespace LinqConvertTools.Tests
         public Stream Serialize(T item)
         {
             var ms = new MemoryStream();
-            var writer = new StreamWriter(ms);
-            writer.Write(JsonSerializer.Serialize(item, _innerSerializerOptions));
-            writer.Flush();
+            using (var writer = new StreamWriter(ms, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false), bufferSize: 1024, leaveOpen: true))
+            {
+                writer.Write(JsonSerializer.Serialize(item, _innerSerializerOptions));
+            }
+
             ms.Position = 0;
             return ms;
         }

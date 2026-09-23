@@ -15,6 +15,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
     using LinqConvertTools.Parser.Readers;
     using NUnit.Framework;
     using System;
+    using System.Globalization;
     using System.IO;
 
     [TestFixture]
@@ -34,7 +35,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
         {
             ArgumentNullException.ThrowIfNull(_factory);
 
-            var expression = _factory.Convert(string.Format("binary'{0}'", Base64));
+            var expression = _factory.Convert(string.Format(CultureInfo.InvariantCulture, "binary'{0}'", Base64));
 
             Assert.IsAssignableFrom<MemoryStream>(expression.Value);
         }
@@ -44,7 +45,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
         {
             ArgumentNullException.ThrowIfNull(_factory);
 
-            var expression = _factory.Convert(string.Format("X'{0}'", Base64));
+            var expression = _factory.Convert(string.Format(CultureInfo.InvariantCulture, "X'{0}'", Base64));
 
             Assert.IsAssignableFrom<MemoryStream>(expression.Value);
         }

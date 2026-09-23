@@ -35,7 +35,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
         {
             ArgumentNullException.ThrowIfNull(_factory);
 
-            var parameter = string.Format("datetime\"{0}\"", _dateTime.ToString("yyyy-MM-ddThh:mm:ss"));
+            var parameter = string.Format(CultureInfo.InvariantCulture, "datetime\"{0}\"", _dateTime.ToString("yyyy-MM-ddThh:mm:ss", CultureInfo.InvariantCulture));
 
             var expression = _factory.Convert(parameter);
 
@@ -47,7 +47,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
         {
             ArgumentNullException.ThrowIfNull(_factory);
 
-            var parameter = string.Format("datetime'{0}'", _dateTime.ToString("yyyy-MM-ddThh:mm:ss"));
+            var parameter = string.Format(CultureInfo.InvariantCulture, "datetime'{0}'", _dateTime.ToString("yyyy-MM-ddThh:mm:ss", CultureInfo.InvariantCulture));
 
             var expression = _factory.Convert(parameter);
 
@@ -60,7 +60,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
             ArgumentNullException.ThrowIfNull(_factory);
 
             _dateTime = new DateTime(2012, 1, 1, 12, 0, 0, 11, DateTimeKind.Utc);
-            var parameter = string.Format("datetime'{0}'", _dateTime.ToString("o"));
+            var parameter = string.Format(CultureInfo.InvariantCulture, "datetime'{0}'", _dateTime.ToString("o", CultureInfo.InvariantCulture));
 
             var expression = _factory.Convert(parameter);
 
@@ -73,7 +73,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
             ArgumentNullException.ThrowIfNull(_factory);
 
             var utcTime = _dateTime.ToUniversalTime();
-            var parameter = string.Format("datetime\"{0}\"", utcTime.ToString("yyyy-MM-ddTHH:mm:ssZ"));
+            var parameter = string.Format(CultureInfo.InvariantCulture, "datetime\"{0}\"", utcTime.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture));
 
             var expression = _factory.Convert(parameter);
 
@@ -86,7 +86,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
             ArgumentNullException.ThrowIfNull(_factory);
 
             var utcTime = _dateTime.ToUniversalTime();
-            var parameter = string.Format("datetime'{0}'", utcTime.ToString("yyyy-MM-ddTHH:mm:ssZ"));
+            var parameter = string.Format(CultureInfo.InvariantCulture, "datetime'{0}'", utcTime.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture));
 
             var expression = _factory.Convert(parameter);
 

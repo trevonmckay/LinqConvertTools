@@ -13,6 +13,7 @@
 namespace LinqConvertTools.Provider.Writers
 {
     using System;
+    using System.Globalization;
     using System.Linq;
     using System.Linq.Expressions;
 
@@ -43,7 +44,7 @@ namespace LinqConvertTools.Provider.Writers
 
             var predicate = expressionWriter(expression.Arguments[1]);
 
-            return string.Format("{0}/{1}({2}: {3})", firstArg, method, parameter, predicate);
+            return string.Format(CultureInfo.InvariantCulture, "{0}/{1}({2}: {3})", firstArg, method, parameter, predicate);
         }
     }
 }

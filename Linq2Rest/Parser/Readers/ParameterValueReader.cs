@@ -112,7 +112,7 @@ namespace LinqConvertTools.Parser.Readers
 
             if (type.IsGenericType && typeof(Nullable<>).IsAssignableFrom(type.GetGenericTypeDefinition()))
             {
-                if (string.Equals("null", token, StringComparison.InvariantCultureIgnoreCase))
+                if (string.Equals("null", token, StringComparison.OrdinalIgnoreCase))
                 {
                     return Expression.Constant(null);
                 }

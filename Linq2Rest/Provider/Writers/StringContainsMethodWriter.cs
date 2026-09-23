@@ -13,6 +13,7 @@
 namespace LinqConvertTools.Provider.Writers
 {
     using System;
+    using System.Globalization;
     using System.Linq.Expressions;
 
     internal class StringContainsMethodWriter : IMethodCallWriter
@@ -39,6 +40,7 @@ namespace LinqConvertTools.Provider.Writers
             if (Linq2RestSettings.UseContainsInsteadOfSubstring)
             {
                 return string.Format(
+                    CultureInfo.InvariantCulture,
                     "contains({1}, {0})",
                     expressionWriter(argumentExpression),
                     expressionWriter(obj));
@@ -46,6 +48,7 @@ namespace LinqConvertTools.Provider.Writers
             else
             {
                 return string.Format(
+                CultureInfo.InvariantCulture,
                 "substringof({0}, {1})",
                 expressionWriter(argumentExpression),
                 expressionWriter(obj));

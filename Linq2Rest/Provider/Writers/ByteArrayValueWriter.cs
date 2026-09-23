@@ -13,13 +13,14 @@
 namespace LinqConvertTools.Provider.Writers
 {
     using System;
+    using System.Globalization;
 
     internal class ByteArrayValueWriter : ValueWriterBase<byte[]>
     {
         public override string Write(object value)
         {
             var base64 = Convert.ToBase64String((byte[])value);
-            return string.Format("X'{0}'", base64);
+            return string.Format(CultureInfo.InvariantCulture, "X'{0}'", base64);
         }
     }
 }

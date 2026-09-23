@@ -13,6 +13,7 @@
 namespace LinqConvertTools.Provider.Writers
 {
     using System;
+    using System.Globalization;
     using System.Xml;
 
     internal class DateTimeValueWriter : ValueWriterBase<DateTime>
@@ -22,7 +23,7 @@ namespace LinqConvertTools.Provider.Writers
             var dateTimeValue = (DateTime)value;
 
 #if !NETFX_CORE
-            return string.Format("datetime'{0}'", XmlConvert.ToString(dateTimeValue, XmlDateTimeSerializationMode.Utc));
+            return string.Format(CultureInfo.InvariantCulture, "datetime'{0}'", XmlConvert.ToString(dateTimeValue, XmlDateTimeSerializationMode.Utc));
 #else
 			return string.Format("datetime'{0}'", XmlConvert.ToString(dateTimeValue.ToUniversalTime()));
 #endif

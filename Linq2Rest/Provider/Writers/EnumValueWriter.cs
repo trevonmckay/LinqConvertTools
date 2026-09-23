@@ -13,6 +13,7 @@
 namespace LinqConvertTools.Provider.Writers
 {
     using System;
+    using System.Globalization;
 
     internal class EnumValueWriter : IValueWriter
     {
@@ -29,7 +30,7 @@ namespace LinqConvertTools.Provider.Writers
         {
             var enumType = value.GetType();
 
-            return string.Format("{0}'{1}'", enumType.FullName, value);
+            return string.Format(CultureInfo.InvariantCulture, "{0}'{1}'", enumType.FullName, value);
         }
     }
 }

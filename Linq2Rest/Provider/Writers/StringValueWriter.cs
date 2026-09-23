@@ -12,11 +12,13 @@
 
 namespace LinqConvertTools.Provider.Writers
 {
+    using System.Globalization;
+
     internal class StringValueWriter : ValueWriterBase<string>
     {
         public override string Write(object value)
         {
-            return string.Format("'{0}'", value);
+            return string.Format(CultureInfo.InvariantCulture, "'{0}'", value);
         }
     }
 }

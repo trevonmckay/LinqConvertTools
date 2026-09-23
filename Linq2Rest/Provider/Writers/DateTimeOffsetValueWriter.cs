@@ -13,13 +13,14 @@
 namespace LinqConvertTools.Provider.Writers
 {
     using System;
+    using System.Globalization;
     using System.Xml;
 
     internal class DateTimeOffsetValueWriter : ValueWriterBase<DateTimeOffset>
     {
         public override string Write(object value)
         {
-            return string.Format("datetimeoffset'{0}'", XmlConvert.ToString((DateTimeOffset)value));
+            return string.Format(CultureInfo.InvariantCulture, "datetimeoffset'{0}'", XmlConvert.ToString((DateTimeOffset)value));
         }
     }
 }

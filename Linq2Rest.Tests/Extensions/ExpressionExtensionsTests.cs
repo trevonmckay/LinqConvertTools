@@ -155,7 +155,10 @@ namespace LinqConvertTools.Tests.Extensions
         [Test]
         public void CastParameterRebindsOuterParameterInsideNestedLambda()
         {
+            // CA1862: This expression tree is test input for parameter rebinding, not a string comparison to optimize.
+#pragma warning disable CA1862
             Expression<Func<IOrderSchema, bool>> expression = x => x.Tags.Any(t => t == x.Name!.ToLowerInvariant());
+#pragma warning restore CA1862
 
             var predicate = (Expression<Func<Order, bool>>)expression.CastParameter<Order>(null);
 

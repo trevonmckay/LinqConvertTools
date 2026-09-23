@@ -15,6 +15,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
     using LinqConvertTools.Parser.Readers;
     using NUnit.Framework;
     using System;
+    using System.Globalization;
 
     [TestFixture]
     public class GuidExpressionFactoryTests
@@ -33,7 +34,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
             ArgumentNullException.ThrowIfNull(_factory);
 
             var guid = Guid.NewGuid();
-            var parameter = string.Format("guid\"{0}\"", guid);
+            var parameter = string.Format(CultureInfo.InvariantCulture, "guid\"{0}\"", guid);
 
             var expression = _factory.Convert(parameter);
 
@@ -46,7 +47,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
             ArgumentNullException.ThrowIfNull(_factory);
 
             var guid = Guid.NewGuid();
-            var parameter = string.Format("guid'{0}'", guid);
+            var parameter = string.Format(CultureInfo.InvariantCulture, "guid'{0}'", guid);
 
             var expression = _factory.Convert(parameter);
 
@@ -59,7 +60,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
             ArgumentNullException.ThrowIfNull(_factory);
 
             var guid = Guid.NewGuid();
-            var parameter = string.Format("guid\"{0}\"", guid.ToString("N"));
+            var parameter = string.Format(CultureInfo.InvariantCulture, "guid\"{0}\"", guid.ToString("N", CultureInfo.InvariantCulture));
 
             var expression = _factory.Convert(parameter);
 
@@ -72,7 +73,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
             ArgumentNullException.ThrowIfNull(_factory);
 
             var guid = Guid.NewGuid();
-            var parameter = string.Format("guid'{0}'", guid.ToString("N"));
+            var parameter = string.Format(CultureInfo.InvariantCulture, "guid'{0}'", guid.ToString("N", CultureInfo.InvariantCulture));
 
             var expression = _factory.Convert(parameter);
 
