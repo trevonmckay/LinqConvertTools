@@ -54,6 +54,8 @@ namespace LinqConvertTools.IntegrationTests
             new object[] { "id eq guid'deadbeef-0000-7000-8000-00000000000b'", false, "B" },
             new object[] { "author/name eq 'Ada'", false, "A,C" },
             new object[] { "tags/any(t: t/value eq 'email')", false, "A,B" },
+            new object[] { "tags/any()", false, "A,B,D" },
+            new object[] { "not tags/any()", false, "C" },
             new object[] { "tags/all(t: t/value eq 'email')", false, "B,C" },
             new object[] { "title eq 'annual review'", true, "B" },
             new object[] { "title ne 'annual review'", true, "A,C,D" },

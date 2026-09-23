@@ -624,12 +624,24 @@ namespace LinqConvertTools.Parser
                 return null;
             }
 
+            var elementType = MethodProvider.GetIEnumerableImpl(left.Type).GetGenericArguments()[0];
+            var separatorIndex = functionTokens.Right.IndexOf(':');
+            if (separatorIndex < 0)
+            {
+                // OData allows any() without a lambda to test for a non-empty collection; all() always requires one.
+                if (functionTokens.Operation == "any" && string.IsNullOrWhiteSpace(functionTokens.Right))
+                {
+                    return Expression.Call(typeof(Enumerable), nameof(Enumerable.Any), new[] { elementType }, left);
+                }
+
+                throw new InvalidOperationException("Could not create expression from: " + filter + ". Expected a lambda of the form " + functionTokens.Operation + "(x: <expression>).");
+            }
+
             // Create a new ParameterExpression from the lambda parameter and add to a collection to pass around
-            var parameterName = functionTokens.Right.Substring(0, functionTokens.Right.IndexOf(":", StringComparison.InvariantCultureIgnoreCase)).Trim();
-            var lambdaParameter =
-                Expression.Parameter(MethodProvider.GetIEnumerableImpl(leftType).GetGenericArguments()[0], parameterName);
+            var parameterName = functionTokens.Right.Substring(0, separatorIndex).Trim();
+            var lambdaParameter = Expression.Parameter(elementType, parameterName);
             lambdaParameters.Add(lambdaParameter);
-            var lambdaFilter = functionTokens.Right.Substring(functionTokens.Right.IndexOf(":", StringComparison.InvariantCultureIgnoreCase) + 1).Trim();
+            var lambdaFilter = functionTokens.Right.Substring(separatorIndex + 1).Trim();
             var lambdaType = GetFunctionParameterType(functionTokens.Operation) ?? left.Type;
 
             var isLambdaAnyAllFunction = lambdaFilter.GetAnyAllFunctionTokens() != null;
