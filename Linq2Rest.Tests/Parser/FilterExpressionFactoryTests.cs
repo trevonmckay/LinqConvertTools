@@ -22,6 +22,15 @@ namespace LinqConvertTools.Tests.Parser
 
     public class FilterExpressionFactoryTests
     {
+        // ICU (Linux, macOS) separates the time from AM/PM with U+202F where Windows NLS uses a space.
+        // Pinning the time pattern keeps the expected expression strings identical on every platform.
+        private static CultureInfo CreateEnUsCultureWithPortableTimeFormat()
+        {
+            var culture = (CultureInfo)CultureInfo.GetCultureInfo("en-US").Clone();
+            culture.DateTimeFormat.LongTimePattern = "h:mm:ss tt";
+            return culture;
+        }
+
         [TestFixture]
         public class FakeItemFilterExpressionFactoryTests
         {
@@ -30,7 +39,7 @@ namespace LinqConvertTools.Tests.Parser
             [SetUp]
             public void Setup()
             {
-                Thread.CurrentThread.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
+                Thread.CurrentThread.CurrentCulture = CreateEnUsCultureWithPortableTimeFormat();
                 _factory = new FilterExpressionFactory(new MemberNameResolver(), Enumerable.Empty<IValueExpressionFactory>());
             }
 
@@ -97,7 +106,7 @@ namespace LinqConvertTools.Tests.Parser
             [TestCase("StringValue eq 'a \"quote\" within the text'", "x => (x.StringValue == \"a \"quote\" within the text\")")]
             [TestCase("StringValue eq 'a 'single quote' within the text'", "x => (x.StringValue == \"a 'single quote' within the text\")")]
             [TestCase("true", "x => True")]
-            [TestCase("ChoiceValue eq LinqCovertTools.Tests.Choice'This'", "x => ((Convert(x.ChoiceValue) & Convert(This)) == Convert(This))")]
+            [TestCase("ChoiceValue eq LinqConvertTools.Tests.Choice'This'", "x => ((Convert(x.ChoiceValue, Int32) & Convert(This, Int32)) == Convert(This, Int32))")]
             [TestCase("IntValue eq 1", "x => (x.IntValue == 1)")]
             [TestCase("(IntValue eq 1) and DoubleValue lt 2", "x => ((x.IntValue == 1) AndAlso (x.DoubleValue < 2))")]
             [TestCase("IntValue eq (10 mod 2)", "x => (x.IntValue == (10 % 2))")]
@@ -142,57 +151,57 @@ namespace LinqConvertTools.Tests.Parser
             [TestCase("StringValue eq 'Group1 or Group2'", "x => (x.StringValue == \"Group1 or Group2\")")]
             [TestCase("StringValue eq 'Group1 not Group2'", "x => (x.StringValue == \"Group1 not Group2\")")]
             [TestCase("StringValue ne 1", "x => (x.StringValue != \"1\")")]
-            [TestCase("StringValue/Length eq 1", "x => (x.StringValue.Length == 1)")]
-            [TestCase("StringValue/Length ne 1", "x => (x.StringValue.Length != 1)")]
-            [TestCase("substringof('text', StringValue) eq true", "x => (x.StringValue.Contains(\"text\") == True)")]
-            [TestCase("substringof('text', StringValue) ne true", "x => (x.StringValue.Contains(\"text\") != True)")]
-            [TestCase("substringof('text', StringValue) eq false", "x => (x.StringValue.Contains(\"text\") == False)")]
-            [TestCase("substringof('text', StringValue) ne false", "x => (x.StringValue.Contains(\"text\") != False)")]
-            [TestCase("endswith(StringValue, 'text') eq true", "x => (x.StringValue.EndsWith(\"text\") == True)")]
-            [TestCase("endswith(StringValue, 'text') ne true", "x => (x.StringValue.EndsWith(\"text\") != True)")]
-            [TestCase("endswith(StringValue, 'text') eq false", "x => (x.StringValue.EndsWith(\"text\") == False)")]
-            [TestCase("endswith(StringValue, 'text') ne false", "x => (x.StringValue.EndsWith(\"text\") != False)")]
-            [TestCase("startswith(stringValue, 'text') eq true", "x => (x.StringValue.StartsWith(\"text\") == True)")]
-            [TestCase("startswith(StringValue, 'text') eq true", "x => (x.StringValue.StartsWith(\"text\") == True)")]
-            [TestCase("startswith(StringValue, 'text') ne true", "x => (x.StringValue.StartsWith(\"text\") != True)")]
-            [TestCase("startswith(StringValue, 'text') eq false", "x => (x.StringValue.StartsWith(\"text\") == False)")]
-            [TestCase("startswith(StringValue, 'text') ne false", "x => (x.StringValue.StartsWith(\"text\") != False)")]
-            [TestCase("startswith(StringValue, 'text1,text2') eq true", "x => (x.StringValue.StartsWith(\"text1,text2\") == True)")]
-            [TestCase("startswith(StringValue, ',text1,,, text2,') eq true", "x => (x.StringValue.StartsWith(\",text1,,, text2,\") == True)")]
-            [TestCase("startswith(StringValue, ',text1''s,,, text2,') eq true", "x => (x.StringValue.StartsWith(\",text1's,,, text2,\") == True)")]
-            [TestCase("not length(StringValue) eq 1", "x => Not((x.StringValue.Length == 1))")]
-            [TestCase("length(StringValue) eq 1", "x => (x.StringValue.Length == 1)")]
-            [TestCase("length(StringValue) ne 1", "x => (x.StringValue.Length != 1)")]
-            [TestCase("length(StringValue) gt 1", "x => (x.StringValue.Length > 1)")]
-            [TestCase("length(StringValue) ge 1", "x => (x.StringValue.Length >= 1)")]
-            [TestCase("length(StringValue) lt 1", "x => (x.StringValue.Length < 1)")]
-            [TestCase("length(StringValue) le 1", "x => (x.StringValue.Length <= 1)")]
-            [TestCase("indexof(StringValue, 'text') eq 1", "x => (x.StringValue.IndexOf(\"text\") == 1)")]
-            [TestCase("indexof(StringValue, 'text') ne 1", "x => (x.StringValue.IndexOf(\"text\") != 1)")]
-            [TestCase("indexof(StringValue, 'text') gt 1", "x => (x.StringValue.IndexOf(\"text\") > 1)")]
-            [TestCase("indexof(StringValue, 'text') ge 1", "x => (x.StringValue.IndexOf(\"text\") >= 1)")]
-            [TestCase("indexof(StringValue, 'text') lt 1", "x => (x.StringValue.IndexOf(\"text\") < 1)")]
-            [TestCase("indexof(StringValue, 'text') le 1", "x => (x.StringValue.IndexOf(\"text\") <= 1)")]
+            [TestCase("StringValue/Length eq 1", "x => ((null != x.StringValue) AndAlso (x.StringValue.Length == 1))")]
+            [TestCase("StringValue/Length ne 1", "x => ((null != x.StringValue) AndAlso (x.StringValue.Length != 1))")]
+            [TestCase("substringof('text', StringValue) eq true", "x => ((null != x.StringValue) AndAlso (x.StringValue.Contains(\"text\") == True))")]
+            [TestCase("substringof('text', StringValue) ne true", "x => ((null != x.StringValue) AndAlso (x.StringValue.Contains(\"text\") != True))")]
+            [TestCase("substringof('text', StringValue) eq false", "x => ((null != x.StringValue) AndAlso (x.StringValue.Contains(\"text\") == False))")]
+            [TestCase("substringof('text', StringValue) ne false", "x => ((null != x.StringValue) AndAlso (x.StringValue.Contains(\"text\") != False))")]
+            [TestCase("endswith(StringValue, 'text') eq true", "x => (((x.StringValue != null) AndAlso x.StringValue.EndsWith(\"text\")) == True)")]
+            [TestCase("endswith(StringValue, 'text') ne true", "x => (((x.StringValue != null) AndAlso x.StringValue.EndsWith(\"text\")) != True)")]
+            [TestCase("endswith(StringValue, 'text') eq false", "x => (((x.StringValue != null) AndAlso x.StringValue.EndsWith(\"text\")) == False)")]
+            [TestCase("endswith(StringValue, 'text') ne false", "x => (((x.StringValue != null) AndAlso x.StringValue.EndsWith(\"text\")) != False)")]
+            [TestCase("startswith(stringValue, 'text') eq true", "x => (((x.StringValue != null) AndAlso x.StringValue.StartsWith(\"text\")) == True)")]
+            [TestCase("startswith(StringValue, 'text') eq true", "x => (((x.StringValue != null) AndAlso x.StringValue.StartsWith(\"text\")) == True)")]
+            [TestCase("startswith(StringValue, 'text') ne true", "x => (((x.StringValue != null) AndAlso x.StringValue.StartsWith(\"text\")) != True)")]
+            [TestCase("startswith(StringValue, 'text') eq false", "x => (((x.StringValue != null) AndAlso x.StringValue.StartsWith(\"text\")) == False)")]
+            [TestCase("startswith(StringValue, 'text') ne false", "x => (((x.StringValue != null) AndAlso x.StringValue.StartsWith(\"text\")) != False)")]
+            [TestCase("startswith(StringValue, 'text1,text2') eq true", "x => (((x.StringValue != null) AndAlso x.StringValue.StartsWith(\"text1,text2\")) == True)")]
+            [TestCase("startswith(StringValue, ',text1,,, text2,') eq true", "x => (((x.StringValue != null) AndAlso x.StringValue.StartsWith(\",text1,,, text2,\")) == True)")]
+            [TestCase("startswith(StringValue, ',text1''s,,, text2,') eq true", "x => (((x.StringValue != null) AndAlso x.StringValue.StartsWith(\",text1's,,, text2,\")) == True)")]
+            [TestCase("not length(StringValue) eq 1", "x => Not(((null != x.StringValue) AndAlso (x.StringValue.Length == 1)))")]
+            [TestCase("length(StringValue) eq 1", "x => ((null != x.StringValue) AndAlso (x.StringValue.Length == 1))")]
+            [TestCase("length(StringValue) ne 1", "x => ((null != x.StringValue) AndAlso (x.StringValue.Length != 1))")]
+            [TestCase("length(StringValue) gt 1", "x => ((null != x.StringValue) AndAlso (x.StringValue.Length > 1))")]
+            [TestCase("length(StringValue) ge 1", "x => ((null != x.StringValue) AndAlso (x.StringValue.Length >= 1))")]
+            [TestCase("length(StringValue) lt 1", "x => ((null != x.StringValue) AndAlso (x.StringValue.Length < 1))")]
+            [TestCase("length(StringValue) le 1", "x => ((null != x.StringValue) AndAlso (x.StringValue.Length <= 1))")]
+            [TestCase("indexof(StringValue, 'text') eq 1", "x => ((null != x.StringValue) AndAlso (x.StringValue.IndexOf(\"text\") == 1))")]
+            [TestCase("indexof(StringValue, 'text') ne 1", "x => ((null != x.StringValue) AndAlso (x.StringValue.IndexOf(\"text\") != 1))")]
+            [TestCase("indexof(StringValue, 'text') gt 1", "x => ((null != x.StringValue) AndAlso (x.StringValue.IndexOf(\"text\") > 1))")]
+            [TestCase("indexof(StringValue, 'text') ge 1", "x => ((null != x.StringValue) AndAlso (x.StringValue.IndexOf(\"text\") >= 1))")]
+            [TestCase("indexof(StringValue, 'text') lt 1", "x => ((null != x.StringValue) AndAlso (x.StringValue.IndexOf(\"text\") < 1))")]
+            [TestCase("indexof(StringValue, 'text') le 1", "x => ((null != x.StringValue) AndAlso (x.StringValue.IndexOf(\"text\") <= 1))")]
             [TestCase("indexof('text', StringValue) eq 1", "x => (\"text\".IndexOf(x.StringValue) == 1)")]
             [TestCase("indexof('text', StringValue) ne 1", "x => (\"text\".IndexOf(x.StringValue) != 1)")]
             [TestCase("indexof('text', StringValue) gt 1", "x => (\"text\".IndexOf(x.StringValue) > 1)")]
             [TestCase("indexof('text', StringValue) ge 1", "x => (\"text\".IndexOf(x.StringValue) >= 1)")]
             [TestCase("indexof('text', StringValue) lt 1", "x => (\"text\".IndexOf(x.StringValue) < 1)")]
             [TestCase("indexof('text', StringValue) le 1", "x => (\"text\".IndexOf(x.StringValue) <= 1)")]
-            [TestCase("substring(StringValue, 1) eq 'text'", "x => (x.StringValue.Substring(1) == \"text\")")]
-            [TestCase("substring(StringValue, 1) ne 'text'", "x => (x.StringValue.Substring(1) != \"text\")")]
-            [TestCase("substring(StringValue, 1) ne 'text' and IntValue eq 25", "x => ((x.StringValue.Substring(1) != \"text\") AndAlso (x.IntValue == 25))")]
+            [TestCase("substring(StringValue, 1) eq 'text'", "x => ((null != x.StringValue) AndAlso (x.StringValue.Substring(1) == \"text\"))")]
+            [TestCase("substring(StringValue, 1) ne 'text'", "x => ((null != x.StringValue) AndAlso (x.StringValue.Substring(1) != \"text\"))")]
+            [TestCase("substring(StringValue, 1) ne 'text' and IntValue eq 25", "x => (((null != x.StringValue) AndAlso (x.StringValue.Substring(1) != \"text\")) AndAlso (x.IntValue == 25))")]
             [TestCase("substring(StringValue, 1) ne 'text' and IntValue eq 25 and DoubleValue le 10",
-                "x => (((x.StringValue.Substring(1) != \"text\") AndAlso (x.IntValue == 25)) AndAlso (x.DoubleValue <= 10))")]
-            [TestCase("tolower(StringValue) ne 'text'", "x => (x.StringValue.ToLowerInvariant() != \"text\")")]
+                "x => ((((null != x.StringValue) AndAlso (x.StringValue.Substring(1) != \"text\")) AndAlso (x.IntValue == 25)) AndAlso (x.DoubleValue <= 10))")]
+            [TestCase("tolower(StringValue) ne 'text'", "x => ((null != x.StringValue) AndAlso (x.StringValue.ToLower() != \"text\"))")]
             [TestCase("tolower(StringValue) eq 'text' and substring(StringValue, 1) ne 'text'",
-                "x => ((x.StringValue.ToLowerInvariant() == \"text\") AndAlso (x.StringValue.Substring(1) != \"text\"))")]
-            [TestCase("toupper(StringValue) ne 'text'", "x => (x.StringValue.ToUpperInvariant() != \"text\")")]
+                "x => (((null != x.StringValue) AndAlso (x.StringValue.ToLower() == \"text\")) AndAlso ((null != x.StringValue) AndAlso (x.StringValue.Substring(1) != \"text\")))")]
+            [TestCase("toupper(StringValue) ne 'text'", "x => ((null != x.StringValue) AndAlso (x.StringValue.ToUpper() != \"text\"))")]
             [TestCase("toupper(StringValue) eq 'text' and substring(StringValue, 1) ne 'text'",
-                "x => ((x.StringValue.ToUpperInvariant() == \"text\") AndAlso (x.StringValue.Substring(1) != \"text\"))")]
-            [TestCase("trim(StringValue) ne 'text'", "x => (x.StringValue.Trim() != \"text\")")]
+                "x => (((null != x.StringValue) AndAlso (x.StringValue.ToUpper() == \"text\")) AndAlso ((null != x.StringValue) AndAlso (x.StringValue.Substring(1) != \"text\")))")]
+            [TestCase("trim(StringValue) ne 'text'", "x => ((null != x.StringValue) AndAlso (x.StringValue.Trim() != \"text\"))")]
             [TestCase("trim(StringValue) eq 'text' and substring(StringValue, 1) ne 'text'",
-                "x => ((x.StringValue.Trim() == \"text\") AndAlso (x.StringValue.Substring(1) != \"text\"))")]
+                "x => (((null != x.StringValue) AndAlso (x.StringValue.Trim() == \"text\")) AndAlso ((null != x.StringValue) AndAlso (x.StringValue.Substring(1) != \"text\")))")]
             [TestCase("hour(DateValue) eq 2", "x => (x.DateValue.Hour == 2)")]
             [TestCase("minute(DateValue) eq 2", "x => (x.DateValue.Minute == 2)")]
             [TestCase("second(DateValue) eq 2", "x => (x.DateValue.Second == 2)")]
@@ -207,17 +216,17 @@ namespace LinqConvertTools.Tests.Parser
             [TestCase("ceiling(DecimalValue) gt 1", "x => (Ceiling(x.DecimalValue) > 1)")]
             [TestCase("(StringValue ne 'text') or IntValue gt 2", "x => ((x.StringValue != \"text\") OrElse (x.IntValue > 2))")]
             [TestCase("(startswith(tolower(StringValue),'foo') eq true and endswith(tolower(StringValue),'1') eq true) and (tolower(StringValue) eq 'bar03')",
-                "x => (((x.StringValue.ToLowerInvariant().StartsWith(\"foo\") == True) AndAlso (x.StringValue.ToLowerInvariant().EndsWith(\"1\") == True)) AndAlso (x.StringValue.ToLowerInvariant() == \"bar03\"))")]
+                "x => (((((x.StringValue.ToLower() != null) AndAlso x.StringValue.ToLower().StartsWith(\"foo\")) == True) AndAlso (((x.StringValue.ToLower() != null) AndAlso x.StringValue.ToLower().EndsWith(\"1\")) == True)) AndAlso ((null != x.StringValue) AndAlso (x.StringValue.ToLower() == \"bar03\")))")]
             [TestCase("(startswith(tolower(StringValue),'foo') and endswith(tolower(StringValue),'1')) and (tolower(StringValue) eq 'bar03')",
-                "x => ((x.StringValue.ToLowerInvariant().StartsWith(\"foo\") AndAlso x.StringValue.ToLowerInvariant().EndsWith(\"1\")) AndAlso (x.StringValue.ToLowerInvariant() == \"bar03\"))")]
-            [TestCase("startswith(tolower(StringValue),'foo')", "x => x.StringValue.ToLowerInvariant().StartsWith(\"foo\")")]
-            [TestCase("startswith(tolower(StringValue),'foo,bar')", "x => x.StringValue.ToLowerInvariant().StartsWith(\"foo,bar\")")]
+                "x => ((((x.StringValue.ToLower() != null) AndAlso x.StringValue.ToLower().StartsWith(\"foo\")) AndAlso ((x.StringValue.ToLower() != null) AndAlso x.StringValue.ToLower().EndsWith(\"1\"))) AndAlso ((null != x.StringValue) AndAlso (x.StringValue.ToLower() == \"bar03\")))")]
+            [TestCase("startswith(tolower(StringValue),'foo')", "x => ((x.StringValue.ToLower() != null) AndAlso x.StringValue.ToLower().StartsWith(\"foo\"))")]
+            [TestCase("startswith(tolower(StringValue),'foo,bar')", "x => ((x.StringValue.ToLower() != null) AndAlso x.StringValue.ToLower().StartsWith(\"foo,bar\"))")]
             [TestCase("StringValue/Length eq 5 and Children/any(a: a/ChildStringValue eq 'foo')",
-                "x => ((x.StringValue.Length == 5) AndAlso x.Children.Any(a => (a.ChildStringValue == \"foo\")))")]
+                "x => (((null != x.StringValue) AndAlso (x.StringValue.Length == 5)) AndAlso x.Children.Any(a => (a.ChildStringValue == \"foo\")))")]
             [TestCase("substringof('endIsSpaceX ', StringValue) or substringof('endIsSpaceY ', StringValue)",
-                "x => (x.StringValue.Contains(\"endIsSpaceX \") OrElse x.StringValue.Contains(\"endIsSpaceY \"))")]
+                "x => ((null != x.StringValue) AndAlso (x.StringValue.Contains(\"endIsSpaceX \") OrElse x.StringValue.Contains(\"endIsSpaceY \")))")]
             [TestCase("(substringof('endIsSpaceX ', StringValue) or substringof('endIsSpaceY ', StringValue)) or StringValue eq 'other'",
-                "x => ((x.StringValue.Contains(\"endIsSpaceX \") OrElse x.StringValue.Contains(\"endIsSpaceY \")) OrElse (x.StringValue == \"other\"))")]
+                "x => (((null != x.StringValue) AndAlso (x.StringValue.Contains(\"endIsSpaceX \") OrElse x.StringValue.Contains(\"endIsSpaceY \"))) OrElse (x.StringValue == \"other\"))")]
             [TestCase("StringValue eq 'has''escaped''quotes'", "x => (x.StringValue == \"has'escaped'quotes\")")]
             [TestCase("Children/any(a: a/ChildStringValue eq 'foo')", "x => x.Children.Any(a => (a.ChildStringValue == \"foo\"))")]
             [TestCase("Children/all(y: y/Children/all(z: z/GrandChildStringValue eq 'foo'))",
@@ -227,15 +236,15 @@ namespace LinqConvertTools.Tests.Parser
             [TestCase("Children/any(y: y/Children/all(z: z/GrandChildStringValue eq 'foo'))",
                 "x => x.Children.Any(y => y.Children.All(z => (z.GrandChildStringValue == \"foo\")))")]
             [TestCase("Children/any(a: startswith(tolower(a/ChildStringValue), 'foo'))",
-                "x => x.Children.Any(a => a.ChildStringValue.ToLowerInvariant().StartsWith(\"foo\"))")]
+                "x => x.Children.Any(a => ((a.ChildStringValue.ToLower() != null) AndAlso a.ChildStringValue.ToLower().StartsWith(\"foo\")))")]
             [TestCase("Children/all(a: startswith(tolower(a/ChildStringValue), 'foo'))",
-                "x => x.Children.All(a => a.ChildStringValue.ToLowerInvariant().StartsWith(\"foo\"))")]
+                "x => x.Children.All(a => ((a.ChildStringValue.ToLower() != null) AndAlso a.ChildStringValue.ToLower().StartsWith(\"foo\")))")]
             [TestCase("Children/all(a: startswith(tolower(a/ChildStringValue), 'foo') and endswith(tolower(a/ChildStringValue), 'foo'))",
-                "x => x.Children.All(a => (a.ChildStringValue.ToLowerInvariant().StartsWith(\"foo\") AndAlso a.ChildStringValue.ToLowerInvariant().EndsWith(\"foo\")))")]
+                "x => x.Children.All(a => (((a.ChildStringValue.ToLower() != null) AndAlso a.ChildStringValue.ToLower().StartsWith(\"foo\")) AndAlso ((a.ChildStringValue.ToLower() != null) AndAlso a.ChildStringValue.ToLower().EndsWith(\"foo\"))))")]
             [TestCase("Children/any(a: a/Children/any(b: startswith(tolower(b/GrandChildStringValue), 'foo')))",
-                "x => x.Children.Any(a => a.Children.Any(b => b.GrandChildStringValue.ToLowerInvariant().StartsWith(\"foo\")))")]
+                "x => x.Children.Any(a => a.Children.Any(b => ((b.GrandChildStringValue.ToLower() != null) AndAlso b.GrandChildStringValue.ToLower().StartsWith(\"foo\"))))")]
             [TestCase("Children/any(a: startswith(tolower(a/ChildStringValue), StringValue))",
-                "x => x.Children.Any(a => a.ChildStringValue.ToLowerInvariant().StartsWith(x.StringValue))")]
+                "x => x.Children.Any(a => ((a.ChildStringValue.ToLower() != null) AndAlso a.ChildStringValue.ToLower().StartsWith(x.StringValue)))")]
             [TestCase("Children/any(a: true)", "x => x.Children.Any(a => True)")]
             [TestCase("Children/all(y: y/ID eq 2 add ID)", "x => x.Children.All(y => (y.ID == (2 + x.ID)))")]
             [TestCase("Child/Attributes/all(y: y eq 'blah')", "x => x.Child.Attributes.All(y => (y == \"blah\"))")]
@@ -261,7 +270,7 @@ namespace LinqConvertTools.Tests.Parser
             [SetUp]
             public void Setup()
             {
-                Thread.CurrentThread.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
+                Thread.CurrentThread.CurrentCulture = CreateEnUsCultureWithPortableTimeFormat();
                 _factory = new FilterExpressionFactory(new MemberNameResolver(), Enumerable.Empty<IValueExpressionFactory>());
             }
 
@@ -327,7 +336,7 @@ namespace LinqConvertTools.Tests.Parser
             [TestCase("Text eq 'a \"quote\" within the text'", "x => (x.StringValue == \"a \"quote\" within the text\")")]
             [TestCase("Text eq 'a 'single quote' within the text'", "x => (x.StringValue == \"a 'single quote' within the text\")")]
             [TestCase("true", "x => True")]
-            [TestCase("ChoiceValue eq LinqCovertTools.Tests.Choice'This'", "x => ((Convert(x.ChoiceValue) & Convert(This)) == Convert(This))")]
+            [TestCase("ChoiceValue eq LinqConvertTools.Tests.Choice'This'", "x => ((Convert(x.ChoiceValue, Int32) & Convert(This, Int32)) == Convert(This, Int32))")]
             [TestCase("IntValue eq 1", "x => (x.AliasIntValue == 1)")]
             [TestCase("(IntValue eq 1) and DoubleValue lt 2", "x => ((x.AliasIntValue == 1) AndAlso (x.AliasDoubleValue < 2))")]
             [TestCase("IntValue eq (10 mod 2)", "x => (x.AliasIntValue == (10 % 2))")]
@@ -372,56 +381,56 @@ namespace LinqConvertTools.Tests.Parser
             [TestCase("Text eq 'Group1 or Group2'", "x => (x.StringValue == \"Group1 or Group2\")")]
             [TestCase("Text eq 'Group1 not Group2'", "x => (x.StringValue == \"Group1 not Group2\")")]
             [TestCase("Text ne 1", "x => (x.StringValue != \"1\")")]
-            [TestCase("Text/Length eq 1", "x => (x.StringValue.Length == 1)")]
-            [TestCase("Text/Length ne 1", "x => (x.StringValue.Length != 1)")]
-            [TestCase("substringof('text', Text) eq true", "x => (x.StringValue.Contains(\"text\") == True)")]
-            [TestCase("substringof('text', Text) ne true", "x => (x.StringValue.Contains(\"text\") != True)")]
-            [TestCase("substringof('text', Text) eq false", "x => (x.StringValue.Contains(\"text\") == False)")]
-            [TestCase("substringof('text', Text) ne false", "x => (x.StringValue.Contains(\"text\") != False)")]
-            [TestCase("endswith(Text, 'text') eq true", "x => (x.StringValue.EndsWith(\"text\") == True)")]
-            [TestCase("endswith(Text, 'text') ne true", "x => (x.StringValue.EndsWith(\"text\") != True)")]
-            [TestCase("endswith(Text, 'text') eq false", "x => (x.StringValue.EndsWith(\"text\") == False)")]
-            [TestCase("endswith(Text, 'text') ne false", "x => (x.StringValue.EndsWith(\"text\") != False)")]
-            [TestCase("startswith(Text, 'text') eq true", "x => (x.StringValue.StartsWith(\"text\") == True)")]
-            [TestCase("startswith(Text, 'text') ne true", "x => (x.StringValue.StartsWith(\"text\") != True)")]
-            [TestCase("startswith(Text, 'text') eq false", "x => (x.StringValue.StartsWith(\"text\") == False)")]
-            [TestCase("startswith(Text, 'text') ne false", "x => (x.StringValue.StartsWith(\"text\") != False)")]
-            [TestCase("startswith(Text, 'text1,text2') eq true", "x => (x.StringValue.StartsWith(\"text1,text2\") == True)")]
-            [TestCase("startswith(Text, ',text1,,, text2,') eq true", "x => (x.StringValue.StartsWith(\",text1,,, text2,\") == True)")]
-            [TestCase("startswith(Text, ',text1''s,,, text2,') eq true", "x => (x.StringValue.StartsWith(\",text1's,,, text2,\") == True)")]
-            [TestCase("not length(Text) eq 1", "x => Not((x.StringValue.Length == 1))")]
-            [TestCase("length(Text) eq 1", "x => (x.StringValue.Length == 1)")]
-            [TestCase("length(Text) ne 1", "x => (x.StringValue.Length != 1)")]
-            [TestCase("length(Text) gt 1", "x => (x.StringValue.Length > 1)")]
-            [TestCase("length(Text) ge 1", "x => (x.StringValue.Length >= 1)")]
-            [TestCase("length(Text) lt 1", "x => (x.StringValue.Length < 1)")]
-            [TestCase("length(Text) le 1", "x => (x.StringValue.Length <= 1)")]
-            [TestCase("indexof(Text, 'text') eq 1", "x => (x.StringValue.IndexOf(\"text\") == 1)")]
-            [TestCase("indexof(Text, 'text') ne 1", "x => (x.StringValue.IndexOf(\"text\") != 1)")]
-            [TestCase("indexof(Text, 'text') gt 1", "x => (x.StringValue.IndexOf(\"text\") > 1)")]
-            [TestCase("indexof(Text, 'text') ge 1", "x => (x.StringValue.IndexOf(\"text\") >= 1)")]
-            [TestCase("indexof(Text, 'text') lt 1", "x => (x.StringValue.IndexOf(\"text\") < 1)")]
-            [TestCase("indexof(Text, 'text') le 1", "x => (x.StringValue.IndexOf(\"text\") <= 1)")]
+            [TestCase("Text/Length eq 1", "x => ((null != x.StringValue) AndAlso (x.StringValue.Length == 1))")]
+            [TestCase("Text/Length ne 1", "x => ((null != x.StringValue) AndAlso (x.StringValue.Length != 1))")]
+            [TestCase("substringof('text', Text) eq true", "x => ((null != x.StringValue) AndAlso (x.StringValue.Contains(\"text\") == True))")]
+            [TestCase("substringof('text', Text) ne true", "x => ((null != x.StringValue) AndAlso (x.StringValue.Contains(\"text\") != True))")]
+            [TestCase("substringof('text', Text) eq false", "x => ((null != x.StringValue) AndAlso (x.StringValue.Contains(\"text\") == False))")]
+            [TestCase("substringof('text', Text) ne false", "x => ((null != x.StringValue) AndAlso (x.StringValue.Contains(\"text\") != False))")]
+            [TestCase("endswith(Text, 'text') eq true", "x => (((x.StringValue != null) AndAlso x.StringValue.EndsWith(\"text\")) == True)")]
+            [TestCase("endswith(Text, 'text') ne true", "x => (((x.StringValue != null) AndAlso x.StringValue.EndsWith(\"text\")) != True)")]
+            [TestCase("endswith(Text, 'text') eq false", "x => (((x.StringValue != null) AndAlso x.StringValue.EndsWith(\"text\")) == False)")]
+            [TestCase("endswith(Text, 'text') ne false", "x => (((x.StringValue != null) AndAlso x.StringValue.EndsWith(\"text\")) != False)")]
+            [TestCase("startswith(Text, 'text') eq true", "x => (((x.StringValue != null) AndAlso x.StringValue.StartsWith(\"text\")) == True)")]
+            [TestCase("startswith(Text, 'text') ne true", "x => (((x.StringValue != null) AndAlso x.StringValue.StartsWith(\"text\")) != True)")]
+            [TestCase("startswith(Text, 'text') eq false", "x => (((x.StringValue != null) AndAlso x.StringValue.StartsWith(\"text\")) == False)")]
+            [TestCase("startswith(Text, 'text') ne false", "x => (((x.StringValue != null) AndAlso x.StringValue.StartsWith(\"text\")) != False)")]
+            [TestCase("startswith(Text, 'text1,text2') eq true", "x => (((x.StringValue != null) AndAlso x.StringValue.StartsWith(\"text1,text2\")) == True)")]
+            [TestCase("startswith(Text, ',text1,,, text2,') eq true", "x => (((x.StringValue != null) AndAlso x.StringValue.StartsWith(\",text1,,, text2,\")) == True)")]
+            [TestCase("startswith(Text, ',text1''s,,, text2,') eq true", "x => (((x.StringValue != null) AndAlso x.StringValue.StartsWith(\",text1's,,, text2,\")) == True)")]
+            [TestCase("not length(Text) eq 1", "x => Not(((null != x.StringValue) AndAlso (x.StringValue.Length == 1)))")]
+            [TestCase("length(Text) eq 1", "x => ((null != x.StringValue) AndAlso (x.StringValue.Length == 1))")]
+            [TestCase("length(Text) ne 1", "x => ((null != x.StringValue) AndAlso (x.StringValue.Length != 1))")]
+            [TestCase("length(Text) gt 1", "x => ((null != x.StringValue) AndAlso (x.StringValue.Length > 1))")]
+            [TestCase("length(Text) ge 1", "x => ((null != x.StringValue) AndAlso (x.StringValue.Length >= 1))")]
+            [TestCase("length(Text) lt 1", "x => ((null != x.StringValue) AndAlso (x.StringValue.Length < 1))")]
+            [TestCase("length(Text) le 1", "x => ((null != x.StringValue) AndAlso (x.StringValue.Length <= 1))")]
+            [TestCase("indexof(Text, 'text') eq 1", "x => ((null != x.StringValue) AndAlso (x.StringValue.IndexOf(\"text\") == 1))")]
+            [TestCase("indexof(Text, 'text') ne 1", "x => ((null != x.StringValue) AndAlso (x.StringValue.IndexOf(\"text\") != 1))")]
+            [TestCase("indexof(Text, 'text') gt 1", "x => ((null != x.StringValue) AndAlso (x.StringValue.IndexOf(\"text\") > 1))")]
+            [TestCase("indexof(Text, 'text') ge 1", "x => ((null != x.StringValue) AndAlso (x.StringValue.IndexOf(\"text\") >= 1))")]
+            [TestCase("indexof(Text, 'text') lt 1", "x => ((null != x.StringValue) AndAlso (x.StringValue.IndexOf(\"text\") < 1))")]
+            [TestCase("indexof(Text, 'text') le 1", "x => ((null != x.StringValue) AndAlso (x.StringValue.IndexOf(\"text\") <= 1))")]
             [TestCase("indexof('text', Text) eq 1", "x => (\"text\".IndexOf(x.StringValue) == 1)")]
             [TestCase("indexof('text', Text) ne 1", "x => (\"text\".IndexOf(x.StringValue) != 1)")]
             [TestCase("indexof('text', Text) gt 1", "x => (\"text\".IndexOf(x.StringValue) > 1)")]
             [TestCase("indexof('text', Text) ge 1", "x => (\"text\".IndexOf(x.StringValue) >= 1)")]
             [TestCase("indexof('text', Text) lt 1", "x => (\"text\".IndexOf(x.StringValue) < 1)")]
             [TestCase("indexof('text', Text) le 1", "x => (\"text\".IndexOf(x.StringValue) <= 1)")]
-            [TestCase("substring(Text, 1) eq 'text'", "x => (x.StringValue.Substring(1) == \"text\")")]
-            [TestCase("substring(Text, 1) ne 'text'", "x => (x.StringValue.Substring(1) != \"text\")")]
-            [TestCase("substring(Text, 1) ne 'text' and IntValue eq 25", "x => ((x.StringValue.Substring(1) != \"text\") AndAlso (x.AliasIntValue == 25))")]
+            [TestCase("substring(Text, 1) eq 'text'", "x => ((null != x.StringValue) AndAlso (x.StringValue.Substring(1) == \"text\"))")]
+            [TestCase("substring(Text, 1) ne 'text'", "x => ((null != x.StringValue) AndAlso (x.StringValue.Substring(1) != \"text\"))")]
+            [TestCase("substring(Text, 1) ne 'text' and IntValue eq 25", "x => (((null != x.StringValue) AndAlso (x.StringValue.Substring(1) != \"text\")) AndAlso (x.AliasIntValue == 25))")]
             [TestCase("substring(Text, 1) ne 'text' and IntValue eq 25 and DoubleValue le 10",
-                "x => (((x.StringValue.Substring(1) != \"text\") AndAlso (x.AliasIntValue == 25)) AndAlso (x.AliasDoubleValue <= 10))")]
-            [TestCase("tolower(Text) ne 'text'", "x => (x.StringValue.ToLowerInvariant() != \"text\")")]
+                "x => ((((null != x.StringValue) AndAlso (x.StringValue.Substring(1) != \"text\")) AndAlso (x.AliasIntValue == 25)) AndAlso (x.AliasDoubleValue <= 10))")]
+            [TestCase("tolower(Text) ne 'text'", "x => ((null != x.StringValue) AndAlso (x.StringValue.ToLower() != \"text\"))")]
             [TestCase("tolower(Text) eq 'text' and substring(StringValue, 1) ne 'text'",
-                "x => ((x.StringValue.ToLowerInvariant() == \"text\") AndAlso (x.StringValue.Substring(1) != \"text\"))")]
-            [TestCase("toupper(Text) ne 'text'", "x => (x.StringValue.ToUpperInvariant() != \"text\")")]
+                "x => (((null != x.StringValue) AndAlso (x.StringValue.ToLower() == \"text\")) AndAlso ((null != x.StringValue) AndAlso (x.StringValue.Substring(1) != \"text\")))")]
+            [TestCase("toupper(Text) ne 'text'", "x => ((null != x.StringValue) AndAlso (x.StringValue.ToUpper() != \"text\"))")]
             [TestCase("toupper(Text) eq 'text' and substring(StringValue, 1) ne 'text'",
-                "x => ((x.StringValue.ToUpperInvariant() == \"text\") AndAlso (x.StringValue.Substring(1) != \"text\"))")]
-            [TestCase("trim(Text) ne 'text'", "x => (x.StringValue.Trim() != \"text\")")]
+                "x => (((null != x.StringValue) AndAlso (x.StringValue.ToUpper() == \"text\")) AndAlso ((null != x.StringValue) AndAlso (x.StringValue.Substring(1) != \"text\")))")]
+            [TestCase("trim(Text) ne 'text'", "x => ((null != x.StringValue) AndAlso (x.StringValue.Trim() != \"text\"))")]
             [TestCase("trim(Text) eq 'text' and substring(StringValue, 1) ne 'text'",
-                "x => ((x.StringValue.Trim() == \"text\") AndAlso (x.StringValue.Substring(1) != \"text\"))")]
+                "x => (((null != x.StringValue) AndAlso (x.StringValue.Trim() == \"text\")) AndAlso ((null != x.StringValue) AndAlso (x.StringValue.Substring(1) != \"text\")))")]
             [TestCase("hour(DateValue) eq 2", "x => (x.AliasDateValue.Hour == 2)")]
             [TestCase("minute(DateValue) eq 2", "x => (x.AliasDateValue.Minute == 2)")]
             [TestCase("second(DateValue) eq 2", "x => (x.AliasDateValue.Second == 2)")]
@@ -436,17 +445,17 @@ namespace LinqConvertTools.Tests.Parser
             [TestCase("ceiling(DecimalValue) gt 1", "x => (Ceiling(x.AliasDecimalValue) > 1)")]
             [TestCase("(Text ne 'text') or IntValue gt 2", "x => ((x.StringValue != \"text\") OrElse (x.AliasIntValue > 2))")]
             [TestCase("(startswith(tolower(Text),'foo') eq true and endswith(tolower(Text),'1') eq true) and (tolower(Text) eq 'bar03')",
-                "x => (((x.StringValue.ToLowerInvariant().StartsWith(\"foo\") == True) AndAlso (x.StringValue.ToLowerInvariant().EndsWith(\"1\") == True)) AndAlso (x.StringValue.ToLowerInvariant() == \"bar03\"))")]
+                "x => (((((x.StringValue.ToLower() != null) AndAlso x.StringValue.ToLower().StartsWith(\"foo\")) == True) AndAlso (((x.StringValue.ToLower() != null) AndAlso x.StringValue.ToLower().EndsWith(\"1\")) == True)) AndAlso ((null != x.StringValue) AndAlso (x.StringValue.ToLower() == \"bar03\")))")]
             [TestCase("(startswith(tolower(Text),'foo') and endswith(tolower(Text),'1')) and (tolower(Text) eq 'bar03')",
-                "x => ((x.StringValue.ToLowerInvariant().StartsWith(\"foo\") AndAlso x.StringValue.ToLowerInvariant().EndsWith(\"1\")) AndAlso (x.StringValue.ToLowerInvariant() == \"bar03\"))")]
-            [TestCase("startswith(tolower(Text),'foo')", "x => x.StringValue.ToLowerInvariant().StartsWith(\"foo\")")]
-            [TestCase("startswith(tolower(Text),'foo,bar')", "x => x.StringValue.ToLowerInvariant().StartsWith(\"foo,bar\")")]
+                "x => ((((x.StringValue.ToLower() != null) AndAlso x.StringValue.ToLower().StartsWith(\"foo\")) AndAlso ((x.StringValue.ToLower() != null) AndAlso x.StringValue.ToLower().EndsWith(\"1\"))) AndAlso ((null != x.StringValue) AndAlso (x.StringValue.ToLower() == \"bar03\")))")]
+            [TestCase("startswith(tolower(Text),'foo')", "x => ((x.StringValue.ToLower() != null) AndAlso x.StringValue.ToLower().StartsWith(\"foo\"))")]
+            [TestCase("startswith(tolower(Text),'foo,bar')", "x => ((x.StringValue.ToLower() != null) AndAlso x.StringValue.ToLower().StartsWith(\"foo,bar\"))")]
             [TestCase("Text/Length eq 5 and Children/any(a: a/ChildStringValue eq 'foo')",
-                "x => ((x.StringValue.Length == 5) AndAlso x.AliasChildren.Any(a => (a.ChildStringValue == \"foo\")))")]
+                "x => (((null != x.StringValue) AndAlso (x.StringValue.Length == 5)) AndAlso x.AliasChildren.Any(a => (a.ChildStringValue == \"foo\")))")]
             [TestCase("substringof('endIsSpaceX ', Text) or substringof('endIsSpaceY ', Text)",
-                "x => (x.StringValue.Contains(\"endIsSpaceX \") OrElse x.StringValue.Contains(\"endIsSpaceY \"))")]
+                "x => ((null != x.StringValue) AndAlso (x.StringValue.Contains(\"endIsSpaceX \") OrElse x.StringValue.Contains(\"endIsSpaceY \")))")]
             [TestCase("(substringof('endIsSpaceX ', Text) or substringof('endIsSpaceY ', Text)) or Text eq 'other'",
-                "x => ((x.StringValue.Contains(\"endIsSpaceX \") OrElse x.StringValue.Contains(\"endIsSpaceY \")) OrElse (x.StringValue == \"other\"))")]
+                "x => (((null != x.StringValue) AndAlso (x.StringValue.Contains(\"endIsSpaceX \") OrElse x.StringValue.Contains(\"endIsSpaceY \"))) OrElse (x.StringValue == \"other\"))")]
             [TestCase("Text eq 'has''escaped''quotes'", "x => (x.StringValue == \"has'escaped'quotes\")")]
             [TestCase("Children/any(a: a/ChildStringValue eq 'foo')", "x => x.AliasChildren.Any(a => (a.ChildStringValue == \"foo\"))")]
             [TestCase("Children/all(y: y/Children/all(z: z/GrandChildStringValue eq 'foo'))",
@@ -456,15 +465,15 @@ namespace LinqConvertTools.Tests.Parser
             [TestCase("Children/any(y: y/Children/all(z: z/GrandChildStringValue eq 'foo'))",
                 "x => x.AliasChildren.Any(y => y.Children.All(z => (z.GrandChildStringValue == \"foo\")))")]
             [TestCase("Children/any(a: startswith(tolower(a/ChildStringValue), 'foo'))",
-                "x => x.AliasChildren.Any(a => a.ChildStringValue.ToLowerInvariant().StartsWith(\"foo\"))")]
+                "x => x.AliasChildren.Any(a => ((a.ChildStringValue.ToLower() != null) AndAlso a.ChildStringValue.ToLower().StartsWith(\"foo\")))")]
             [TestCase("Children/all(a: startswith(tolower(a/ChildStringValue), 'foo'))",
-                "x => x.AliasChildren.All(a => a.ChildStringValue.ToLowerInvariant().StartsWith(\"foo\"))")]
+                "x => x.AliasChildren.All(a => ((a.ChildStringValue.ToLower() != null) AndAlso a.ChildStringValue.ToLower().StartsWith(\"foo\")))")]
             [TestCase("Children/all(a: startswith(tolower(a/ChildStringValue), 'foo') and endswith(tolower(a/ChildStringValue), 'foo'))",
-                "x => x.AliasChildren.All(a => (a.ChildStringValue.ToLowerInvariant().StartsWith(\"foo\") AndAlso a.ChildStringValue.ToLowerInvariant().EndsWith(\"foo\")))")]
+                "x => x.AliasChildren.All(a => (((a.ChildStringValue.ToLower() != null) AndAlso a.ChildStringValue.ToLower().StartsWith(\"foo\")) AndAlso ((a.ChildStringValue.ToLower() != null) AndAlso a.ChildStringValue.ToLower().EndsWith(\"foo\"))))")]
             [TestCase("Children/any(a: a/Children/any(b: startswith(tolower(b/GrandChildStringValue), 'foo')))",
-                "x => x.AliasChildren.Any(a => a.Children.Any(b => b.GrandChildStringValue.ToLowerInvariant().StartsWith(\"foo\")))")]
+                "x => x.AliasChildren.Any(a => a.Children.Any(b => ((b.GrandChildStringValue.ToLower() != null) AndAlso b.GrandChildStringValue.ToLower().StartsWith(\"foo\"))))")]
             [TestCase("Children/any(a: startswith(tolower(a/ChildStringValue), StringValue))",
-                "x => x.AliasChildren.Any(a => a.ChildStringValue.ToLowerInvariant().StartsWith(x.StringValue))")]
+                "x => x.AliasChildren.Any(a => ((a.ChildStringValue.ToLower() != null) AndAlso a.ChildStringValue.ToLower().StartsWith(x.StringValue)))")]
             [TestCase("Children/any(a: true)", "x => x.AliasChildren.Any(a => True)")]
             [TestCase("Children/all(y: y/ID eq 2 add ID)", "x => x.AliasChildren.All(y => (y.ID == (2 + x.AliasID)))")]
             [TestCase("Child/Attributes/all(y: y eq 'blah')", "x => x.AliasChild.Attributes.All(y => (y == \"blah\"))")]

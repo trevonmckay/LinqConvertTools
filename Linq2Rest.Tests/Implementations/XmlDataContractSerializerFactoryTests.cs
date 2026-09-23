@@ -31,7 +31,7 @@ namespace LinqConvertTools.Tests.Implementations
         [Test]
         public void CreatedSerializerCanDeserializeDataContractType()
         {
-            const string Xml = "<SimpleContractItem xmlns=\"http://schemas.datacontract.org/2004/07/LinqCovertTools.Tests.Implementations\"><Text>test</Text><Value>2</Value></SimpleContractItem>";
+            const string Xml = "<SimpleContractItem xmlns=\"http://schemas.datacontract.org/2004/07/LinqConvertTools.Tests.Implementations\"><Text>test</Text><Value>2</Value></SimpleContractItem>";
 
             var serializer = _factory.Create<SimpleContractItem>();
 
@@ -44,7 +44,7 @@ namespace LinqConvertTools.Tests.Implementations
         [Test]
         public void CreatedSerializerCanDeserializeListOfDataContractType()
         {
-            const string Xml = "<ArrayOfSimpleContractItem xmlns=\"http://schemas.datacontract.org/2004/07/LinqCovertTools.Tests.Implementations\"><SimpleContractItem><Text>test</Text><Value>2</Value></SimpleContractItem></ArrayOfSimpleContractItem>";
+            const string Xml = "<ArrayOfSimpleContractItem xmlns=\"http://schemas.datacontract.org/2004/07/LinqConvertTools.Tests.Implementations\"><SimpleContractItem><Text>test</Text><Value>2</Value></SimpleContractItem></ArrayOfSimpleContractItem>";
 
             var serializer = _factory.Create<SimpleContractItem>();
 
