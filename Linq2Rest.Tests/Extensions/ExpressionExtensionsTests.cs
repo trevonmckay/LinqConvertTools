@@ -97,6 +97,7 @@ namespace LinqConvertTools.Tests.Extensions
         [TestCase("tags/all(t: t ne 'red')", "Beta,Gamma")]
         [TestCase("priority ge 2", "Beta,Gamma")]
         [TestCase("name in ('Alpha', 'Gamma')", "Alpha,Gamma")]
+        [TestCase("contains(name, 'ph')", "Alpha")]
         public void CastParameterRebindsFilterOntoEntity(string filter, string expected)
         {
             Expression<Func<Order, bool>> predicate = CastOrderFilter(filter);
@@ -106,6 +107,8 @@ namespace LinqConvertTools.Tests.Extensions
 
         [TestCase("name eq 'ALPHA'", "Alpha")]
         [TestCase("startswith(name, 'BE')", "Beta")]
+        [TestCase("name in ('ALPHA', 'beta')", "Alpha,Beta")]
+        [TestCase("contains(name, 'ALP')", "Alpha")]
         [TestCase("address/city eq 'paris'", "Beta")]
         public void CastParameterRebindsCaseInsensitiveFilterOntoEntity(string filter, string expected)
         {

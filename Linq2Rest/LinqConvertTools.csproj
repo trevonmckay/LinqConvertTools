@@ -15,7 +15,7 @@
 	<PropertyGroup>
 		<Company></Company>
 		<PackageId>LinqConvertTools</PackageId>
-		<Version>8.1.1</Version>
+		<Version>8.2.0</Version>
 		<AssemblyName>LinqConvertTools</AssemblyName>
 		<AssemblyVersion>4.1.0.0</AssemblyVersion>
 		<AssemblyDescription>Generates OData style URL queries from LINQ queries and parses the queries to LINQ serverside.</AssemblyDescription>
