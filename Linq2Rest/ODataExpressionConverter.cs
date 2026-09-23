@@ -42,16 +42,38 @@ namespace LinqConvertTools
         /// <summary>
         /// Initializes a new instance of the <see cref="ODataExpressionConverter"/> class.
         /// </summary>
+        /// <param name="caseFolding">The string methods used for case-insensitive comparisons and the <c>toupper()</c> and <c>tolower()</c> functions.</param>
+        public ODataExpressionConverter(StringCaseFolding caseFolding)
+            : this(Array.Empty<IValueWriter>(), Array.Empty<IValueExpressionFactory>(), null, caseFolding)
+        {
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ODataExpressionConverter"/> class that converts string case
+        /// with <see cref="StringCaseFolding.CurrentCulture"/>.
+        /// </summary>
         /// <param name="valueWriters">The custom value writers to use.</param>
         /// <param name="valueExpressionFactories">The custom expression writers to use.</param>
         /// <param name="memberNameResolver">The custom <see cref="IMemberNameResolver"/> to use.</param>
         public ODataExpressionConverter(IEnumerable<IValueWriter> valueWriters, IEnumerable<IValueExpressionFactory> valueExpressionFactories, IMemberNameResolver? memberNameResolver = null)
+            : this(valueWriters, valueExpressionFactories, memberNameResolver, StringCaseFolding.CurrentCulture)
+        {
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ODataExpressionConverter"/> class.
+        /// </summary>
+        /// <param name="valueWriters">The custom value writers to use.</param>
+        /// <param name="valueExpressionFactories">The custom expression writers to use.</param>
+        /// <param name="memberNameResolver">The custom <see cref="IMemberNameResolver"/> to use.</param>
+        /// <param name="caseFolding">The string methods used for case-insensitive comparisons and the <c>toupper()</c> and <c>tolower()</c> functions.</param>
+        public ODataExpressionConverter(IEnumerable<IValueWriter> valueWriters, IEnumerable<IValueExpressionFactory> valueExpressionFactories, IMemberNameResolver? memberNameResolver, StringCaseFolding caseFolding)
         {
             var writers = (valueWriters ?? Enumerable.Empty<IValueWriter>()).ToArray();
             var expressionFactories = (valueExpressionFactories ?? Enumerable.Empty<IValueExpressionFactory>()).ToArray();
             var nameResolver = memberNameResolver ?? new MemberNameResolver();
             _writer = new ExpressionWriter(nameResolver, writers);
-            _parser = new FilterExpressionFactory(nameResolver, expressionFactories);
+            _parser = new FilterExpressionFactory(nameResolver, expressionFactories, caseFolding);
         }
 
         /// <summary>
