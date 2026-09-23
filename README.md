@@ -12,6 +12,14 @@ var filteredSource = source.Filter(Request.Params);
 
 To set up a client read Peter Goodman's [post](http://blog.petegoo.com/index.php/2012/03/11/creating-a-net-queryable-client-for-asp-net-web-api-odata-services/) on how to use Linq2Rest as a client for a WebApi service.
 
+## Integration tests ##
+
+`Linq2Rest.IntegrationTests` runs converted filters through EF Core against PostgreSQL and SQL Server in containers, using [Testcontainers](https://dotnet.testcontainers.org/). It needs a running Docker-compatible runtime (Docker Desktop, Colima, etc.); on Apple Silicon the SQL Server image runs under emulation, so enable Rosetta (`colima start --vm-type vz --vz-rosetta`).
+
+```
+dotnet test Linq2Rest.IntegrationTests
+```
+
 Have fun!
 
 [![Supported by ReSharper][imgurl]][linkurl]
