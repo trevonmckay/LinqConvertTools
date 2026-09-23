@@ -19,7 +19,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
     [TestFixture]
     public class EnumExpressionFactoryTests
     {
-        private const string EnumString = "LinqCovertTools.Tests.Choice'That'";
+        private const string EnumString = "LinqConvertTools.Tests.Choice'That'";
         private EnumExpressionFactory _factory;
 
         [SetUp]

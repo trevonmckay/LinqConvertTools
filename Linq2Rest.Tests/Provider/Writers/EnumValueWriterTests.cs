@@ -32,7 +32,7 @@ namespace LinqConvertTools.Tests.Provider.Writers
             const Choice Value = Choice.That;
             var result = _writer.Write(Value);
 
-            Assert.AreEqual("LinqCovertTools.Tests.Choice'That'", result);
+            Assert.AreEqual("LinqConvertTools.Tests.Choice'That'", result);
         }
     }
 }

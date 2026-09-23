@@ -83,7 +83,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
         [TestCase("1", typeof(bool?))]
         [TestCase("0", typeof(bool?))]
         [TestCase("null", typeof(bool?))]
-        [TestCase("LinqCovertTools.Tests.Choice'That'", typeof(Choice))]
+        [TestCase("LinqConvertTools.Tests.Choice'That'", typeof(Choice))]
         [TestCase("X'ZWFzdXJlLg=='", typeof(byte[]))]
         [TestCase("binary'ZWFzdXJlLg=='", typeof(byte[]))]
         [TestCase("X'ZWFzdXJlLg=='", typeof(Stream))]
