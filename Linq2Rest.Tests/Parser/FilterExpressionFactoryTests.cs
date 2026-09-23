@@ -243,6 +243,9 @@ namespace LinqConvertTools.Tests.Parser
             [TestCase("DateValue eq datetime'2012-05-06T16:11:00Z'", "x => (x.DateValue == 5/6/2012 4:11:00 PM)")]
             [TestCase("Duration eq time'PT2H15M'", "x => (x.Duration == 02:15:00)")]
             [TestCase("PointInTime eq datetimeoffset'2012-05-06T18:10:00+02:00'", "x => (x.PointInTime == 5/6/2012 6:10:00 PM +02:00)")]
+            [TestCase("PointInTime eq 2012-05-06T18:10:00+02:00", "x => (x.PointInTime == 5/6/2012 6:10:00 PM +02:00)")]
+            [TestCase("PointInTime ge 2012-05-06T16:10:00Z", "x => (x.PointInTime >= 5/6/2012 4:10:00 PM +00:00)")]
+            [TestCase("DateValue eq 2012-05-06T16:11:00Z", "x => (x.DateValue == 5/6/2012 4:11:00 PM)")]
             public void WhenProvidingValidInputThenGetsExpectedExpression(string filter, string expression)
             {
                 var result = _factory.Create<FakeItem>(filter);
