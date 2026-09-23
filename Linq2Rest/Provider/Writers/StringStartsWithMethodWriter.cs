@@ -13,6 +13,7 @@
 namespace LinqConvertTools.Provider.Writers
 {
     using System;
+    using System.Globalization;
     using System.Linq.Expressions;
 
     internal class StringStartsWithMethodWriter : IMethodCallWriter
@@ -29,6 +30,7 @@ namespace LinqConvertTools.Provider.Writers
             var obj = expression.Object;
 
             return string.Format(
+                CultureInfo.InvariantCulture,
                 "startswith({0}, {1})",
                 expressionWriter(obj),
                 expressionWriter(argumentExpression));

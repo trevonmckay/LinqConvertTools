@@ -13,12 +13,13 @@
 namespace LinqConvertTools.Provider.Writers
 {
     using System;
+    using System.Globalization;
 
     internal class GuidValueWriter : ValueWriterBase<Guid>
     {
         public override string Write(object value)
         {
-            return string.Format("guid'{0}'", value);
+            return string.Format(CultureInfo.InvariantCulture, "guid'{0}'", value);
         }
     }
 }

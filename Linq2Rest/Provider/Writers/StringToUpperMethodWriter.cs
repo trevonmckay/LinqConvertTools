@@ -13,6 +13,7 @@
 namespace LinqConvertTools.Provider.Writers
 {
     using System;
+    using System.Globalization;
     using System.Linq.Expressions;
 
     internal class StringToUpperMethodWriter : IMethodCallWriter
@@ -31,7 +32,7 @@ namespace LinqConvertTools.Provider.Writers
 
 
 
-            return string.Format("toupper({0})", expressionWriter(obj));
+            return string.Format(CultureInfo.InvariantCulture, "toupper({0})", expressionWriter(obj));
         }
     }
 }

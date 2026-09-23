@@ -13,13 +13,14 @@
 namespace LinqConvertTools.Provider.Writers
 {
     using System;
+    using System.Globalization;
     using System.Xml;
 
     internal class TimeSpanValueWriter : ValueWriterBase<TimeSpan>
     {
         public override string Write(object value)
         {
-            return string.Format("time'{0}'", XmlConvert.ToString((TimeSpan)value));
+            return string.Format(CultureInfo.InvariantCulture, "time'{0}'", XmlConvert.ToString((TimeSpan)value));
         }
     }
 }

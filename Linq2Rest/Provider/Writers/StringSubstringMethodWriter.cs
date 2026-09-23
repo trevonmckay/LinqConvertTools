@@ -13,6 +13,7 @@
 namespace LinqConvertTools.Provider.Writers
 {
     using System;
+    using System.Globalization;
     using System.Linq.Expressions;
 
     internal class StringSubstringMethodWriter : IMethodCallWriter
@@ -41,6 +42,7 @@ namespace LinqConvertTools.Provider.Writers
 
 
                 return string.Format(
+                    CultureInfo.InvariantCulture,
                     "substring({0}, {1})", expressionWriter(obj), expressionWriter(argumentExpression));
             }
 
@@ -51,6 +53,7 @@ namespace LinqConvertTools.Provider.Writers
 
 
             return string.Format(
+                CultureInfo.InvariantCulture,
                 "substring({0}, {1}, {2})",
                 expressionWriter(obj),
                 expressionWriter(firstArgument),

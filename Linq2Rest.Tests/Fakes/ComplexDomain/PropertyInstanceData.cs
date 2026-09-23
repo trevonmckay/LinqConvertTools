@@ -63,7 +63,7 @@ namespace LinqConvertTools.Tests.Fakes.ComplexDomain
             // otherwise do comparison logic here
 
             // First check it's the same definition name
-            if (!DefinitionName.Equals(that.DefinitionName))
+            if (!DefinitionName.Equals(that.DefinitionName, StringComparison.Ordinal))
             {
                 return false;
             }
@@ -87,7 +87,7 @@ namespace LinqConvertTools.Tests.Fakes.ComplexDomain
         /// <filterpriority>2</filterpriority>
         public override int GetHashCode()
         {
-            return DefinitionName.GetHashCode();
+            return DefinitionName.GetHashCode(StringComparison.Ordinal);
         }
     }
 }

@@ -16,6 +16,7 @@ namespace LinqConvertTools.Provider
     using System.Collections;
     using System.Collections.Generic;
     using System.Diagnostics.Contracts;
+    using System.Globalization;
     using System.Linq;
     using System.Linq.Expressions;
 
@@ -73,7 +74,7 @@ namespace LinqConvertTools.Provider
 
                         builder.FilterParameter = string.IsNullOrWhiteSpace(builder.FilterParameter)
                                                     ? newFilter
-                                                    : string.Format("({0}) and ({1})", builder.FilterParameter, newFilter);
+                                                    : string.Format(CultureInfo.InvariantCulture, "({0}) and ({1})", builder.FilterParameter, newFilter);
                     }
 
                     break;
@@ -278,7 +279,7 @@ namespace LinqConvertTools.Provider
             var processResult = _writer.Write(methodCall.Arguments[1], builder.SourceType) ?? string.Empty;
             var currentParameter = string.IsNullOrWhiteSpace(builder.FilterParameter)
                                     ? processResult
-                                    : string.Format("({0}) and ({1})", builder.FilterParameter, processResult);
+                                    : string.Format(CultureInfo.InvariantCulture, "({0}) and ({1})", builder.FilterParameter, processResult);
             builder.FilterParameter = currentParameter;
 
             var genericArguments = methodCall.Method.GetGenericArguments();

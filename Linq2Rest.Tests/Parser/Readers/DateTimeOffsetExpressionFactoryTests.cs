@@ -15,6 +15,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
     using LinqConvertTools.Parser.Readers;
     using NUnit.Framework;
     using System;
+    using System.Globalization;
     using System.Xml;
 
     [TestFixture]
@@ -34,7 +35,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
             ArgumentNullException.ThrowIfNull(_factory);
 
             var dateTimeOffset = new DateTimeOffset(2012, 5, 6, 18, 10, 0, 100, TimeSpan.FromHours(2));
-            var parameter = string.Format("datetimeoffset\"{0}\"", XmlConvert.ToString(dateTimeOffset));
+            var parameter = string.Format(CultureInfo.InvariantCulture, "datetimeoffset\"{0}\"", XmlConvert.ToString(dateTimeOffset));
 
             var expression = _factory.Convert(parameter);
 
@@ -47,7 +48,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
             ArgumentNullException.ThrowIfNull(_factory);
 
             var dateTimeOffset = new DateTimeOffset(2012, 5, 6, 18, 10, 0, 100, TimeSpan.FromHours(2));
-            var parameter = string.Format("datetimeoffset'{0}'", XmlConvert.ToString(dateTimeOffset));
+            var parameter = string.Format(CultureInfo.InvariantCulture, "datetimeoffset'{0}'", XmlConvert.ToString(dateTimeOffset));
 
             var expression = _factory.Convert(parameter);
 

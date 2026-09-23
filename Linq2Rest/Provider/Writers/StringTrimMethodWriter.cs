@@ -13,6 +13,7 @@
 namespace LinqConvertTools.Provider.Writers
 {
     using System;
+    using System.Globalization;
     using System.Linq.Expressions;
 
     internal class StringTrimMethodWriter : IMethodCallWriter
@@ -31,7 +32,7 @@ namespace LinqConvertTools.Provider.Writers
 
 
 
-            return string.Format("trim({0})", expressionWriter(obj));
+            return string.Format(CultureInfo.InvariantCulture, "trim({0})", expressionWriter(obj));
         }
     }
 }

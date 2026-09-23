@@ -13,6 +13,7 @@
 namespace LinqConvertTools.Parser
 {
     using System.Diagnostics.Contracts;
+    using System.Globalization;
 
     internal class TokenSet
     {
@@ -74,7 +75,7 @@ namespace LinqConvertTools.Parser
 
         public override string ToString()
         {
-            return string.Format("{0} {1} {2}", Left, Operation, Right);
+            return string.Format(CultureInfo.InvariantCulture, "{0} {1} {2}", Left, Operation, Right);
         }
 
         [ContractInvariantMethod]

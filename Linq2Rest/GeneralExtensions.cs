@@ -37,7 +37,7 @@ namespace LinqConvertTools
                 type,
                 t => Attribute.IsDefined(t, typeof(CompilerGeneratedAttribute), false)
                         && t.IsGenericType
-                        && t.Name.Contains("AnonymousType") && (t.Name.StartsWith("<>") || t.Name.StartsWith("VB$"))
+                        && t.Name.Contains("AnonymousType") && (t.Name.StartsWith("<>", StringComparison.Ordinal) || t.Name.StartsWith("VB$", StringComparison.Ordinal))
                         && (t.Attributes & TypeAttributes.NotPublic) == TypeAttributes.NotPublic);
         }
 

@@ -12,6 +12,8 @@
 
 namespace LinqConvertTools.Tests.Parser
 {
+    using System.Globalization;
+
     public class ParseParent
     {
         public required ParseObject Item { get; set; }
@@ -24,13 +26,13 @@ namespace LinqConvertTools.Tests.Parser
 
             public static ParseObject Parse(string input)
             {
-                var value = int.Parse(input);
+                var value = int.Parse(input, CultureInfo.CurrentCulture);
                 return new ParseObject { Value = value };
             }
 
             public override string ToString()
             {
-                return Value.ToString();
+                return Value.ToString(CultureInfo.CurrentCulture);
             }
         }
     }

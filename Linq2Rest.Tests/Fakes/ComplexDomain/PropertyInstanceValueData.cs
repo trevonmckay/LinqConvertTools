@@ -108,7 +108,7 @@ namespace LinqConvertTools.Tests.Fakes.ComplexDomain
                     return IntValue == that.IntValue;
 
                 case ValueTypeDefinitionData.StringNonUnicode:
-                    return StringNonUnicodeValue.Equals(that.StringNonUnicodeValue);
+                    return StringNonUnicodeValue.Equals(that.StringNonUnicodeValue, StringComparison.Ordinal);
                 default:
                     return false;
             }
@@ -123,7 +123,7 @@ namespace LinqConvertTools.Tests.Fakes.ComplexDomain
             switch (ValueType)
             {
                 case ValueTypeDefinitionData.Reference:
-                    return ReferenceValue?.GetHashCode() ?? 0;
+                    return ReferenceValue?.GetHashCode(StringComparison.Ordinal) ?? 0;
 
                 case ValueTypeDefinitionData.DateTime:
                     return DateTimeValue.GetHashCode();
@@ -138,7 +138,7 @@ namespace LinqConvertTools.Tests.Fakes.ComplexDomain
                     return IntValue.GetHashCode();
 
                 case ValueTypeDefinitionData.StringNonUnicode:
-                    return StringNonUnicodeValue.GetHashCode();
+                    return StringNonUnicodeValue.GetHashCode(StringComparison.Ordinal);
 
                 default:
                     return base.GetHashCode();

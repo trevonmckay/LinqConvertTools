@@ -17,6 +17,7 @@ namespace LinqConvertTools.Parser
     using System.Collections.Generic;
     using System.Collections.Specialized;
     using System.Diagnostics.Contracts;
+    using System.Globalization;
     using System.Linq;
 
     /// <summary>
@@ -100,8 +101,8 @@ namespace LinqConvertTools.Parser
                 filterExpression,
                 selectFunction,
                 sortDescriptions,
-                string.IsNullOrWhiteSpace(skip) ? -1 : Convert.ToInt32(skip),
-                string.IsNullOrWhiteSpace(top) ? -1 : Convert.ToInt32(top));
+                string.IsNullOrWhiteSpace(skip) ? -1 : Convert.ToInt32(skip, CultureInfo.InvariantCulture),
+                string.IsNullOrWhiteSpace(top) ? -1 : Convert.ToInt32(top, CultureInfo.InvariantCulture));
             return modelFilter;
         }
 

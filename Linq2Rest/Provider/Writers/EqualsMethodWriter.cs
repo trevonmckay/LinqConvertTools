@@ -13,6 +13,7 @@
 namespace LinqConvertTools.Provider.Writers
 {
     using System;
+    using System.Globalization;
     using System.Linq.Expressions;
 
     internal class EqualsMethodWriter : IMethodCallWriter
@@ -28,6 +29,7 @@ namespace LinqConvertTools.Provider.Writers
 
 
             return string.Format(
+                CultureInfo.InvariantCulture,
                 "{0} eq {1}",
                 expressionWriter(expression.Object),
                 expressionWriter(expression.Arguments[0]));

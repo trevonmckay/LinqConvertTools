@@ -15,6 +15,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
     using LinqConvertTools.Parser.Readers;
     using NUnit.Framework;
     using System;
+    using System.Globalization;
     using System.Xml;
 
     [TestFixture]
@@ -34,7 +35,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
             ArgumentNullException.ThrowIfNull(_factory);
 
             var timeSpan = new TimeSpan(1, 2, 15, 00);
-            var parameter = string.Format("time\"{0}\"", XmlConvert.ToString(timeSpan));
+            var parameter = string.Format(CultureInfo.InvariantCulture, "time\"{0}\"", XmlConvert.ToString(timeSpan));
 
             var expression = _factory.Convert(parameter);
 
@@ -47,7 +48,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
             ArgumentNullException.ThrowIfNull(_factory);
 
             var timeSpan = new TimeSpan(1, 2, 15, 00);
-            var parameter = string.Format("time'{0}'", XmlConvert.ToString(timeSpan));
+            var parameter = string.Format(CultureInfo.InvariantCulture, "time'{0}'", XmlConvert.ToString(timeSpan));
 
             var expression = _factory.Convert(parameter);
 
