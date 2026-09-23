@@ -95,7 +95,7 @@ namespace LinqConvertTools.Provider
                 return name.ToLowerInvariant();
             }
 
-            if (declaringType == typeof(DateTime))
+            if (declaringType == typeof(DateTime) || declaringType == typeof(DateTimeOffset))
             {
                 switch (name)
                 {

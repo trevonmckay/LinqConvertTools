@@ -30,12 +30,7 @@ namespace LinqConvertTools
         private static readonly MethodInfo InnerToLowerInvariantMethod;
         private static readonly MethodInfo InnerToUpperInvariantMethod;
         private static readonly MethodInfo InnerTrimMethod;
-        private static readonly PropertyInfo InnerDayProperty;
-        private static readonly PropertyInfo InnerHourProperty;
-        private static readonly PropertyInfo InnerMinuteProperty;
-        private static readonly PropertyInfo InnerSecondProperty;
-        private static readonly PropertyInfo InnerMonthProperty;
-        private static readonly PropertyInfo InnerYearProperty;
+        private static readonly Dictionary<Type, Dictionary<string, PropertyInfo>> InnerDatePartProperties;
         private static readonly MethodInfo InnerDoubleRoundMethod;
         private static readonly MethodInfo InnerDecimalRoundMethod;
         private static readonly MethodInfo InnerDoubleFloorMethod;
@@ -46,7 +41,6 @@ namespace LinqConvertTools
         static MethodProvider()
         {
             Type stringType = typeof(string);
-            Type datetimeType = typeof(DateTime);
             Type mathType = typeof(Math);
 
             InnerContainsMethod = stringType.GetMethod("Contains", new[] { stringType });
@@ -61,12 +55,10 @@ namespace LinqConvertTools
             InnerToUpperInvariantMethod = stringType.GetMethod("ToUpperInvariant", Type.EmptyTypes);
             InnerTrimMethod = stringType.GetMethod("Trim", Type.EmptyTypes);
 
-            InnerDayProperty = datetimeType.GetProperty("Day", Type.EmptyTypes);
-            InnerHourProperty = datetimeType.GetProperty("Hour", Type.EmptyTypes);
-            InnerMinuteProperty = datetimeType.GetProperty("Minute", Type.EmptyTypes);
-            InnerSecondProperty = datetimeType.GetProperty("Second", Type.EmptyTypes);
-            InnerMonthProperty = datetimeType.GetProperty("Month", Type.EmptyTypes);
-            InnerYearProperty = datetimeType.GetProperty("Year", Type.EmptyTypes);
+            string[] datePartNames = { "Year", "Month", "Day", "Hour", "Minute", "Second" };
+            InnerDatePartProperties = new[] { typeof(DateTime), typeof(DateTimeOffset) }.ToDictionary(
+                dateType => dateType,
+                dateType => datePartNames.ToDictionary(name => name, name => dateType.GetProperty(name, Type.EmptyTypes), StringComparer.OrdinalIgnoreCase));
 
             InnerDoubleRoundMethod = mathType.GetMethod("Round", new[] { typeof(double) });
             InnerDecimalRoundMethod = mathType.GetMethod("Round", new[] { typeof(decimal) });
@@ -147,58 +139,15 @@ namespace LinqConvertTools
             }
         }
 
-        public static PropertyInfo DayProperty
+        /// <summary>
+        /// Gets the property that reads a date part, such as <c>Year</c>, from a <see cref="DateTime"/> or <see cref="DateTimeOffset"/>.
+        /// </summary>
+        /// <returns>The property, or <c>null</c> when <paramref name="dateType"/> is not a date type or <paramref name="name"/> is not a date part.</returns>
+        public static PropertyInfo? GetDatePartProperty(Type dateType, string name)
         {
-            get
-            {
-
-                return InnerDayProperty;
-            }
-        }
-
-        public static PropertyInfo HourProperty
-        {
-            get
-            {
-
-                return InnerHourProperty;
-            }
-        }
-
-        public static PropertyInfo MinuteProperty
-        {
-            get
-            {
-
-                return InnerMinuteProperty;
-            }
-        }
-
-        public static PropertyInfo SecondProperty
-        {
-            get
-            {
-
-                return InnerSecondProperty;
-            }
-        }
-
-        public static PropertyInfo MonthProperty
-        {
-            get
-            {
-
-                return InnerMonthProperty;
-            }
-        }
-
-        public static PropertyInfo YearProperty
-        {
-            get
-            {
-
-                return InnerYearProperty;
-            }
+            return InnerDatePartProperties.TryGetValue(dateType, out Dictionary<string, PropertyInfo>? properties) && properties.TryGetValue(name, out PropertyInfo? property)
+                ? property
+                : null;
         }
 
         public static MethodInfo DoubleRoundMethod

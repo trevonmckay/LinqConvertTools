@@ -20,6 +20,8 @@ namespace LinqConvertTools.IntegrationTests
 
         public DateTimeOffset CreatedAt { get; set; }
 
+        public DateTimeOffset? ClosedAt { get; set; }
+
         public Author Author { get; set; } = new();
 
         public List<Tag> Tags { get; set; } = new();
