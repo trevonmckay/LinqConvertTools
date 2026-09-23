@@ -30,7 +30,7 @@ namespace LinqConvertTools.Parser.Readers
                     var buffer = System.Convert.FromBase64String(match.Groups[2].Value);
                     return Expression.Constant(buffer);
                 }
-                catch
+                catch (FormatException)
                 {
                     return Expression.Constant(null);
                 }

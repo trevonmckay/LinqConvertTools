@@ -82,14 +82,16 @@ namespace LinqConvertTools.Implementations
 
             public T Deserialize(Stream input)
             {
-                var result = (T)_serializer.ReadObject(XmlReader.Create(input));
+                using var reader = XmlReader.Create(input);
+                var result = (T)_serializer.ReadObject(reader);
 
                 return result;
             }
 
             public IEnumerable<T> DeserializeList(Stream input)
             {
-                var result = (List<T>)_listSerializer.ReadObject(XmlReader.Create(input));
+                using var reader = XmlReader.Create(input);
+                var result = (List<T>)_listSerializer.ReadObject(reader);
 
                 return result;
             }
