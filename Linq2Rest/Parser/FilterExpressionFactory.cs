@@ -26,7 +26,8 @@ namespace LinqConvertTools.Parser
     /// </summary>
     public class FilterExpressionFactory : IFilterExpressionFactory
     {
-        private static readonly Regex StringRx = new(@"^[""'](.*?)[""']$", RegexOptions.Compiled);
+        // Embedded quotes are accepted as-is, and a doubled '' is read as a single quote.
+        private static readonly Regex StringRx = new(@"^(?:'(.*)'|""(.*)"")$", RegexOptions.Compiled | RegexOptions.Singleline);
         private static readonly Regex NegateRx = new(@"^-[^\d]*", RegexOptions.Compiled);
         private static readonly Expression _nullConstantExpression = Expression.Constant(null, typeof(object));
 
@@ -156,7 +157,8 @@ namespace LinqConvertTools.Parser
             string cleanConstantValue = constantValue.TrimStart('(').TrimEnd(')');
             object[] values = cleanConstantValue
                 .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(value => value.Trim().Trim('\''))
+                .Select(value => value.Trim())
+                .Select(value => TryReadStringLiteral(value, out string? literal) ? literal! : value)
                 .Select(value => toUpper ? ToUpper(value) : value)
                 .ToArray();
 
@@ -340,6 +342,31 @@ namespace LinqConvertTools.Parser
                                    Expression.Lambda(genericFunc, right, filteredParameters));
         }
 
+        /// <summary>
+        /// Reads a quoted string literal.
+        /// </summary>
+        /// <returns><c>true</c> when <paramref name="token"/> is a string literal; <c>false</c> when it does not start with a quote.</returns>
+        /// <exception cref="FormatException">The token starts with a quote but does not end with the same quote.</exception>
+        private static bool TryReadStringLiteral(string token, out string? value)
+        {
+            value = null;
+            if (token.Length == 0 || (token[0] != '\'' && token[0] != '"'))
+            {
+                return false;
+            }
+
+            Match match = StringRx.Match(token);
+            if (!match.Success)
+            {
+                throw new FormatException("Unterminated string literal: " + token);
+            }
+
+            value = match.Groups[1].Success
+                ? match.Groups[1].Value.Replace("''", "'")
+                : match.Groups[2].Value.Replace("''", "'");
+            return true;
+        }
+
         private static Type GetNonNullableType(Type type)
         {
             return type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>)
@@ -467,11 +494,9 @@ namespace LinqConvertTools.Parser
                 return Expression.Constant(null);
             }
 
-            Match stringMatch = StringRx.Match(filter);
-
-            if (stringMatch.Success)
+            if (TryReadStringLiteral(filter, out string? stringLiteral))
             {
-                return Expression.Constant(stringMatch.Groups[1].Value.Replace("''", "'"), typeof(string));
+                return Expression.Constant(stringLiteral, typeof(string));
             }
 
             if (NegateRx.IsMatch(filter))
