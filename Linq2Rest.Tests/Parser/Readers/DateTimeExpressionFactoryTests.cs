@@ -15,6 +15,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
     using LinqConvertTools.Parser.Readers;
     using NUnit.Framework;
     using System;
+    using System.Globalization;
 
     [TestFixture]
     public class DateTimeExpressionFactoryTests
@@ -80,6 +81,36 @@ namespace LinqConvertTools.Tests.Parser.Readers
             var expression = _factory.Convert(parameter);
 
             Assert.AreEqual(utcTime, expression.Value);
+        }
+
+        [Test]
+        public void WhenFilterIncludesBareV4DateTimeThenReturnedExpressionContainsDateTime()
+        {
+            var parameter = _dateTime.ToString("yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture);
+
+            var expression = _factory.Convert(parameter);
+
+            Assert.AreEqual(_dateTime, expression.Value);
+        }
+
+        [Test]
+        public void WhenFilterIncludesBareV4DateTimeWithZuluThenReturnedExpressionContainsUtcDateTime()
+        {
+            var utcTime = _dateTime.ToUniversalTime();
+            var parameter = utcTime.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture);
+
+            var expression = _factory.Convert(parameter);
+
+            Assert.AreEqual(utcTime, expression.Value);
+            Assert.AreEqual(DateTimeKind.Utc, ((DateTime)expression.Value!).Kind);
+        }
+
+        [Test]
+        public void WhenFilterIncludesBareV4DateThenReturnedExpressionContainsDateTime()
+        {
+            var expression = _factory.Convert("2012-01-01");
+
+            Assert.AreEqual(new DateTime(2012, 1, 1), expression.Value);
         }
 
         [Test]

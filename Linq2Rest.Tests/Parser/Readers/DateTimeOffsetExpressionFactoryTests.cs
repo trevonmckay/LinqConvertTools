@@ -50,6 +50,24 @@ namespace LinqConvertTools.Tests.Parser.Readers
             Assert.IsAssignableFrom<DateTimeOffset>(expression.Value);
         }
 
+        [TestCase("2012-05-06T18:10:00Z", 0)]
+        [TestCase("2012-05-06T18:10:00.100+02:00", 2)]
+        [TestCase("2012-05-06T18:10-05:00", -5)]
+        public void WhenFilterIncludesBareV4DateTimeOffsetThenReturnedExpressionContainsDateTimeOffset(string parameter, int offsetHours)
+        {
+            var expression = _factory.Convert(parameter);
+
+            Assert.IsAssignableFrom<DateTimeOffset>(expression.Value);
+            Assert.AreEqual(TimeSpan.FromHours(offsetHours), ((DateTimeOffset)expression.Value!).Offset);
+        }
+
+        [TestCase("2012-05-06")]
+        [TestCase("2012-05-06T18:10:00")]
+        public void WhenBareDateTimeOffsetHasNoOffsetThenThrows(string parameter)
+        {
+            Assert.Throws<FormatException>(() => _factory.Convert(parameter));
+        }
+
         [Test]
         public void WhenFilterIsIncorrectFormatThenThrows()
         {
