@@ -196,7 +196,7 @@ namespace LinqConvertTools
 
 
 
-            return fields.Aggregate("LinqCovertTools<>" + sourceType.Name, (current, field) => current + (field.Key + field.Value.MemberType));
+            return fields.Aggregate("LinqConvertTools<>" + sourceType.Name, (current, field) => current + (field.Key + field.Value.MemberType));
         }
     }
 }
