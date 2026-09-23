@@ -1,0 +1,127 @@
+name: tests
+
+# No trigger-level `paths:` filter: `gate` is the required status check and must report on
+# every PR. A path-filtered run would leave it pending forever on docs-only PRs. The `changes`
+# job decides whether the test jobs actually run.
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    name: detect changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      code: ${{ steps.detect.outputs.code }}
+    steps:
+      - uses: actions/github-script@v9
+        id: detect
+        with:
+          script: |
+            // Keep in sync with everything a build or test run depends on.
+            const patterns = [
+              /^Linq2Rest[^/]*\//,
+              /^[^/]+\.sln$/,
+              /^(Directory\.(Build|Packages)\.(props|targets)|global\.json|nuget\.config)$/i,
+              /^\.github\/workflows\/tests\.yml$/,
+            ];
+            const isRelevant = (f) => !/\.md$/i.test(f) && patterns.some((re) => re.test(f));
+            const setCode = (v, why) => { core.info(why); core.setOutput('code', v); };
+
+            if (context.eventName !== 'pull_request')
+              return setCode('true', `${context.eventName}: run tests`);
+            try {
+              const files = (await github.paginate(github.rest.pulls.listFiles, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.payload.pull_request.number,
+                per_page: 100,
+              })).map((f) => f.filename);
+              const relevant = files.filter(isRelevant);
+              setCode(relevant.length > 0 ? 'true' : 'false',
+                `changed: ${files.length}, relevant: ${relevant.length}`);
+            } catch (err) {
+              // Fail safe: never skip tests because detection broke.
+              setCode('true', `detection failed (${err.message}); run tests`);
+            }
+
+  unit-tests:
+    name: unit tests
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      # The test project targets net6.0; the 10.0 SDK builds it and 6.0 provides the runtime.
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: |
+            6.0.x
+            10.0.x
+
+      - name: Test
+        run: >-
+          dotnet test Linq2Rest.Tests/LinqConvertTools.Tests.csproj
+          --logger trx --results-directory TestResults
+
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: unit-test-results
+          path: TestResults/*.trx
+          if-no-files-found: ignore
+
+  integration-tests:
+    name: integration tests
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      # Testcontainers starts PostgreSQL and SQL Server through the runner's Docker daemon.
+      - name: Test
+        run: >-
+          dotnet test Linq2Rest.IntegrationTests/LinqConvertTools.IntegrationTests.csproj
+          --logger trx --results-directory TestResults
+
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: integration-test-results
+          path: TestResults/*.trx
+          if-no-files-found: ignore
+
+  gate:
+    name: gate
+    needs: [changes, unit-tests, integration-tests]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fail if any test job failed or was cancelled
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: |
+          echo "::error::a required test job failed or was cancelled"
+          exit 1
+      - name: Tests satisfied
+        run: echo "Tests passed, or were skipped because no code changed."
