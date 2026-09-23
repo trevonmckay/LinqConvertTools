@@ -13,7 +13,7 @@ namespace LinqConvertTools.Tests.Parser
     {
         private static readonly DateTimeOffset Expected = new(2026, 10, 1, 0, 0, 0, TimeSpan.Zero);
 
-        private ODataExpressionConverter _converter;
+        private ODataExpressionConverter? _converter;
 
         [SetUp]
         public void Setup()
@@ -29,6 +29,8 @@ namespace LinqConvertTools.Tests.Parser
         [TestCase("At ge datetimeoffset'2026-10-01T00:00:00Z'")]
         public void WhenFilteringDateTimeOffsetThenBareAndTypedLiteralsConvert(string filter)
         {
+            ArgumentNullException.ThrowIfNull(_converter);
+
             var predicate = _converter.Convert<IHasDateTimeOffset>(filter).Compile();
 
             Assert.IsTrue(predicate(new HasDateTimeOffset(Expected)), "Failed for " + filter);
@@ -39,6 +41,8 @@ namespace LinqConvertTools.Tests.Parser
         [TestCase("At ge datetimeoffset'2026-10-01T00:00:00Z' and At lt datetimeoffset'2026-10-03T00:00:00Z'")]
         public void WhenFilteringNullableDateTimeOffsetThenBareAndTypedLiteralsConvert(string filter)
         {
+            ArgumentNullException.ThrowIfNull(_converter);
+
             var predicate = _converter.Convert<IHasNullableDateTimeOffset>(filter).Compile();
 
             Assert.IsTrue(predicate(new HasNullableDateTimeOffset(Expected.AddDays(1))), "Failed for " + filter);
@@ -52,6 +56,8 @@ namespace LinqConvertTools.Tests.Parser
         [TestCase("At ge 20261001T000000Z")]
         public void WhenDateTimeOffsetLiteralIsNotV4ThenThrows(string filter)
         {
+            ArgumentNullException.ThrowIfNull(_converter);
+
             Assert.Throws<FormatException>(() => _converter.Convert<IHasDateTimeOffset>(filter));
         }
 
@@ -60,6 +66,8 @@ namespace LinqConvertTools.Tests.Parser
         [TestCase("Moment eq 2026-10-01", DateTimeKind.Unspecified)]
         public void WhenFilteringDateTimeThenBareLiteralConverts(string filter, DateTimeKind kind)
         {
+            ArgumentNullException.ThrowIfNull(_converter);
+
             var predicate = _converter.Convert<IHasDateTime>(filter).Compile();
 
             Assert.IsTrue(predicate(new HasDateTime(DateTime.SpecifyKind(new DateTime(2026, 10, 1), kind))), "Failed for " + filter);

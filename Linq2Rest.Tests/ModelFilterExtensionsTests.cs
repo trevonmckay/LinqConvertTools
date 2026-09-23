@@ -21,7 +21,7 @@ namespace LinqConvertTools.Tests
     [TestFixture]
     public class ModelFilterExtensionsTests
     {
-        private FakeItem[] _source;
+        private FakeItem[]? _source;
 
         [SetUp]
         public void TestSetup()
@@ -40,6 +40,8 @@ namespace LinqConvertTools.Tests
         [TestCase("DateValue eq datetime'123'")]
         public void WhenFilteringWithInvalidFilterParametersThenThrows(string filter)
         {
+            ArgumentNullException.ThrowIfNull(_source);
+
             var parameters = new NameValueCollection
                                  {
                                      { "$filter", filter }
@@ -53,6 +55,8 @@ namespace LinqConvertTools.Tests
         [TestCase("'123'")]
         public void WhenFilteringWithInvalidOrderingParametersThenThrows(string sorting)
         {
+            ArgumentNullException.ThrowIfNull(_source);
+
             var parameters = new NameValueCollection
                                  {
                                      { "$orderby", sorting }
@@ -66,6 +70,8 @@ namespace LinqConvertTools.Tests
         [TestCase("'123'")]
         public void WhenFilteringWithInvalidTopParametersThenThrows(string top)
         {
+            ArgumentNullException.ThrowIfNull(_source);
+
             var parameters = new NameValueCollection
                                  {
                                      { "$top", top }
@@ -79,6 +85,8 @@ namespace LinqConvertTools.Tests
         [TestCase("'123'")]
         public void WhenFilteringWithInvalidSkipParametersThenThrows(string top)
         {
+            ArgumentNullException.ThrowIfNull(_source);
+
             var parameters = new NameValueCollection
                                  {
                                      { "$skip", top }

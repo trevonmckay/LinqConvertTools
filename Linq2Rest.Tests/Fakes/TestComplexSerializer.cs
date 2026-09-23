@@ -17,6 +17,7 @@ namespace LinqConvertTools.Tests.Fakes
     using System;
     using System.Collections.Generic;
     using System.IO;
+    using System.Runtime.Serialization;
     using System.Runtime.Serialization.Json;
 
     internal class TestComplexSerializer : ISerializer<ComplexDto>
@@ -26,12 +27,12 @@ namespace LinqConvertTools.Tests.Fakes
 
         public ComplexDto Deserialize(Stream input)
         {
-            return (ComplexDto)_innerSerializer.ReadObject(input);
+            return (ComplexDto)(_innerSerializer.ReadObject(input) ?? throw new SerializationException("The payload does not contain an item."));
         }
 
         public IEnumerable<ComplexDto> DeserializeList(Stream input)
         {
-            return (List<ComplexDto>)_innerListSerializer.ReadObject(input);
+            return (List<ComplexDto>)(_innerListSerializer.ReadObject(input) ?? throw new SerializationException("The payload does not contain a list."));
         }
 
         public Stream Serialize(ComplexDto item)

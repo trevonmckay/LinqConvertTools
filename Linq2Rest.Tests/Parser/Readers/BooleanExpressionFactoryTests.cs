@@ -18,7 +18,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
     [TestFixture]
     public class BooleanExpressionFactoryTests
     {
-        private BooleanExpressionFactory _factory;
+        private BooleanExpressionFactory? _factory;
 
         [SetUp]
         public void Setup()
@@ -31,6 +31,8 @@ namespace LinqConvertTools.Tests.Parser.Readers
         [TestCase("2", null)]
         public void WhenFilterIncludesBooleanParameterAsNumberThenReturnedExpressionContainsBoolean(string parameter, object value)
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             var expression = _factory.Convert(parameter);
 
             Assert.AreEqual(value, expression.Value);
@@ -43,6 +45,8 @@ namespace LinqConvertTools.Tests.Parser.Readers
         [TestCase("blah", null)]
         public void WhenFilterIncludesBooleanParameterAsWordThenReturnedExpressionContainsBoolean(string parameter, object value)
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             var expression = _factory.Convert(parameter);
 
             Assert.AreEqual(value, expression.Value);
@@ -51,6 +55,8 @@ namespace LinqConvertTools.Tests.Parser.Readers
         [Test]
         public void WhenFilterIsIncorrectFormatThenReturnsNullValue()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             const string Parameter = "blah";
 
             Assert.AreEqual(null, _factory.Convert(Parameter).Value);

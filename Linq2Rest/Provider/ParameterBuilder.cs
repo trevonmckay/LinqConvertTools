@@ -40,17 +40,17 @@ namespace LinqConvertTools.Provider
             OrderByParameter = new List<string>();
         }
 
-        public string FilterParameter { get; set; }
+        public string FilterParameter { get; set; } = string.Empty;
 
         public IList<string> OrderByParameter { get; private set; }
 
-        public string SelectParameter { get; set; }
+        public string SelectParameter { get; set; } = string.Empty;
 
-        public string SkipParameter { get; set; }
+        public string SkipParameter { get; set; } = string.Empty;
 
-        public string TakeParameter { get; set; }
+        public string TakeParameter { get; set; } = string.Empty;
 
-        public string ExpandParameter { get; set; }
+        public string ExpandParameter { get; set; } = string.Empty;
 
         public Type SourceType { get; private set; }
 

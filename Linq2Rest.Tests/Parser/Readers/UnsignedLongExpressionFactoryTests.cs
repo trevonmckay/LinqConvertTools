@@ -19,7 +19,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
     [TestFixture]
     public class UnsignedLongExpressionFactoryTests
     {
-        private UnsignedLongExpressionFactory _factory;
+        private UnsignedLongExpressionFactory? _factory;
 
         [SetUp]
         public void Setup()
@@ -30,6 +30,8 @@ namespace LinqConvertTools.Tests.Parser.Readers
         [Test]
         public void WhenFilterIncludesUnsignedLongParameterThenReturnedExpressionContainsUnsignedLong()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             var expression = _factory.Convert("123");
 
             Assert.IsAssignableFrom<ulong>(expression.Value);
@@ -38,6 +40,8 @@ namespace LinqConvertTools.Tests.Parser.Readers
         [Test]
         public void WhenFilterIsIncorrectFormatThenThrows()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             const string Parameter = "blah";
 
             Assert.Throws<FormatException>(() => _factory.Convert(Parameter));

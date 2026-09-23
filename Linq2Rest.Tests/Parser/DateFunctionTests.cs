@@ -10,8 +10,8 @@ namespace LinqConvertTools.Tests.Parser
     [TestFixture]
     public class DateFunctionTests
     {
-        private ODataExpressionConverter _converter;
-        private Event[] _events;
+        private ODataExpressionConverter? _converter;
+        private Event[]? _events;
 
         [SetUp]
         public void Setup()
@@ -52,6 +52,9 @@ namespace LinqConvertTools.Tests.Parser
         [TestCase("year(MaybeAt) ne 2024", "Review")]
         public void FiltersByDatePart(string filter, string expected)
         {
+            ArgumentNullException.ThrowIfNull(_converter);
+            ArgumentNullException.ThrowIfNull(_events);
+
             var predicate = _converter.Convert<Event>(filter);
 
             string actual = string.Join(",", _events.AsQueryable().Where(predicate).Select(e => e.Name));
@@ -70,6 +73,8 @@ namespace LinqConvertTools.Tests.Parser
         [TestCase("year(MaybeOffset) eq 2024", "x => (IIF(x.MaybeOffset.HasValue, Convert(x.MaybeOffset.Value.Year, Nullable`1), null) == Convert(2024, Nullable`1))")]
         public void CreatesDatePartExpression(string filter, string expected)
         {
+            ArgumentNullException.ThrowIfNull(_converter);
+
             Assert.AreEqual(expected, _converter.Convert<Event>(filter).ToString());
         }
 
@@ -77,12 +82,16 @@ namespace LinqConvertTools.Tests.Parser
         [TestCase("hour(Duration) eq 1")]
         public void RejectsNonDateMembers(string filter)
         {
+            ArgumentNullException.ThrowIfNull(_converter);
+
             Assert.Throws<InvalidOperationException>(() => _converter.Convert<Event>(filter));
         }
 
         [Test]
         public void WritesDateTimeOffsetParts()
         {
+            ArgumentNullException.ThrowIfNull(_converter);
+
             Expression<Func<Event, bool>> expression = x => x.Offset.Year == 2024 && x.Offset.Hour == 9;
 
             Assert.AreEqual("year(Offset) eq 2024 and hour(Offset) eq 9", _converter.Convert(expression));
@@ -90,6 +99,9 @@ namespace LinqConvertTools.Tests.Parser
 
         private string Filter(string filter)
         {
+            ArgumentNullException.ThrowIfNull(_converter);
+            ArgumentNullException.ThrowIfNull(_events);
+
             return string.Join(",", _events.AsQueryable().Where(_converter.Convert<Event>(filter)).Select(e => e.Name));
         }
 

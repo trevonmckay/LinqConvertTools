@@ -20,7 +20,7 @@ namespace LinqConvertTools.Tests.Implementations
     [TestFixture]
     public class JsonDataContractSerializerFactoryTests
     {
-        private JsonDataContractSerializerFactory _factory;
+        private JsonDataContractSerializerFactory? _factory;
 
         [SetUp]
         public void Setup()
@@ -31,6 +31,8 @@ namespace LinqConvertTools.Tests.Implementations
         [Test]
         public void CreatedSerializerCanDeserializeDataContractType()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             const string Json = "{\"Value\": 2, \"Text\":\"test\"}";
 
             var serializer = _factory.Create<SimpleContractItem>();
@@ -44,6 +46,8 @@ namespace LinqConvertTools.Tests.Implementations
         [Test]
         public void CreatedSerializerCanDeserializeListOfDataContractType()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             const string Json = "[{\"Value\": 2, \"Text\":\"test\"}]";
 
             var serializer = _factory.Create<SimpleContractItem>();
@@ -56,6 +60,8 @@ namespace LinqConvertTools.Tests.Implementations
         [Test]
         public void CreatedSerializerCanSerializeDataContractType()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             var serializer = _factory.Create<SimpleContractItem>();
 
             var deserializedResult = serializer.Serialize(new SimpleContractItem());
@@ -66,6 +72,8 @@ namespace LinqConvertTools.Tests.Implementations
         [Test]
         public void WhenCreatingSerializerThenDoesNotReturnNull()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             Assert.NotNull(_factory.Create<SimpleContractItem>());
         }
     }

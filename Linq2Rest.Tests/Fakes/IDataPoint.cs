@@ -14,6 +14,6 @@ namespace LinqConvertTools.Tests.Fakes
 {
     public interface IDataPoint : ITimeSeriesValue
     {
-        object Extras { get; set; }
+        object? Extras { get; set; }
     }
 }

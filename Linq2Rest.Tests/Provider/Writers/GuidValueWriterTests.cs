@@ -19,7 +19,7 @@ namespace LinqConvertTools.Tests.Provider.Writers
     [TestFixture]
     public class GuidValueWriterTests
     {
-        private GuidValueWriter _writer;
+        private GuidValueWriter? _writer;
 
         [SetUp]
         public void Setup()
@@ -30,6 +30,8 @@ namespace LinqConvertTools.Tests.Provider.Writers
         [Test]
         public void WhenWritingGuidThenEnclosesInSingleQuote()
         {
+            ArgumentNullException.ThrowIfNull(_writer);
+
             var guid = new Guid("e9bc1b54-18fe-4951-a6c6-1de1ef23d6c3");
             var result = _writer.Write(guid);
 

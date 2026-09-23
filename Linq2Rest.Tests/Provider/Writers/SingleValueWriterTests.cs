@@ -18,7 +18,7 @@ namespace LinqConvertTools.Tests.Provider.Writers
     [TestFixture]
     public class SingleValueWriterTests
     {
-        private SingleValueWriter _writer;
+        private SingleValueWriter? _writer;
 
         [SetUp]
         public void Setup()
@@ -29,6 +29,8 @@ namespace LinqConvertTools.Tests.Provider.Writers
         [Test]
         public void WhenWritingSingleValueThenWritesString()
         {
+            ArgumentNullException.ThrowIfNull(_writer);
+
             var result = _writer.Write(1.23f);
 
             Assert.AreEqual("1.23f", result);

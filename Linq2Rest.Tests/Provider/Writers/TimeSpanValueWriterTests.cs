@@ -19,7 +19,7 @@ namespace LinqConvertTools.Tests.Provider.Writers
     [TestFixture]
     public class TimeSpanValueWriterTests
     {
-        private TimeSpanValueWriter _writer;
+        private TimeSpanValueWriter? _writer;
 
         [SetUp]
         public void Setup()
@@ -30,6 +30,8 @@ namespace LinqConvertTools.Tests.Provider.Writers
         [Test]
         public void WhenWritingShortTimeSpanValueThenWritesString()
         {
+            ArgumentNullException.ThrowIfNull(_writer);
+
             var value = new TimeSpan(2, 15, 0);
             var result = _writer.Write(value);
 
@@ -39,6 +41,8 @@ namespace LinqConvertTools.Tests.Provider.Writers
         [Test]
         public void WhenWritingTimeSpanValueThenWritesString()
         {
+            ArgumentNullException.ThrowIfNull(_writer);
+
             var value = new TimeSpan(2, 2, 15, 0);
             var result = _writer.Write(value);
 

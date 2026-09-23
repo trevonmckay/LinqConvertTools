@@ -19,7 +19,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
     [TestFixture]
     public class ByteExpressionFactoryTests
     {
-        private ByteExpressionFactory _factory;
+        private ByteExpressionFactory? _factory;
 
         [SetUp]
         public void Setup()
@@ -30,6 +30,8 @@ namespace LinqConvertTools.Tests.Parser.Readers
         [Test]
         public void WhenFilterIncludesByteParameterInHexFormatThenReturnedExpressionContainsByte()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             var expression = _factory.Convert("f2");
 
             Assert.IsAssignableFrom<byte>(expression.Value);
@@ -38,6 +40,8 @@ namespace LinqConvertTools.Tests.Parser.Readers
         [Test]
         public void WhenFilterIncludesByteParameterThenReturnedExpressionContainsByte()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             var expression = _factory.Convert("12");
 
             Assert.IsAssignableFrom<byte>(expression.Value);
@@ -46,6 +50,8 @@ namespace LinqConvertTools.Tests.Parser.Readers
         [Test]
         public void WhenFilterIsIncorrectFormatThenReturnsDefaultValue()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             const string Parameter = "blah";
 
             Assert.Throws<FormatException>(() => _factory.Convert(Parameter));

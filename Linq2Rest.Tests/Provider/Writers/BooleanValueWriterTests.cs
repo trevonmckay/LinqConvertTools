@@ -18,7 +18,7 @@ namespace LinqConvertTools.Tests.Provider.Writers
     [TestFixture]
     public class BooleanValueWriterTests
     {
-        private BooleanValueWriter _writer;
+        private BooleanValueWriter? _writer;
 
         [SetUp]
         public void Setup()
@@ -29,6 +29,8 @@ namespace LinqConvertTools.Tests.Provider.Writers
         [Test]
         public void WhenWritingBooleanThenEnclosesInSingleQuote()
         {
+            ArgumentNullException.ThrowIfNull(_writer);
+
             var result = _writer.Write(true);
 
             Assert.AreEqual("true", result);

@@ -17,6 +17,7 @@ namespace LinqConvertTools.Tests.Fakes
     using System.Collections.Generic;
     using System.IO;
     using System.Linq;
+    using System.Runtime.Serialization;
     using System.Runtime.Serialization.Json;
 
     public class TestODataSerializer<T> : ISerializer<T>
@@ -25,19 +26,23 @@ namespace LinqConvertTools.Tests.Fakes
 
         public T Deserialize(Stream input)
         {
-            var response = (ODataResponse<T>)_innerSerializer.ReadObject(input);
-            return response.Results.FirstOrDefault();
+            return ReadResults(input).FirstOrDefault() ?? throw new SerializationException("The OData response contains no results.");
         }
 
         public IEnumerable<T> DeserializeList(Stream input)
         {
-            var response = (ODataResponse<T>)_innerSerializer.ReadObject(input);
-            return response.Results;
+            return ReadResults(input);
         }
 
         public Stream Serialize(T item)
         {
             throw new NotImplementedException();
+        }
+
+        private List<T> ReadResults(Stream input)
+        {
+            var response = (ODataResponse<T>?)_innerSerializer.ReadObject(input);
+            return response?.Results ?? throw new SerializationException("The payload does not contain an OData value array.");
         }
     }
 }

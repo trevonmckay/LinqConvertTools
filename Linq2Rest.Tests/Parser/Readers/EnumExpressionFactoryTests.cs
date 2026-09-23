@@ -20,7 +20,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
     public class EnumExpressionFactoryTests
     {
         private const string EnumString = "LinqConvertTools.Tests.Choice'That'";
-        private EnumExpressionFactory _factory;
+        private EnumExpressionFactory? _factory;
 
         [SetUp]
         public void Setup()
@@ -31,6 +31,8 @@ namespace LinqConvertTools.Tests.Parser.Readers
         [Test]
         public void WhenFilterIncludesCorrectEnumValueThenReturnedExpressionContainsEnumValue()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             var expression = _factory.Convert(EnumString);
 
             Assert.IsAssignableFrom<Choice>(expression.Value);
@@ -39,6 +41,8 @@ namespace LinqConvertTools.Tests.Parser.Readers
         [Test]
         public void WhenFilterIsIncorrectFormatThenThrows()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             const string Parameter = "blah";
 
             Assert.Throws<FormatException>(() => _factory.Convert(Parameter));

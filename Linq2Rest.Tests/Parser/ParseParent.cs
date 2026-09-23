@@ -14,7 +14,7 @@ namespace LinqConvertTools.Tests.Parser
 {
     public class ParseParent
     {
-        public ParseObject Item { get; set; }
+        public required ParseObject Item { get; set; }
 
         public int Number { get; set; }
 

@@ -27,7 +27,7 @@ namespace LinqConvertTools.Implementations
             _clientCertificate = clientCertificate;
         }
 
-        public IHttpRequest Create(Uri uri, HttpMethod method, string acceptMimeType, string requestMimeType = null)
+        public IHttpRequest Create(Uri uri, HttpMethod method, string acceptMimeType, string? requestMimeType = null)
         {
             var httpWebRequest = HttpWebRequestAdapter.CreateHttpWebRequest(uri, method, acceptMimeType, requestMimeType);
 

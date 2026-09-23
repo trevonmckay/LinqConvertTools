@@ -83,7 +83,7 @@ namespace LinqConvertTools
                         CreateProperty(typeBuilder, field);
                     }
 
-                    return typeBuilder.CreateTypeInfo();
+                    return typeBuilder.CreateTypeInfo() ?? throw new InvalidOperationException("Could not create runtime type " + className + ".");
                 });
         }
 

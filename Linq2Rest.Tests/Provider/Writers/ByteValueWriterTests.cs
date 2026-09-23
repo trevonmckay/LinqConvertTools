@@ -18,7 +18,7 @@ namespace LinqConvertTools.Tests.Provider.Writers
     [TestFixture]
     public class ByteValueWriterTests
     {
-        private ByteValueWriter _writer;
+        private ByteValueWriter? _writer;
 
         [SetUp]
         public void Setup()
@@ -29,6 +29,8 @@ namespace LinqConvertTools.Tests.Provider.Writers
         [Test]
         public void WhenWritingByteValueThenWritesString()
         {
+            ArgumentNullException.ThrowIfNull(_writer);
+
             const byte Value = 255;
             var result = _writer.Write(Value);
 

@@ -59,7 +59,8 @@ namespace LinqConvertTools.Tests
         {
             var content = new StreamReader(input).ReadToEnd();
 
-            var dictionary = JsonSerializer.Deserialize<Dictionary<string, object>>(content, _innerSerializerOptions);
+            var dictionary = JsonSerializer.Deserialize<Dictionary<string, object>>(content, _innerSerializerOptions)
+                ?? throw new JsonException("The payload does not contain an object.");
             var selectorFunction = CreateSelector(dictionary);
             return selectorFunction(dictionary);
         }
@@ -156,7 +157,7 @@ namespace LinqConvertTools.Tests
                                 memberType))
                 .ToArray();
 
-            var constructorInfo = _elementType.GetConstructors().FirstOrDefault();
+            var constructorInfo = _elementType.GetConstructors().First();
 
             var selector =
                 Expression.Lambda<Func<object, T>>(

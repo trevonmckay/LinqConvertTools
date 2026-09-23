@@ -17,6 +17,6 @@ namespace LinqConvertTools.Tests
     [DataContract]
     public class FakeGrandChildItem
     {
-        public string GrandChildStringValue { get; set; }
+        public required string GrandChildStringValue { get; set; }
     }
 }

@@ -18,7 +18,7 @@ namespace LinqConvertTools.Tests.Provider.Writers
     [TestFixture]
     public class UnsignedLongValueWriterTests
     {
-        private UnsignedLongValueWriter _writer;
+        private UnsignedLongValueWriter? _writer;
 
         [SetUp]
         public void Setup()
@@ -29,6 +29,8 @@ namespace LinqConvertTools.Tests.Provider.Writers
         [Test]
         public void WhenWritingUnsignedLongValueThenWritesString()
         {
+            ArgumentNullException.ThrowIfNull(_writer);
+
             var result = _writer.Write((ulong)123);
 
             Assert.AreEqual("123", result);

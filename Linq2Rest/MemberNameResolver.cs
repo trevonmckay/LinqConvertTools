@@ -26,15 +26,15 @@ namespace LinqConvertTools
     public class MemberNameResolver : IMemberNameResolver
     {
         private static readonly ConcurrentDictionary<MemberInfo, string> KnownMemberNames = new ConcurrentDictionary<MemberInfo, string>();
-        private static readonly ConcurrentDictionary<string, MemberInfo> KnownAliasNames = new ConcurrentDictionary<string, MemberInfo>();
+        private static readonly ConcurrentDictionary<string, MemberInfo?> KnownAliasNames = new ConcurrentDictionary<string, MemberInfo?>();
 
         /// <summary>
         /// Returns the resolved <see cref="MemberInfo"/> for an alias.
         /// </summary>
         /// <param name="type">The <see cref="Type"/> the alias relates to.</param>
         /// <param name="alias">The name of the alias.</param>
-        /// <returns>The <see cref="MemberInfo"/> which is aliased.</returns>
-        public MemberInfo ResolveAlias(Type type, string alias)
+        /// <returns>The <see cref="MemberInfo"/> which is aliased, or <see langword="null"/> when <paramref name="type"/> has no member with that alias.</returns>
+        public MemberInfo? ResolveAlias(Type type, string alias)
         {
             var key = type.AssemblyQualifiedName + alias;
             return KnownAliasNames.GetOrAdd(key, s => ResolveAliasInternal(type, alias));
@@ -54,7 +54,7 @@ namespace LinqConvertTools
             return result;
         }
 
-        private static MemberInfo ResolveAliasInternal(Type type, string alias)
+        private static MemberInfo? ResolveAliasInternal(Type type, string alias)
         {
             var member = GetMembers(type)
                 .Select(

@@ -52,7 +52,7 @@ namespace LinqConvertTools.Parser.Readers
                 .ToList();
         }
 
-        public Expression Read(Type type, string token, IFormatProvider formatProvider)
+        public Expression? Read(Type type, string token, IFormatProvider formatProvider)
         {
             var factory = _expressionFactories.FirstOrDefault(x => x.Handles(type));
 
@@ -61,7 +61,7 @@ namespace LinqConvertTools.Parser.Readers
                 : factory.Convert(token);
         }
 
-        private static Expression GetParseExpression(string filter, IFormatProvider formatProvider, Type type)
+        private static Expression? GetParseExpression(string filter, IFormatProvider formatProvider, Type type)
         {
             var parseMethods = type.GetMethods(BindingFlags.Static | BindingFlags.Public).Where(x => x.Name == "Parse").ToArray();
             if (parseMethods.Length > 0)
@@ -97,7 +97,7 @@ namespace LinqConvertTools.Parser.Readers
             return null;
         }
 
-        private Expression GetKnownConstant(Type type, string token, IFormatProvider formatProvider)
+        private Expression? GetKnownConstant(Type type, string token, IFormatProvider formatProvider)
         {
             if (type.IsEnum)
             {

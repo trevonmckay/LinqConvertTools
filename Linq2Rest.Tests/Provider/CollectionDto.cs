@@ -19,7 +19,7 @@ namespace LinqConvertTools.Tests.Provider
     {
         public int ID { get; set; }
 
-        public string Content { get; set; }
+        public string? Content { get; set; }
 
         public double Value { get; set; }
 
@@ -27,6 +27,6 @@ namespace LinqConvertTools.Tests.Provider
 
         public Choice Choice { get; set; }
 
-        public ICollection<ChildDto> Children { get; set; }
+        public ICollection<ChildDto>? Children { get; set; }
     }
 }

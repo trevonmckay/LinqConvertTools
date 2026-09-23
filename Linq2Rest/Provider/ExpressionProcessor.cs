@@ -33,7 +33,7 @@ namespace LinqConvertTools.Provider
             _memberNameResolver = memberNameResolver;
         }
 
-        public object ProcessMethodCall<T>(MethodCallExpression methodCall, ParameterBuilder builder, Func<ParameterBuilder, IEnumerable<T>> resultLoader, Func<Type, ParameterBuilder, IEnumerable> intermediateResultLoader)
+        public object? ProcessMethodCall<T>(MethodCallExpression? methodCall, ParameterBuilder builder, Func<ParameterBuilder, IEnumerable<T>> resultLoader, Func<Type, ParameterBuilder, IEnumerable> intermediateResultLoader)
         {
             if (methodCall == null)
             {
@@ -69,7 +69,7 @@ namespace LinqConvertTools.Provider
                             return InvokeEager(methodCall, result);
                         }
 
-                        var newFilter = _writer.Write(methodCall.Arguments[1], builder.SourceType);
+                        var newFilter = _writer.Write(methodCall.Arguments[1], builder.SourceType) ?? string.Empty;
 
                         builder.FilterParameter = string.IsNullOrWhiteSpace(builder.FilterParameter)
                                                     ? newFilter
@@ -117,7 +117,7 @@ namespace LinqConvertTools.Provider
 
                         var sourceType = builder.SourceType;
                         var sortProperty = methodCall.Arguments[1];
-                        var item = _writer.Write(sortProperty, sourceType);
+                        var item = _writer.Write(sortProperty, sourceType) ?? string.Empty;
                         builder.OrderByParameter.Add(item);
                     }
 
@@ -146,7 +146,7 @@ namespace LinqConvertTools.Provider
                             return InvokeEager(methodCall, result);
                         }
 
-                        builder.TakeParameter = _writer.Write(methodCall.Arguments[1], builder.SourceType);
+                        builder.TakeParameter = _writer.Write(methodCall.Arguments[1], builder.SourceType) ?? string.Empty;
                     }
 
                     break;
@@ -159,7 +159,7 @@ namespace LinqConvertTools.Provider
                             return InvokeEager(methodCall, result);
                         }
 
-                        builder.SkipParameter = _writer.Write(methodCall.Arguments[1], builder.SourceType);
+                        builder.SkipParameter = _writer.Write(methodCall.Arguments[1], builder.SourceType) ?? string.Empty;
                     }
 
                     break;
@@ -195,7 +195,7 @@ namespace LinqConvertTools.Provider
 
 
 
-            var results = source as IEnumerable;
+            var results = (IEnumerable)source;
 
 
 
@@ -203,33 +203,33 @@ namespace LinqConvertTools.Provider
             return methodCall.Method.Invoke(null, parameters);
         }
 
-        private static object[] ResolveInvocationParameters(IEnumerable results, MethodCallExpression methodCall)
+        private static object?[] ResolveInvocationParameters(IEnumerable results, MethodCallExpression methodCall)
         {
 
 
 
-            var parameters = new object[] { results.AsQueryable() }
+            var parameters = new object?[] { results.AsQueryable() }
                 .Concat(methodCall.Arguments.Where((x, i) => i > 0).Select(GetExpressionValue))
                 .ToArray();
             return parameters;
         }
 
-        private static object GetExpressionValue(Expression expression)
+        private static object? GetExpressionValue(Expression expression)
         {
-            if (expression is UnaryExpression)
+            if (expression is UnaryExpression unaryExpression)
             {
-                return (expression as UnaryExpression).Operand;
+                return unaryExpression.Operand;
             }
 
-            if (expression is ConstantExpression)
+            if (expression is ConstantExpression constantExpression)
             {
-                return (expression as ConstantExpression).Value;
+                return constantExpression.Value;
             }
 
             return null;
         }
 
-        private object ResolveProjection(ParameterBuilder builder, LambdaExpression lambdaExpression, Type sourceType)
+        private object? ResolveProjection(ParameterBuilder builder, LambdaExpression lambdaExpression, Type sourceType)
         {
 
 
@@ -265,7 +265,7 @@ namespace LinqConvertTools.Provider
             return null;
         }
 
-        private object GetMethodResult<T>(MethodCallExpression methodCall, ParameterBuilder builder, Func<ParameterBuilder, IEnumerable<T>> resultLoader, Func<Type, ParameterBuilder, IEnumerable> intermediateResultLoader)
+        private object? GetMethodResult<T>(MethodCallExpression methodCall, ParameterBuilder builder, Func<ParameterBuilder, IEnumerable<T>> resultLoader, Func<Type, ParameterBuilder, IEnumerable> intermediateResultLoader)
         {
 
 
@@ -275,7 +275,7 @@ namespace LinqConvertTools.Provider
 
             ProcessMethodCall(methodCall.Arguments[0] as MethodCallExpression, builder, resultLoader, intermediateResultLoader);
 
-            var processResult = _writer.Write(methodCall.Arguments[1], builder.SourceType);
+            var processResult = _writer.Write(methodCall.Arguments[1], builder.SourceType) ?? string.Empty;
             var currentParameter = string.IsNullOrWhiteSpace(builder.FilterParameter)
                                     ? processResult
                                     : string.Format("({0}) and ({1})", builder.FilterParameter, processResult);
@@ -303,7 +303,7 @@ namespace LinqConvertTools.Provider
             return result ?? default(T);
         }
 
-        private object GetResult<T>(MethodCallExpression methodCall, ParameterBuilder builder, Func<ParameterBuilder, IEnumerable<T>> resultLoader, Func<Type, ParameterBuilder, IEnumerable> intermediateResultLoader)
+        private object? GetResult<T>(MethodCallExpression methodCall, ParameterBuilder builder, Func<ParameterBuilder, IEnumerable<T>> resultLoader, Func<Type, ParameterBuilder, IEnumerable> intermediateResultLoader)
         {
 
 
@@ -324,7 +324,7 @@ namespace LinqConvertTools.Provider
             return final;
         }
 
-        private object ExecuteMethod<T>(MethodCallExpression methodCall, ParameterBuilder builder, Func<ParameterBuilder, IEnumerable<T>> resultLoader, Func<Type, ParameterBuilder, IEnumerable> intermediateResultLoader)
+        private object? ExecuteMethod<T>(MethodCallExpression methodCall, ParameterBuilder builder, Func<ParameterBuilder, IEnumerable<T>> resultLoader, Func<Type, ParameterBuilder, IEnumerable> intermediateResultLoader)
         {
 
 

@@ -61,7 +61,7 @@ namespace LinqConvertTools
             foreach (string propertyName in propertyChain)
             {
                 string name = propertyName;
-                MemberInfo member = memberNameResolver.ResolveAlias(parentType, name);
+                MemberInfo? member = memberNameResolver.ResolveAlias(parentType, name);
                 if (member is not null)
                 {
                     parentType = GetMemberType(member);

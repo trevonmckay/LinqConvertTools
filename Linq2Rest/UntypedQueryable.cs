@@ -23,7 +23,7 @@ namespace LinqConvertTools
     {
         private readonly IQueryable _source;
 
-        public UntypedQueryable(IQueryable<T> source, Expression<Func<T, object>> projection)
+        public UntypedQueryable(IQueryable<T> source, Expression<Func<T, object>>? projection)
         {
 
 

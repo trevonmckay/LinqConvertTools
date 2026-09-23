@@ -21,7 +21,7 @@ namespace LinqConvertTools.Tests.Parser
     [TestFixture]
     public class FilterTests
     {
-        private FakeItem[] _collection;
+        private FakeItem[]? _collection;
 
         [SetUp]
         public void TestSetup()
@@ -61,6 +61,8 @@ namespace LinqConvertTools.Tests.Parser
         [Test]
         public void WhenApplyingSerializedExpressionThenCreatesSameResultAsOriginalExpression()
         {
+            ArgumentNullException.ThrowIfNull(_collection);
+
             Func<FakeItem, bool> original = x => (x.ChoiceValue & Choice.That) == Choice.That && x.IntValue >= 3;
 
             var factory = new FilterExpressionFactory(new MemberNameResolver(), Enumerable.Empty<IValueExpressionFactory>());

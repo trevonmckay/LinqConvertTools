@@ -18,7 +18,7 @@ namespace LinqConvertTools.Tests.Provider.Writers
     [TestFixture]
     public class EnumValueWriterTests
     {
-        private EnumValueWriter _writer;
+        private EnumValueWriter? _writer;
 
         [SetUp]
         public void Setup()
@@ -29,6 +29,8 @@ namespace LinqConvertTools.Tests.Provider.Writers
         [Test]
         public void WhenWritingByteValueThenWritesString()
         {
+            ArgumentNullException.ThrowIfNull(_writer);
+
             const Choice Value = Choice.That;
             var result = _writer.Write(Value);
 

@@ -27,7 +27,7 @@ namespace LinqConvertTools.Parser
     public class SelectExpressionFactory<T> : ISelectExpressionFactory<T>
     {
         private const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
-        private readonly IDictionary<string, Expression<Func<T, object>>> _knownSelections;
+        private readonly IDictionary<string, Expression<Func<T, object>>?> _knownSelections;
         private readonly IMemberNameResolver _nameResolver;
         private readonly IRuntimeTypeProvider _runtimeTypeProvider;
 
@@ -41,7 +41,7 @@ namespace LinqConvertTools.Parser
 
             _nameResolver = nameResolver;
             _runtimeTypeProvider = runtimeTypeProvider;
-            _knownSelections = new Dictionary<string, Expression<Func<T, object>>>
+            _knownSelections = new Dictionary<string, Expression<Func<T, object>>?>
                                    {
                                        { string.Empty, null }
                                    };
@@ -51,8 +51,8 @@ namespace LinqConvertTools.Parser
         /// Creates a select expression.
         /// </summary>
         /// <param name="selection">The properties to select.</param>
-        /// <returns>An instance of a <see cref="Func{T1,TResult}"/>.</returns>
-        public Expression<Func<T, object>> Create(string selection)
+        /// <returns>An instance of a <see cref="Func{T1,TResult}"/>, or <see langword="null"/> when <paramref name="selection"/> names no properties.</returns>
+        public Expression<Func<T, object>>? Create(string? selection)
         {
             var fieldNames = (selection ?? string.Empty).Split(',')
                 .Where(x => !string.IsNullOrWhiteSpace(x))

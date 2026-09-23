@@ -24,7 +24,7 @@ namespace LinqConvertTools.Tests
         private readonly Collection<FakeChildItem> _children = new Collection<FakeChildItem>();
 
         [DataMember(Name = "Text")]
-        private string _stringValue;
+        private string? _stringValue;
 
         [DataMember(Name = "ID")]
         public int AliasID { get; set; }
@@ -42,7 +42,7 @@ namespace LinqConvertTools.Tests
         [DataMember(Name = "DecimalValue")]
         public decimal AliasDecimalValue { get; set; }
 
-        public string StringValue
+        public string? StringValue
         {
             get
             {
@@ -68,7 +68,7 @@ namespace LinqConvertTools.Tests
         public Choice ChoiceValue { get; set; }
 
         [DataMember(Name = "Child")]
-        public ChildFakeItem AliasChild { get; set; }
+        public ChildFakeItem? AliasChild { get; set; }
 
         [DataMember(Name = "Children")]
         public ICollection<FakeChildItem> AliasChildren

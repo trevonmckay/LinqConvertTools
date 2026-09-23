@@ -34,8 +34,8 @@ namespace LinqConvertTools
         /// </summary>
         /// <param name="type">The <see cref="Type"/> the alias relates to.</param>
         /// <param name="alias">The name of the alias.</param>
-        /// <returns>The <see cref="MemberInfo"/> which is aliased.</returns>
-        MemberInfo ResolveAlias(Type type, string alias);
+        /// <returns>The <see cref="MemberInfo"/> which is aliased, or <see langword="null"/> when <paramref name="type"/> has no member with that alias.</returns>
+        MemberInfo? ResolveAlias(Type type, string alias);
     }
 
     [ContractClassFor(typeof(IMemberNameResolver))]
@@ -51,7 +51,7 @@ namespace LinqConvertTools
         }
 
         [Pure]
-        public MemberInfo ResolveAlias(Type type, string alias)
+        public MemberInfo? ResolveAlias(Type type, string alias)
         {
 
 

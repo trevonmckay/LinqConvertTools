@@ -27,6 +27,7 @@ namespace LinqConvertTools.Tests.Parser
             var items = new[] { new FakeItem { StringValue = "test" } };
 
             var expression = factory.Create("Text");
+            ArgumentNullException.ThrowIfNull(expression);
 
             dynamic result = items.AsQueryable().Select(expression).First();
 
@@ -41,6 +42,7 @@ namespace LinqConvertTools.Tests.Parser
             var items = new[] { new FakeItem { IntValue = 2 } };
 
             var expression = factory.Create("Number");
+            ArgumentNullException.ThrowIfNull(expression);
 
             dynamic result = items.AsQueryable().Select(expression).First();
 

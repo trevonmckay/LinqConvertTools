@@ -256,10 +256,14 @@ namespace LinqConvertTools.Parser
             return result;
         }
 
-        private Expression? GetCaseAwareFunction(Expression instance, MethodInfo method, Expression[] parameters, bool ignoreCase)
+        /// <remarks>
+        /// <paramref name="instance"/> and the elements of <paramref name="parameters"/> are null when the filter omits a function argument.
+        /// <see cref="Expression.Call(Expression, MethodInfo, Expression[])"/> rejects a missing argument with an <see cref="ArgumentException"/>.
+        /// </remarks>
+        private Expression? GetCaseAwareFunction(Expression? instance, MethodInfo method, Expression?[] parameters, bool ignoreCase)
         {
-            Expression innerInstance = ignoreCase ? Expression.Call(instance, _toUpperMethod) : instance;
-            Expression[] innerParameters = ignoreCase ? parameters.Select(x => Expression.Call(x, _toUpperMethod)).ToArray() : parameters;
+            Expression? innerInstance = ignoreCase ? Expression.Call(instance, _toUpperMethod) : instance;
+            Expression?[] innerParameters = ignoreCase ? parameters.Select(x => (Expression?)Expression.Call(x, _toUpperMethod)).ToArray() : parameters;
 
             return Expression.Call(innerInstance, method, innerParameters);
         }
@@ -442,14 +446,14 @@ namespace LinqConvertTools.Parser
             return null;
         }
 
-        private Expression? GetParameterExpression(string filter, Type type, IFormatProvider formatProvider)
+        private Expression? GetParameterExpression(string filter, Type? type, IFormatProvider formatProvider)
         {
             return type is not null
                 ? _valueReader.Read(type, filter, formatProvider)
                 : GetBooleanExpression(filter, formatProvider);
         }
 
-        private Type? GetExpressionType<T>(TokenSet set, ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters)
+        private Type? GetExpressionType<T>(TokenSet? set, ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters)
         {
             if (set is null)
             {
@@ -566,7 +570,7 @@ namespace LinqConvertTools.Parser
             return expression ?? throw new InvalidOperationException("Could not create expression from: " + filter);
         }
 
-        private Expression? GetTokenExpression<T>(ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters, Type type, IFormatProvider formatProvider, ICollection<TokenSet> tokens, bool ignoreCase)
+        private Expression? GetTokenExpression<T>(ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters, Type? type, IFormatProvider formatProvider, ICollection<TokenSet> tokens, bool ignoreCase)
         {
             string? combiner = null;
             Expression? existing = null;
@@ -608,7 +612,7 @@ namespace LinqConvertTools.Parser
                     Type? rightExpressionType = tokenSet.Operation == "and" ? null : left.Type;
                     var right = CreateExpression<T>(tokenSet.Right, parameter, lambdaParameters, rightExpressionType, formatProvider, ignoreCase);
 
-                    if (existing != null && !string.IsNullOrWhiteSpace(combiner))
+                    if (existing != null && combiner is not null && !string.IsNullOrWhiteSpace(combiner))
                     {
                         Expression? current = right is null ? null : GetOperation(tokenSet.Operation, left, right, ignoreCase);
                         existing = GetOperation(combiner, existing, current ?? left, ignoreCase);
@@ -623,7 +627,7 @@ namespace LinqConvertTools.Parser
             return existing;
         }
 
-        private Expression? GetArithmeticExpression<T>(string filter, ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters, Type type, IFormatProvider formatProvider, bool ignoreCase)
+        private Expression? GetArithmeticExpression<T>(string filter, ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters, Type? type, IFormatProvider formatProvider, bool ignoreCase)
         {
             var arithmeticToken = filter.GetArithmeticToken();
             if (arithmeticToken is null)
@@ -691,7 +695,7 @@ namespace LinqConvertTools.Parser
             return GetFunction(functionTokens.Operation, left, right, sourceParameter, lambdaParameters, ignoreCase);
         }
 
-        private Expression? GetFunctionExpression<T>(string filter, ParameterExpression sourceParameter, ICollection<ParameterExpression> lambdaParameters, Type type, IFormatProvider formatProvider, bool ignoreCase)
+        private Expression? GetFunctionExpression<T>(string filter, ParameterExpression sourceParameter, ICollection<ParameterExpression> lambdaParameters, Type? type, IFormatProvider formatProvider, bool ignoreCase)
         {
             var functionTokens = filter.GetFunctionTokens();
             if (functionTokens is null)
@@ -729,18 +733,18 @@ namespace LinqConvertTools.Parser
         private sealed class ParameterVisitor : ExpressionVisitor
         {
             private static readonly string[] AnyAllMethodNames = { "Any", "All" };
-            private List<ParameterExpression> _parameters;
+            private List<ParameterExpression> _parameters = new List<ParameterExpression>();
 
-            public IEnumerable<ParameterExpression> GetParameters(Expression expr)
+            public IEnumerable<ParameterExpression> GetParameters(Expression? expr)
             {
                 _parameters = new List<ParameterExpression>();
                 Visit(expr);
                 return _parameters;
             }
 
-            public override Expression Visit(Expression node)
+            public override Expression? Visit(Expression? node)
             {
-                if (node.NodeType == ExpressionType.Call && AnyAllMethodNames.Contains(((MethodCallExpression)node).Method.Name))
+                if (node is not null && node.NodeType == ExpressionType.Call && AnyAllMethodNames.Contains(((MethodCallExpression)node).Method.Name))
                 {
                     // Skip the second parameter of the Any/All as this has already been covered
                     return base.Visit(((MethodCallExpression)node).Arguments.First());

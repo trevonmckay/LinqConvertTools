@@ -51,10 +51,10 @@ namespace LinqConvertTools
             return UrlEncode(s, Encoding.UTF8);
         }
 
-        public static string UrlEncode(string s, Encoding encoding)
+        public static string UrlEncode(string s, Encoding? encoding)
         {
-            int len;
-            if (s == null || (len = s.Length) == 0)
+            var len = s.Length;
+            if (len == 0)
             {
                 return s;
             }
