@@ -39,7 +39,7 @@ namespace LinqConvertTools.Tests.Parser
                 new User { GivenName = "User", FamilyName = "One" },
                 new User { GivenName = "Sarah", FamilyName = "Jane" },
                 new User { GivenName = "Ashley", FamilyName = "Dugane" },
-                new User { GivenName = "Nameless", FamilyName = null! },
+                new User { GivenName = "Nameless", FamilyName = null },
             };
         }
     }

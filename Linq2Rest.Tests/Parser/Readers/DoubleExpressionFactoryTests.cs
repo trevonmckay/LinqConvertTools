@@ -19,7 +19,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
     [TestFixture]
     public class DoubleExpressionFactoryTests
     {
-        private DoubleExpressionFactory _factory = null!;
+        private DoubleExpressionFactory? _factory;
 
         [SetUp]
         public void Setup()
@@ -30,6 +30,8 @@ namespace LinqConvertTools.Tests.Parser.Readers
         [Test]
         public void WhenFilterIncludesDoubleParameterThenReturnedExpressionContainsDouble()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             var expression = _factory.Convert("1.23");
 
             Assert.IsAssignableFrom<double>(expression.Value);
@@ -38,6 +40,8 @@ namespace LinqConvertTools.Tests.Parser.Readers
         [Test]
         public void WhenFilterIncludesDoubleParameterWithTrailingLowerCaseMThenReturnedExpressionContainsDouble()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             var expression = _factory.Convert("1.23d");
 
             Assert.IsAssignableFrom<double>(expression.Value);
@@ -46,6 +50,8 @@ namespace LinqConvertTools.Tests.Parser.Readers
         [Test]
         public void WhenFilterIncludesDoubleParameterWithTrailingUpperCaseMThenReturnedExpressionContainsDouble()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             var expression = _factory.Convert("1.23D");
 
             Assert.IsAssignableFrom<double>(expression.Value);
@@ -54,6 +60,8 @@ namespace LinqConvertTools.Tests.Parser.Readers
         [Test]
         public void WhenFilterIsIncorrectFormatThenThrows()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             const string Parameter = "blah";
 
             Assert.Throws<FormatException>(() => _factory.Convert(Parameter));

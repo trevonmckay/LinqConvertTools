@@ -20,7 +20,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
     [TestFixture]
     public class DateTimeExpressionFactoryTests
     {
-        private DateTimeExpressionFactory _factory = null!;
+        private DateTimeExpressionFactory? _factory;
         private DateTime _dateTime;
 
         [SetUp]
@@ -33,6 +33,8 @@ namespace LinqConvertTools.Tests.Parser.Readers
         [Test]
         public void WhenFilterIncludesDateTimeParameterInDoubleQuotesThenReturnedExpressionContainsDateTime()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             var parameter = string.Format("datetime\"{0}\"", _dateTime.ToString("yyyy-MM-ddThh:mm:ss"));
 
             var expression = _factory.Convert(parameter);
@@ -43,6 +45,8 @@ namespace LinqConvertTools.Tests.Parser.Readers
         [Test]
         public void WhenFilterIncludesDateTimeParameterThenReturnedExpressionContainsDateTime()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             var parameter = string.Format("datetime'{0}'", _dateTime.ToString("yyyy-MM-ddThh:mm:ss"));
 
             var expression = _factory.Convert(parameter);
@@ -53,6 +57,8 @@ namespace LinqConvertTools.Tests.Parser.Readers
         [Test]
         public void WhenFilterIncludesDateTimeParameterWithMillisecondsThenReturnedExpressionContainsDateTime()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             _dateTime = new DateTime(2012, 1, 1, 12, 0, 0, 11, DateTimeKind.Utc);
             var parameter = string.Format("datetime'{0}'", _dateTime.ToString("o"));
 
@@ -64,6 +70,8 @@ namespace LinqConvertTools.Tests.Parser.Readers
         [Test]
         public void WhenFilterIncludesDateTimeParameterWithZuluInDoubleQuotesThenReturnedExpressionContainsUtcDateTime()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             var utcTime = _dateTime.ToUniversalTime();
             var parameter = string.Format("datetime\"{0}\"", utcTime.ToString("yyyy-MM-ddTHH:mm:ssZ"));
 
@@ -75,6 +83,8 @@ namespace LinqConvertTools.Tests.Parser.Readers
         [Test]
         public void WhenFilterIncludesDateTimeParameterWithZuluThenReturnedExpressionContainsUtcDateTime()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             var utcTime = _dateTime.ToUniversalTime();
             var parameter = string.Format("datetime'{0}'", utcTime.ToString("yyyy-MM-ddTHH:mm:ssZ"));
 
@@ -86,6 +96,8 @@ namespace LinqConvertTools.Tests.Parser.Readers
         [Test]
         public void WhenFilterIncludesBareV4DateTimeThenReturnedExpressionContainsDateTime()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             var parameter = _dateTime.ToString("yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture);
 
             var expression = _factory.Convert(parameter);
@@ -96,6 +108,8 @@ namespace LinqConvertTools.Tests.Parser.Readers
         [Test]
         public void WhenFilterIncludesBareV4DateTimeWithZuluThenReturnedExpressionContainsUtcDateTime()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             var utcTime = _dateTime.ToUniversalTime();
             var parameter = utcTime.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture);
 
@@ -108,6 +122,8 @@ namespace LinqConvertTools.Tests.Parser.Readers
         [Test]
         public void WhenFilterIncludesBareV4DateThenReturnedExpressionContainsDateTime()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             var expression = _factory.Convert("2012-01-01");
 
             Assert.AreEqual(new DateTime(2012, 1, 1), expression.Value);
@@ -116,6 +132,8 @@ namespace LinqConvertTools.Tests.Parser.Readers
         [Test]
         public void WhenFilterIsIncorrectFormatThenThrows()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             const string Parameter = "blah";
 
             Assert.Throws<FormatException>(() => _factory.Convert(Parameter));

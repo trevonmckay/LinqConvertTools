@@ -27,7 +27,7 @@ namespace LinqConvertTools.Tests
         public void CanFilterOnSubCollection()
         {
             var converter = new ODataExpressionConverter();
-            Expression<Func<FakeItem, bool>> expression = x => x.Child.Attributes.Any(y => y == "blah");
+            Expression<Func<FakeItem, bool>> expression = x => x.Child!.Attributes.Any(y => y == "blah");
 
             var serialized = converter.Convert(expression);
 
@@ -145,7 +145,7 @@ namespace LinqConvertTools.Tests
         public void ConvertsExpressionToString2()
         {
             var converter = new ODataExpressionConverter();
-            Expression<Func<ChildDto, bool>> expression = x => x.Name.Length + (1 + 1) == 7;
+            Expression<Func<ChildDto, bool>> expression = x => x.Name!.Length + (1 + 1) == 7;
 
             var serialized = converter.Convert(expression);
 
@@ -169,7 +169,7 @@ namespace LinqConvertTools.Tests
         {
             const string Filter = "(length(Name) add 2) eq 7";
             var converter = new ODataExpressionConverter();
-            Expression<Func<ChildDto, bool>> expression = x => x.Name.Length + (1 + 1) == 7;
+            Expression<Func<ChildDto, bool>> expression = x => x.Name!.Length + (1 + 1) == 7;
 
             var converted = converter.Convert<ChildDto>(Filter);
 

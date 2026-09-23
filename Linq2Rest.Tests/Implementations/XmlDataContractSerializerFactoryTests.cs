@@ -20,7 +20,7 @@ namespace LinqConvertTools.Tests.Implementations
     [TestFixture]
     public class XmlDataContractSerializerFactoryTests
     {
-        private XmlDataContractSerializerFactory _factory = null!;
+        private XmlDataContractSerializerFactory? _factory;
 
         [SetUp]
         public void Setup()
@@ -31,6 +31,8 @@ namespace LinqConvertTools.Tests.Implementations
         [Test]
         public void CreatedSerializerCanDeserializeDataContractType()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             const string Xml = "<SimpleContractItem xmlns=\"http://schemas.datacontract.org/2004/07/LinqConvertTools.Tests.Implementations\"><Text>test</Text><Value>2</Value></SimpleContractItem>";
 
             var serializer = _factory.Create<SimpleContractItem>();
@@ -44,6 +46,8 @@ namespace LinqConvertTools.Tests.Implementations
         [Test]
         public void CreatedSerializerCanDeserializeListOfDataContractType()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             const string Xml = "<ArrayOfSimpleContractItem xmlns=\"http://schemas.datacontract.org/2004/07/LinqConvertTools.Tests.Implementations\"><SimpleContractItem><Text>test</Text><Value>2</Value></SimpleContractItem></ArrayOfSimpleContractItem>";
 
             var serializer = _factory.Create<SimpleContractItem>();
@@ -56,6 +60,8 @@ namespace LinqConvertTools.Tests.Implementations
         [Test]
         public void CreatedSerializerCanSerializeDataContractType()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             var serializer = _factory.Create<SimpleContractItem>();
 
             var deserializedResult = serializer.Serialize(new SimpleContractItem());
@@ -66,6 +72,8 @@ namespace LinqConvertTools.Tests.Implementations
         [Test]
         public void WhenCreatingSerializerThenDoesNotReturnNull()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             Assert.NotNull(_factory.Create<SimpleContractItem>());
         }
     }

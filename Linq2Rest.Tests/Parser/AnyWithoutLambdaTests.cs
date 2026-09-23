@@ -8,8 +8,8 @@ namespace LinqConvertTools.Tests.Parser
     [TestFixture]
     public class AnyWithoutLambdaTests
     {
-        private ODataExpressionConverter _converter = null!;
-        private Team[] _teams = null!;
+        private ODataExpressionConverter? _converter;
+        private Team[]? _teams;
 
         [SetUp]
         public void Setup()
@@ -32,6 +32,9 @@ namespace LinqConvertTools.Tests.Parser
         [TestCase("members/any() and name eq 'unassigned'", true, "Unassigned")]
         public void FiltersByNonEmptyCollection(string filter, bool ignoreCase, string expected)
         {
+            ArgumentNullException.ThrowIfNull(_converter);
+            ArgumentNullException.ThrowIfNull(_teams);
+
             var predicate = _converter.Convert<Team>(filter, ignoreCase);
 
             string actual = string.Join(",", _teams.AsQueryable().Where(predicate).Select(t => t.Name));
@@ -42,6 +45,8 @@ namespace LinqConvertTools.Tests.Parser
         [Test]
         public void CreatesEnumerableAnyWithoutPredicate()
         {
+            ArgumentNullException.ThrowIfNull(_converter);
+
             var predicate = _converter.Convert<Team>("members/any()");
 
             Assert.AreEqual("x => x.Members.Any()", predicate.ToString());
@@ -52,6 +57,8 @@ namespace LinqConvertTools.Tests.Parser
         [TestCase("members/all(m/roles/any())")]
         public void RejectsMissingLambda(string filter)
         {
+            ArgumentNullException.ThrowIfNull(_converter);
+
             Assert.Throws<InvalidOperationException>(() => _converter.Convert<Team>(filter));
         }
 

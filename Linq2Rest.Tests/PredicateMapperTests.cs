@@ -75,9 +75,9 @@ namespace LinqConvertTools.Tests
 
             public class InDto
             {
-                public string Name { get; set; } = null!;
+                public required string Name { get; set; }
 
-                public IEnumerable<ChildInDto> Children { get; set; } = null!;
+                public required IEnumerable<ChildInDto> Children { get; set; }
 
                 public string GetName()
                 {
@@ -87,24 +87,24 @@ namespace LinqConvertTools.Tests
 
             public class OutDto
             {
-                public string Name { get; set; } = null!;
+                public required string Name { get; set; }
 
-                public IEnumerable<ChildOutDto> Children { get; set; } = null!;
+                public required IEnumerable<ChildOutDto> Children { get; set; }
             }
 
             public class ChildInDto
             {
-                public string Value { get; set; } = null!;
+                public required string Value { get; set; }
             }
 
             public class ChildOutDto
             {
-                public string Value { get; set; } = null!;
+                public required string Value { get; set; }
             }
 
             public class AliasDto
             {
-                public string Alias { get; set; } = null!;
+                public required string Alias { get; set; }
 
                 public string GetAlias()
                 {

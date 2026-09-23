@@ -19,7 +19,7 @@ namespace LinqConvertTools.Tests.Provider.Writers
     [TestFixture]
     public class DateTimeValueWriterTests
     {
-        private DateTimeValueWriter _writer = null!;
+        private DateTimeValueWriter? _writer;
 
         [SetUp]
         public void Setup()
@@ -30,6 +30,8 @@ namespace LinqConvertTools.Tests.Provider.Writers
         [Test]
         public void WhenWritingDateTimeValueThenWritesString()
         {
+            ArgumentNullException.ThrowIfNull(_writer);
+
             var value = new DateTime(2012, 5, 6, 16, 11, 00, DateTimeKind.Utc);
             var result = _writer.Write(value);
 
@@ -39,6 +41,8 @@ namespace LinqConvertTools.Tests.Provider.Writers
         [Test]
         public void WhenWritingDateTimeValueWithMillisecondsThenWritesString()
         {
+            ArgumentNullException.ThrowIfNull(_writer);
+
             var value = new DateTime(2012, 5, 6, 16, 11, 00, 11, DateTimeKind.Utc);
             var result = _writer.Write(value);
 

@@ -19,7 +19,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
     [TestFixture]
     public class UnsignedShortExpressionFactoryTests
     {
-        private UnsignedShortExpressionFactory _factory = null!;
+        private UnsignedShortExpressionFactory? _factory;
 
         [SetUp]
         public void Setup()
@@ -30,6 +30,8 @@ namespace LinqConvertTools.Tests.Parser.Readers
         [Test]
         public void WhenFilterIncludesUnsignedShortParameterThenReturnedExpressionContainsUnsignedShort()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             var expression = _factory.Convert("123");
 
             Assert.IsAssignableFrom<ushort>(expression.Value);
@@ -38,6 +40,8 @@ namespace LinqConvertTools.Tests.Parser.Readers
         [Test]
         public void WhenFilterIsIncorrectFormatThenThrows()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             const string Parameter = "blah";
 
             Assert.Throws<FormatException>(() => _factory.Convert(Parameter));

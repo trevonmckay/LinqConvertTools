@@ -12,8 +12,8 @@ namespace LinqConvertTools.Tests.Parser
         private static readonly Guid DigitLed = Guid.Parse("0f000000-0000-7000-8000-000000000001");
         private static readonly Guid LetterLed = Guid.Parse("deadbeef-0000-7000-8000-000000000002");
 
-        private ODataExpressionConverter _converter = null!;
-        private Record[] _records = null!;
+        private ODataExpressionConverter? _converter;
+        private Record[]? _records;
 
         [SetUp]
         public void Setup()
@@ -35,6 +35,9 @@ namespace LinqConvertTools.Tests.Parser
         [TestCase("ParentId eq guid'deadbeef-0000-7000-8000-000000000002'", "0f000000-0000-7000-8000-000000000001")]
         public void FiltersByGuidLiteral(string filter, string expectedId)
         {
+            ArgumentNullException.ThrowIfNull(_converter);
+            ArgumentNullException.ThrowIfNull(_records);
+
             var predicate = _converter.Convert<Record>(filter);
 
             var matches = _records.AsQueryable().Where(predicate).Select(r => r.Id).ToArray();
@@ -47,6 +50,8 @@ namespace LinqConvertTools.Tests.Parser
         [TestCase("Id eq {0f000000-0000-7000-8000-000000000001}")]
         public void RejectsMalformedBareGuid(string filter)
         {
+            ArgumentNullException.ThrowIfNull(_converter);
+
             Assert.Catch(() => _converter.Convert<Record>(filter));
         }
 

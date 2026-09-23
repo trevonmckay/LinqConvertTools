@@ -18,7 +18,7 @@ namespace LinqConvertTools.Tests.Provider.Writers
     [TestFixture]
     public class UnsignedIntValueWriterTests
     {
-        private UnsignedIntValueWriter _writer = null!;
+        private UnsignedIntValueWriter? _writer;
 
         [SetUp]
         public void Setup()
@@ -29,6 +29,8 @@ namespace LinqConvertTools.Tests.Provider.Writers
         [Test]
         public void WhenWritingUnsignedIntValueThenWritesString()
         {
+            ArgumentNullException.ThrowIfNull(_writer);
+
             var result = _writer.Write((uint)123);
 
             Assert.AreEqual("123", result);

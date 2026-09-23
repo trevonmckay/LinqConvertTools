@@ -19,7 +19,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
     [TestFixture]
     public class GuidExpressionFactoryTests
     {
-        private GuidExpressionFactory _factory = null!;
+        private GuidExpressionFactory? _factory;
 
         [SetUp]
         public void Setup()
@@ -30,6 +30,8 @@ namespace LinqConvertTools.Tests.Parser.Readers
         [Test]
         public void WhenFilterIncludesGuidParameterInDoubleQuotesThenReturnedExpressionContainsGuid()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             var guid = Guid.NewGuid();
             var parameter = string.Format("guid\"{0}\"", guid);
 
@@ -41,6 +43,8 @@ namespace LinqConvertTools.Tests.Parser.Readers
         [Test]
         public void WhenFilterIncludesGuidParameterThenReturnedExpressionContainsGuid()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             var guid = Guid.NewGuid();
             var parameter = string.Format("guid'{0}'", guid);
 
@@ -52,6 +56,8 @@ namespace LinqConvertTools.Tests.Parser.Readers
         [Test]
         public void WhenFilterIncludesGuidParameterWithNoDashesInDoubleQuotesThenReturnedExpressionContainsGuid()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             var guid = Guid.NewGuid();
             var parameter = string.Format("guid\"{0}\"", guid.ToString("N"));
 
@@ -63,6 +69,8 @@ namespace LinqConvertTools.Tests.Parser.Readers
         [Test]
         public void WhenFilterIncludesGuidParameterWithNoDashesThenReturnedExpressionContainsGuid()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             var guid = Guid.NewGuid();
             var parameter = string.Format("guid'{0}'", guid.ToString("N"));
 
@@ -74,6 +82,8 @@ namespace LinqConvertTools.Tests.Parser.Readers
         [Test]
         public void WhenFilterIsIncorrectFormatThenThrows()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             const string Parameter = "blah";
 
             Assert.Throws<FormatException>(() => _factory.Convert(Parameter));

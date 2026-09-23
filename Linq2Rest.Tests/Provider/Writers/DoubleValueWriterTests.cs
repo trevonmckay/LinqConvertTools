@@ -18,7 +18,7 @@ namespace LinqConvertTools.Tests.Provider.Writers
     [TestFixture]
     public class DoubleValueWriterTests
     {
-        private DoubleValueWriter _writer = null!;
+        private DoubleValueWriter? _writer;
 
         [SetUp]
         public void Setup()
@@ -29,6 +29,8 @@ namespace LinqConvertTools.Tests.Provider.Writers
         [Test]
         public void WhenWritingDoubleValueThenWritesString()
         {
+            ArgumentNullException.ThrowIfNull(_writer);
+
             var result = _writer.Write(1.23d);
 
             Assert.AreEqual("1.23", result);

@@ -20,7 +20,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
     [TestFixture]
     public class TimeSpanExpressionFactoryTests
     {
-        private TimeSpanExpressionFactory _factory = null!;
+        private TimeSpanExpressionFactory? _factory;
 
         [SetUp]
         public void Setup()
@@ -31,6 +31,8 @@ namespace LinqConvertTools.Tests.Parser.Readers
         [Test]
         public void WhenFilterIncludesTimeSpanParameterInDoubleQuotesThenReturnedExpressionContainsTimeSpan()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             var timeSpan = new TimeSpan(1, 2, 15, 00);
             var parameter = string.Format("time\"{0}\"", XmlConvert.ToString(timeSpan));
 
@@ -42,6 +44,8 @@ namespace LinqConvertTools.Tests.Parser.Readers
         [Test]
         public void WhenFilterIncludesTimeSpanParameterThenReturnedExpressionContainsTimeSpan()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             var timeSpan = new TimeSpan(1, 2, 15, 00);
             var parameter = string.Format("time'{0}'", XmlConvert.ToString(timeSpan));
 
@@ -53,6 +57,8 @@ namespace LinqConvertTools.Tests.Parser.Readers
         [Test]
         public void WhenFilterIsIncorrectFormatThenThrows()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             const string Parameter = "blah";
 
             Assert.Throws<FormatException>(() => _factory.Convert(Parameter));

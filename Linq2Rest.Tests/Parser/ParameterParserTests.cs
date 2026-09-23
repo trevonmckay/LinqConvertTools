@@ -20,9 +20,9 @@ namespace LinqConvertTools.Tests.Parser
     [TestFixture]
     public class ParameterParserTests
     {
-        private ParameterParser<FakeItem> _parser = null!;
-        private FakeItem[] _items = null!;
-        private FakeItem[] _nestedItems = null!;
+        private ParameterParser<FakeItem>? _parser;
+        private FakeItem[]? _items;
+        private FakeItem[]? _nestedItems;
 
         [OneTimeSetUp]
         public void TestFixtureSetup()
@@ -78,6 +78,8 @@ namespace LinqConvertTools.Tests.Parser
         [TestCase(false)]
         public void WhenRequestContainsAnyFilterParameterThenReturnedModelFilterFilteringCollectionByValue(bool useModelFilter)
         {
+            ArgumentNullException.ThrowIfNull(_nestedItems);
+
             var collection = new NameValueCollection { { "$filter", "Children/any(a: a/ChildStringValue eq '1')" } };
             var filteredItems = GetFilteredItems(useModelFilter, collection, _nestedItems);
 
@@ -175,6 +177,8 @@ namespace LinqConvertTools.Tests.Parser
 
         private object[] GetFilteredItems(bool useModelFilter, NameValueCollection collection)
         {
+            ArgumentNullException.ThrowIfNull(_items);
+
             return GetFilteredItems(useModelFilter, collection, _items);
         }
 
@@ -188,6 +192,8 @@ namespace LinqConvertTools.Tests.Parser
 
         private IModelFilter<FakeItem> GetModelFilter(NameValueCollection parameters)
         {
+            ArgumentNullException.ThrowIfNull(_parser);
+
             var filter = _parser.Parse(parameters);
             return filter;
         }

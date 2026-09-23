@@ -16,6 +16,6 @@ namespace LinqConvertTools.Tests.Fakes
     {
         QualityFlags Flags { get; set; }
 
-        object Value { get; set; }
+        object? Value { get; set; }
     }
 }

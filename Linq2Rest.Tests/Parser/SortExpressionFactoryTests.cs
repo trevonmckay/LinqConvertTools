@@ -25,8 +25,8 @@ namespace LinqConvertTools.Tests.Parser
         [TestFixture]
         public class FakeItemSortExpressionFactoryTests
         {
-            private FakeItem[] _items = null!;
-            private SortExpressionFactory _factory = null!;
+            private FakeItem[]? _items;
+            private SortExpressionFactory? _factory;
 
             [SetUp]
             public void TestSetup()
@@ -48,6 +48,9 @@ namespace LinqConvertTools.Tests.Parser
             [Test]
             public void WhenFilterContainSortDescriptionWithDirectionThenCreatesMatchingSortDescription()
             {
+                ArgumentNullException.ThrowIfNull(_items);
+                ArgumentNullException.ThrowIfNull(_factory);
+
                 const string Orderstring = "IntValue desc";
 
                 var descriptions = _factory.Create<FakeItem>(Orderstring);
@@ -76,6 +79,9 @@ namespace LinqConvertTools.Tests.Parser
             [Test]
             public void WhenFilterContainSortDescriptionWithoutDirectionThenCreatesMatchingAscendingSortDescription()
             {
+                ArgumentNullException.ThrowIfNull(_items);
+                ArgumentNullException.ThrowIfNull(_factory);
+
                 const string Orderstring = "IntValue";
 
                 var descriptions = _factory.Create<FakeItem>(Orderstring);
@@ -104,6 +110,9 @@ namespace LinqConvertTools.Tests.Parser
             [Test]
             public void WhenFilterContainsSortMultipleDescriptionsThenSortsByAll()
             {
+                ArgumentNullException.ThrowIfNull(_items);
+                ArgumentNullException.ThrowIfNull(_factory);
+
                 const string Orderstring = "DoubleValue,IntValue desc";
 
                 var descriptions = _factory.Create<FakeItem>(Orderstring);
@@ -132,6 +141,9 @@ namespace LinqConvertTools.Tests.Parser
             [Test]
             public void WhenFilterContainsSortMultipleDescriptionsWithSpaceBetweenThenSortsByAll()
             {
+                ArgumentNullException.ThrowIfNull(_items);
+                ArgumentNullException.ThrowIfNull(_factory);
+
                 const string Orderstring = "DoubleValue, IntValue desc";
 
                 var descriptions = _factory.Create<FakeItem>(Orderstring);
@@ -160,6 +172,9 @@ namespace LinqConvertTools.Tests.Parser
             [Test]
             public void WhenFilterIsEmptyThenDoesNotSort()
             {
+                ArgumentNullException.ThrowIfNull(_items);
+                ArgumentNullException.ThrowIfNull(_factory);
+
                 var descriptions = _factory.Create<FakeItem>(string.Empty);
                 var filter = new ModelFilter<FakeItem>(x => true, null, descriptions, 0, -1);
 
@@ -186,6 +201,9 @@ namespace LinqConvertTools.Tests.Parser
             [Test]
             public void WhenOrderingByChildPropertyThenUsesChildProperty()
             {
+                ArgumentNullException.ThrowIfNull(_items);
+                ArgumentNullException.ThrowIfNull(_factory);
+
                 const string Orderstring = "StringValue/Length desc";
 
                 var descriptions = _factory.Create<FakeItem>(Orderstring);
@@ -214,8 +232,8 @@ namespace LinqConvertTools.Tests.Parser
         [TestFixture]
         public class AliasItemSortExpressionFactoryTests
         {
-            private AliasItem[] _items = null!;
-            private SortExpressionFactory _factory = null!;
+            private AliasItem[]? _items;
+            private SortExpressionFactory? _factory;
 
             [SetUp]
             public void TestSetup()
@@ -237,6 +255,9 @@ namespace LinqConvertTools.Tests.Parser
             [Test]
             public void WhenFilterContainSortDescriptionWithDirectionThenCreatesMatchingSortDescription()
             {
+                ArgumentNullException.ThrowIfNull(_items);
+                ArgumentNullException.ThrowIfNull(_factory);
+
                 const string Orderstring = "IntValue desc";
 
                 var descriptions = _factory.Create<AliasItem>(Orderstring);
@@ -253,6 +274,9 @@ namespace LinqConvertTools.Tests.Parser
             [Test]
             public void WhenFilterContainSortDescriptionWithoutDirectionThenCreatesMatchingAscendingSortDescription()
             {
+                ArgumentNullException.ThrowIfNull(_items);
+                ArgumentNullException.ThrowIfNull(_factory);
+
                 const string Orderstring = "IntValue";
 
                 var descriptions = _factory.Create<AliasItem>(Orderstring);
@@ -269,6 +293,9 @@ namespace LinqConvertTools.Tests.Parser
             [Test]
             public void WhenFilterContainsSortMultipleDescriptionsThenSortsByAll()
             {
+                ArgumentNullException.ThrowIfNull(_items);
+                ArgumentNullException.ThrowIfNull(_factory);
+
                 const string Orderstring = "DoubleValue,IntValue desc";
 
                 var descriptions = _factory.Create<AliasItem>(Orderstring);
@@ -285,6 +312,9 @@ namespace LinqConvertTools.Tests.Parser
             [Test]
             public void WhenFilterContainsSortMultipleDescriptionsWithSpaceBetweenThenSortsByAll()
             {
+                ArgumentNullException.ThrowIfNull(_items);
+                ArgumentNullException.ThrowIfNull(_factory);
+
                 const string Orderstring = "DoubleValue, IntValue desc";
 
                 var descriptions = _factory.Create<AliasItem>(Orderstring);
@@ -301,6 +331,9 @@ namespace LinqConvertTools.Tests.Parser
             [Test]
             public void WhenFilterIsEmptyThenDoesNotSort()
             {
+                ArgumentNullException.ThrowIfNull(_items);
+                ArgumentNullException.ThrowIfNull(_factory);
+
                 var descriptions = _factory.Create<AliasItem>(string.Empty);
                 var filter = new ModelFilter<AliasItem>(x => true, null, descriptions, 0, -1);
 
@@ -315,6 +348,9 @@ namespace LinqConvertTools.Tests.Parser
             [Test]
             public void WhenOrderingByChildPropertyThenUsesChildProperty()
             {
+                ArgumentNullException.ThrowIfNull(_items);
+                ArgumentNullException.ThrowIfNull(_factory);
+
                 const string Orderstring = "StringValue/Length desc";
 
                 var descriptions = _factory.Create<AliasItem>(Orderstring);

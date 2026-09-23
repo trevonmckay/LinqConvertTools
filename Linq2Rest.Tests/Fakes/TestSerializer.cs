@@ -15,6 +15,7 @@ namespace LinqConvertTools.Tests.Fakes
     using LinqConvertTools.Provider;
     using System.Collections.Generic;
     using System.IO;
+    using System.Runtime.Serialization;
     using System.Runtime.Serialization.Json;
 
     public class TestSerializer<T> : ISerializer<T>
@@ -24,12 +25,12 @@ namespace LinqConvertTools.Tests.Fakes
 
         public T Deserialize(Stream input)
         {
-            return (T)_innerSerializer.ReadObject(input)!;
+            return (T)(_innerSerializer.ReadObject(input) ?? throw new SerializationException("The payload does not contain an item."));
         }
 
         public IEnumerable<T> DeserializeList(Stream input)
         {
-            return (IEnumerable<T>)_innerListSerializer.ReadObject(input)!;
+            return (IEnumerable<T>)(_innerListSerializer.ReadObject(input) ?? throw new SerializationException("The payload does not contain a list."));
         }
 
         public Stream Serialize(T item)

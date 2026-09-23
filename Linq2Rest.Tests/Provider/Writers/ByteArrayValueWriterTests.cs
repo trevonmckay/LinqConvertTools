@@ -18,7 +18,7 @@ namespace LinqConvertTools.Tests.Provider.Writers
     [TestFixture]
     public class ByteArrayValueWriterTests
     {
-        private ByteArrayValueWriter _writer = null!;
+        private ByteArrayValueWriter? _writer;
 
         [SetUp]
         public void Setup()
@@ -29,6 +29,8 @@ namespace LinqConvertTools.Tests.Provider.Writers
         [Test]
         public void WhenWritingByteArrayThenEnclosesInSingleQuote()
         {
+            ArgumentNullException.ThrowIfNull(_writer);
+
             var byteArray = new byte[] { 1, 2, 3, 4 };
             var result = _writer.Write(byteArray);
 

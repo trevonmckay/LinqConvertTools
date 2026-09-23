@@ -32,7 +32,7 @@ namespace LinqConvertTools.Tests.Fakes.ComplexDomain
         /// <summary>
         /// The reference user defined id value.
         /// </summary>
-        public string ReferenceValue { get; set; } = null!;
+        public string? ReferenceValue { get; set; }
 
         /// <summary>
         /// The bool value.
@@ -52,7 +52,7 @@ namespace LinqConvertTools.Tests.Fakes.ComplexDomain
         /// <summary>
         /// The string value .
         /// </summary>
-        public string StringNonUnicodeValue { get; set; } = null!;
+        public required string StringNonUnicodeValue { get; set; }
 
         /// <summary>
         /// Overriden. Determines whether the specified Object is equal to the current object.
@@ -93,7 +93,7 @@ namespace LinqConvertTools.Tests.Fakes.ComplexDomain
             switch (ValueType)
             {
                 case ValueTypeDefinitionData.Reference:
-                    return ReferenceValue.Equals(that.ReferenceValue);
+                    return string.Equals(ReferenceValue, that.ReferenceValue, StringComparison.Ordinal);
 
                 case ValueTypeDefinitionData.DateTime:
                     return DateTimeValue.Equals(that.DateTimeValue);
@@ -123,7 +123,7 @@ namespace LinqConvertTools.Tests.Fakes.ComplexDomain
             switch (ValueType)
             {
                 case ValueTypeDefinitionData.Reference:
-                    return ReferenceValue.GetHashCode();
+                    return ReferenceValue?.GetHashCode() ?? 0;
 
                 case ValueTypeDefinitionData.DateTime:
                     return DateTimeValue.GetHashCode();

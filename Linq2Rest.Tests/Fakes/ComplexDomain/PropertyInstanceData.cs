@@ -22,12 +22,12 @@ namespace LinqConvertTools.Tests.Fakes.ComplexDomain
         /// <summary>
         /// The property definition name that this instance belongs to.
         /// </summary>
-        public string DefinitionName { get; set; } = null!;
+        public required string DefinitionName { get; set; }
 
         /// <summary>
         /// The values for this instance.
         /// </summary>
-        public PropertyInstanceValueData[] Values { get; set; } = null!;
+        public required PropertyInstanceValueData[] Values { get; set; }
 
         /// <summary>
         /// Overriden. Determines whether the specified Object is equal to the current object.

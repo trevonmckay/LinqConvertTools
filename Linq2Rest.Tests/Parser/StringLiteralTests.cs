@@ -6,8 +6,8 @@ namespace LinqConvertTools.Tests.Parser
     [TestFixture]
     public class StringLiteralTests
     {
-        private ODataExpressionConverter _converter = null!;
-        private User[] _users = null!;
+        private ODataExpressionConverter? _converter;
+        private User[]? _users;
 
         [SetUp]
         public void Setup()
@@ -31,6 +31,9 @@ namespace LinqConvertTools.Tests.Parser
         [TestCase("familyName eq 'O'Brien'", "Sarah")]
         public void ReadsStringLiterals(string filter, string expected)
         {
+            ArgumentNullException.ThrowIfNull(_converter);
+            ArgumentNullException.ThrowIfNull(_users);
+
             var predicate = _converter.Convert<User>(filter);
 
             string actual = string.Join(",", _users.AsQueryable().Where(predicate).Select(u => u.GivenName));
@@ -48,6 +51,8 @@ namespace LinqConvertTools.Tests.Parser
         [TestCase("familyName in ('a', 'b)")]
         public void RejectsUnterminatedStringLiterals(string filter)
         {
+            ArgumentNullException.ThrowIfNull(_converter);
+
             Assert.Throws<FormatException>(() => _converter.Convert<User>(filter));
         }
     }

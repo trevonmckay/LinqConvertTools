@@ -20,7 +20,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
     [TestFixture]
     public class DateTimeOffsetExpressionFactoryTests
     {
-        private DateTimeOffsetExpressionFactory _factory = null!;
+        private DateTimeOffsetExpressionFactory? _factory;
 
         [SetUp]
         public void Setup()
@@ -31,6 +31,8 @@ namespace LinqConvertTools.Tests.Parser.Readers
         [Test]
         public void WhenFilterIncludesDateTimeOffsetParameterInDoubleQuotesThenReturnedExpressionContainsDateTimeOffset()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             var dateTimeOffset = new DateTimeOffset(2012, 5, 6, 18, 10, 0, 100, TimeSpan.FromHours(2));
             var parameter = string.Format("datetimeoffset\"{0}\"", XmlConvert.ToString(dateTimeOffset));
 
@@ -42,6 +44,8 @@ namespace LinqConvertTools.Tests.Parser.Readers
         [Test]
         public void WhenFilterIncludesDateTimeOffsetParameterThenReturnedExpressionContainsDateTimeOffset()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             var dateTimeOffset = new DateTimeOffset(2012, 5, 6, 18, 10, 0, 100, TimeSpan.FromHours(2));
             var parameter = string.Format("datetimeoffset'{0}'", XmlConvert.ToString(dateTimeOffset));
 
@@ -55,6 +59,8 @@ namespace LinqConvertTools.Tests.Parser.Readers
         [TestCase("2012-05-06T18:10-05:00", -5)]
         public void WhenFilterIncludesBareV4DateTimeOffsetThenReturnedExpressionContainsDateTimeOffset(string parameter, int offsetHours)
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             var expression = _factory.Convert(parameter);
 
             Assert.IsAssignableFrom<DateTimeOffset>(expression.Value);
@@ -65,12 +71,16 @@ namespace LinqConvertTools.Tests.Parser.Readers
         [TestCase("2012-05-06T18:10:00")]
         public void WhenBareDateTimeOffsetHasNoOffsetThenThrows(string parameter)
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             Assert.Throws<FormatException>(() => _factory.Convert(parameter));
         }
 
         [Test]
         public void WhenFilterIsIncorrectFormatThenThrows()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             const string Parameter = "blah";
 
             Assert.Throws<FormatException>(() => _factory.Convert(Parameter));

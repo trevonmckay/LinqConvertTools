@@ -23,6 +23,6 @@ namespace LinqConvertTools.Tests.Implementations
 
         [XmlElement(ElementName = "Text")]
         [DataMember(Name = "Text")]
-        public string SomeString { get; set; } = null!;
+        public string? SomeString { get; set; }
     }
 }

@@ -19,7 +19,7 @@ namespace LinqConvertTools.Tests
     [TestFixture]
     public class RuntimeTypeProviderTests
     {
-        private RuntimeTypeProvider _typeProvider = null!;
+        private RuntimeTypeProvider? _typeProvider;
 
         [SetUp]
         public void Setup()
@@ -30,6 +30,8 @@ namespace LinqConvertTools.Tests
         [Test]
         public void WhenCreatingDynamicTypeThenTransfersCustomAttributesWithDefaultConstructor()
         {
+            ArgumentNullException.ThrowIfNull(_typeProvider);
+
             var properties = new[] { typeof(FakeItem).GetProperty("DateValue")! };
 
             var dynamicType = _typeProvider.Get(typeof(FakeItem), properties);
@@ -41,19 +43,28 @@ namespace LinqConvertTools.Tests
         [Test]
         public void WhenCreatingDynamicTypeWithNoPropertiesThenThrows()
         {
+            ArgumentNullException.ThrowIfNull(_typeProvider);
+
             Assert.Throws<ArgumentOutOfRangeException>(() => _typeProvider.Get(typeof(FakeItem), new PropertyInfo[0]));
         }
 
         [Test]
         public void WhenCreatingDynamicTypeWithNullFiledsThenThrows()
         {
-            PropertyInfo[] propertyInfos = null!;
+            ArgumentNullException.ThrowIfNull(_typeProvider);
+
+            // Passes null deliberately to verify that Get throws ArgumentNullException.
+#pragma warning disable CS8600, CS8604
+            PropertyInfo[] propertyInfos = null;
             Assert.Throws<ArgumentNullException>(() => _typeProvider.Get(typeof(FakeItem), propertyInfos));
+#pragma warning restore CS8600, CS8604
         }
 
         [Test]
         public void WhenCreatingDynamicTypeWithOnePropertyInfoThenCreatesTypeWithOneProperty()
         {
+            ArgumentNullException.ThrowIfNull(_typeProvider);
+
             var properties = new[] { typeof(FakeItem).GetProperty("ChoiceValue")! };
 
             var dynamicType = _typeProvider.Get(typeof(FakeItem), properties);
@@ -68,6 +79,8 @@ namespace LinqConvertTools.Tests
         [Test]
         public void WhenCreatingDynamicTypeWithOnePropertyInfoThenCreatesTypeWithOnePropertyWhereTypeMatchesProperty()
         {
+            ArgumentNullException.ThrowIfNull(_typeProvider);
+
             var properties = new[] { typeof(FakeItem).GetProperty("DateValue")! };
 
             var dynamicType = _typeProvider.Get(typeof(FakeItem), properties);
@@ -79,12 +92,14 @@ namespace LinqConvertTools.Tests
         [Test]
         public void WhenCreatingDynamicTypeWithOnePropertyInfoThenGettingValueReturnsSetValue()
         {
+            ArgumentNullException.ThrowIfNull(_typeProvider);
+
             var expected = DateTime.UtcNow;
             var properties = new[] { typeof(FakeItem).GetProperty("DateValue")! };
 
             var dynamicType = _typeProvider.Get(typeof(FakeItem), properties);
 
-            dynamic instance = Activator.CreateInstance(dynamicType)!;
+            dynamic instance = Activator.CreateInstance(dynamicType) ?? throw new InvalidOperationException("Could not create an instance of the runtime type.");
             instance.DateValue = expected;
 
             Assert.AreEqual(expected, instance.DateValue);
@@ -93,6 +108,8 @@ namespace LinqConvertTools.Tests
         [Test]
         public void WhenCreatingRuntimeTypeWithAttributeThenSetCustomAttribute()
         {
+            ArgumentNullException.ThrowIfNull(_typeProvider);
+
             var properties = new[] { typeof(FakeItem).GetProperty("DateValue")! };
 
             var dynamicType = _typeProvider.Get(typeof(FakeItem), properties);

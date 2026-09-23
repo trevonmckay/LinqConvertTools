@@ -18,7 +18,7 @@ namespace LinqConvertTools.Tests.Provider.Writers
     [TestFixture]
     public class LongValueWriterTests
     {
-        private LongValueWriter _writer = null!;
+        private LongValueWriter? _writer;
 
         [SetUp]
         public void Setup()
@@ -29,6 +29,8 @@ namespace LinqConvertTools.Tests.Provider.Writers
         [Test]
         public void WhenWritingLongValueThenWritesString()
         {
+            ArgumentNullException.ThrowIfNull(_writer);
+
             var result = _writer.Write(123L);
 
             Assert.AreEqual("123", result);

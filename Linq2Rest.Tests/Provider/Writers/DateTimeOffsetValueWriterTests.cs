@@ -19,7 +19,7 @@ namespace LinqConvertTools.Tests.Provider.Writers
     [TestFixture]
     public class DateTimeOffsetValueWriterTests
     {
-        private DateTimeOffsetValueWriter _writer = null!;
+        private DateTimeOffsetValueWriter? _writer;
 
         [SetUp]
         public void Setup()
@@ -30,6 +30,8 @@ namespace LinqConvertTools.Tests.Provider.Writers
         [Test]
         public void WhenWritingDateTimeValueThenWritesString()
         {
+            ArgumentNullException.ThrowIfNull(_writer);
+
             var value = new DateTimeOffset(2012, 5, 6, 16, 11, 00, TimeSpan.FromHours(2));
             var result = _writer.Write(value);
 

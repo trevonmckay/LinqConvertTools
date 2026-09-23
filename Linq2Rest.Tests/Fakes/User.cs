@@ -18,11 +18,11 @@ namespace LinqConvertTools.Tests.Fakes
     {
         public string? GivenName { get; set; }
 
-        public string FamilyName { get; set; } = null!;
+        public string? FamilyName { get; set; }
 
         public ValueObject? Salutation { get; set; }
 
-        public ICollection<string> Roles { get; set; } = null!;
+        public ICollection<string>? Roles { get; set; }
 
         public EmailAddress? EmailAddress { get; set; }
 

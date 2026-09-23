@@ -34,7 +34,7 @@ namespace LinqConvertTools.Tests.Parser
         [TestFixture]
         public class FakeItemFilterExpressionFactoryTests
         {
-            private FilterExpressionFactory _factory = null!;
+            private FilterExpressionFactory? _factory;
 
             [SetUp]
             public void Setup()
@@ -61,12 +61,16 @@ namespace LinqConvertTools.Tests.Parser
             [TestCase("\0\0", typeof(InvalidOperationException))]
             public void WhenParsingInvalidExpressionThenThrows(string filter, Type exceptionType)
             {
+                ArgumentNullException.ThrowIfNull(_factory);
+
                 Assert.Throws(exceptionType, () => _factory.Create<FakeItem>(filter));
             }
 
             [Test]
             public void CanHandleEqualComparisonWithEmptyGuid()
             {
+                ArgumentNullException.ThrowIfNull(_factory);
+
                 var result = _factory.Create<FakeItem>("GlobalID eq guid'00000000-0000-0000-0000-000000000000'");
 
                 Assert.AreEqual("x => (x.GlobalID == 00000000-0000-0000-0000-000000000000)", result.ToString());
@@ -75,6 +79,8 @@ namespace LinqConvertTools.Tests.Parser
             [Test]
             public void CanHandleNotEqualComparisonWithEmptyGuid()
             {
+                ArgumentNullException.ThrowIfNull(_factory);
+
                 var result = _factory.Create<FakeItem>("GlobalID ne guid'00000000-0000-0000-0000-000000000000'");
 
                 Assert.AreEqual("x => (x.GlobalID != 00000000-0000-0000-0000-000000000000)", result.ToString());
@@ -83,6 +89,8 @@ namespace LinqConvertTools.Tests.Parser
             [Test]
             public void CanHandleParsedValues()
             {
+                ArgumentNullException.ThrowIfNull(_factory);
+
                 var result = _factory.Create<ParseParent>("Item eq 1 and Number le 2");
 
                 Assert.AreEqual("x => ((x.Item == Parse(\"1\")) AndAlso (x.Number <= 2))", result.ToString());
@@ -91,6 +99,8 @@ namespace LinqConvertTools.Tests.Parser
             [Test]
             public void FilteringIsCaseSensitive()
             {
+                ArgumentNullException.ThrowIfNull(_factory);
+
                 var items = new[] { new FakeItem { StringValue = "blah blah" } };
                 var filter = _factory.Create<FakeItem>("substringof('Blah', StringValue)");
 
@@ -257,6 +267,8 @@ namespace LinqConvertTools.Tests.Parser
             [TestCase("DateValue eq 2012-05-06T16:11:00Z", "x => (x.DateValue == 5/6/2012 4:11:00 PM)")]
             public void WhenProvidingValidInputThenGetsExpectedExpression(string filter, string expression)
             {
+                ArgumentNullException.ThrowIfNull(_factory);
+
                 var result = _factory.Create<FakeItem>(filter);
                 Assert.AreEqual(expression, result.ToString(), "Failed for " + filter);
             }
@@ -265,7 +277,7 @@ namespace LinqConvertTools.Tests.Parser
         [TestFixture]
         public class AliasItemFilterExpressionFactoryTests
         {
-            private FilterExpressionFactory _factory = null!;
+            private FilterExpressionFactory? _factory;
 
             [SetUp]
             public void Setup()
@@ -292,12 +304,16 @@ namespace LinqConvertTools.Tests.Parser
             [TestCase("\0\0", typeof(InvalidOperationException))]
             public void WhenParsingInvalidExpressionThenThrows(string filter, Type exceptionType)
             {
+                ArgumentNullException.ThrowIfNull(_factory);
+
                 Assert.Throws(exceptionType, () => _factory.Create<AliasItem>(filter));
             }
 
             [Test]
             public void CanHandleEqualComparisonWithEmptyGuid()
             {
+                ArgumentNullException.ThrowIfNull(_factory);
+
                 var result = _factory.Create<AliasItem>("GlobalID eq guid'00000000-0000-0000-0000-000000000000'");
 
                 Assert.AreEqual("x => (x.AliasGlobalID == 00000000-0000-0000-0000-000000000000)", result.ToString());
@@ -306,6 +322,8 @@ namespace LinqConvertTools.Tests.Parser
             [Test]
             public void CanHandleNotEqualComparisonWithEmptyGuid()
             {
+                ArgumentNullException.ThrowIfNull(_factory);
+
                 var result = _factory.Create<AliasItem>("GlobalID ne guid'00000000-0000-0000-0000-000000000000'");
 
                 Assert.AreEqual("x => (x.AliasGlobalID != 00000000-0000-0000-0000-000000000000)", result.ToString());
@@ -314,6 +332,8 @@ namespace LinqConvertTools.Tests.Parser
             [Test]
             public void CanHandleParsedValues()
             {
+                ArgumentNullException.ThrowIfNull(_factory);
+
                 var result = _factory.Create<ParseParent>("Item eq 1 and Number le 2");
 
                 Assert.AreEqual("x => ((x.Item == Parse(\"1\")) AndAlso (x.Number <= 2))", result.ToString());
@@ -322,6 +342,8 @@ namespace LinqConvertTools.Tests.Parser
             [Test]
             public void FilteringIsCaseSensitive()
             {
+                ArgumentNullException.ThrowIfNull(_factory);
+
                 var items = new[] { new AliasItem { StringValue = "blah blah" } };
                 var filter = _factory.Create<AliasItem>("substringof('Blah', StringValue)");
 
@@ -483,6 +505,8 @@ namespace LinqConvertTools.Tests.Parser
             [TestCase("PointInTime eq datetimeoffset'2012-05-06T18:10:00+02:00'", "x => (x.AliasPointInTime == 5/6/2012 6:10:00 PM +02:00)")]
             public void WhenProvidingValidInputThenGetsExpectedExpression(string filter, string expression)
             {
+                ArgumentNullException.ThrowIfNull(_factory);
+
                 var result = _factory.Create<AliasItem>(filter);
 
                 Assert.AreEqual(expression, result.ToString(), "Failed for " + filter);

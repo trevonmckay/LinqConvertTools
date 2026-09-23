@@ -16,6 +16,6 @@ namespace LinqConvertTools.Tests
 
     public class ChildFakeItem
     {
-        public IEnumerable<string> Attributes { get; set; } = null!;
+        public required IEnumerable<string> Attributes { get; set; }
     }
 }

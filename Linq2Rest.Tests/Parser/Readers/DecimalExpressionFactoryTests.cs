@@ -19,7 +19,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
     [TestFixture]
     public class DecimalExpressionFactoryTests
     {
-        private DecimalExpressionFactory _factory = null!;
+        private DecimalExpressionFactory? _factory;
 
         [SetUp]
         public void Setup()
@@ -30,6 +30,8 @@ namespace LinqConvertTools.Tests.Parser.Readers
         [Test]
         public void WhenFilterIncludesDecimalParameterThenReturnedExpressionContainsDecimal()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             var expression = _factory.Convert("1.23");
 
             Assert.IsAssignableFrom<decimal>(expression.Value);
@@ -38,6 +40,8 @@ namespace LinqConvertTools.Tests.Parser.Readers
         [Test]
         public void WhenFilterIncludesDecimalParameterWithTrailingLowerCaseMThenReturnedExpressionContainsDecimal()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             var expression = _factory.Convert("1.23m");
 
             Assert.IsAssignableFrom<decimal>(expression.Value);
@@ -46,6 +50,8 @@ namespace LinqConvertTools.Tests.Parser.Readers
         [Test]
         public void WhenFilterIncludesDecimalParameterWithTrailingUpperCaseMThenReturnedExpressionContainsDecimal()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             var expression = _factory.Convert("1.23M");
 
             Assert.IsAssignableFrom<decimal>(expression.Value);
@@ -54,6 +60,8 @@ namespace LinqConvertTools.Tests.Parser.Readers
         [Test]
         public void WhenFilterIsIncorrectFormatThenThrows()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             const string Parameter = "blah";
 
             Assert.Throws<FormatException>(() => _factory.Convert(Parameter));

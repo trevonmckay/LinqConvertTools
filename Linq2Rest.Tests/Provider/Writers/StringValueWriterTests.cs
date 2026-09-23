@@ -18,7 +18,7 @@ namespace LinqConvertTools.Tests.Provider.Writers
     [TestFixture]
     public class StringValueWriterTests
     {
-        private StringValueWriter _writer = null!;
+        private StringValueWriter? _writer;
 
         [SetUp]
         public void Setup()
@@ -29,6 +29,8 @@ namespace LinqConvertTools.Tests.Provider.Writers
         [Test]
         public void WhenWritingStringThenEnclosesInSingleQuote()
         {
+            ArgumentNullException.ThrowIfNull(_writer);
+
             var result = _writer.Write("hello world");
 
             Assert.AreEqual("'hello world'", result);

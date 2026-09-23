@@ -20,7 +20,7 @@ namespace LinqConvertTools.Tests.Implementations
     [TestFixture]
     public class XmlSerializerFactoryTests
     {
-        private XmlSerializerFactory _factory = null!;
+        private XmlSerializerFactory? _factory;
 
         [SetUp]
         public void Setup()
@@ -31,6 +31,8 @@ namespace LinqConvertTools.Tests.Implementations
         [Test]
         public void CreatedSerializerCanDeserializeListOfType()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             const string Xml = "<ArrayOfSimpleContractItem><SimpleContractItem><Text>test</Text><Value>2</Value></SimpleContractItem></ArrayOfSimpleContractItem>";
 
             var serializer = _factory.Create<SimpleContractItem>();
@@ -43,6 +45,8 @@ namespace LinqConvertTools.Tests.Implementations
         [Test]
         public void CreatedSerializerCanDeserializeType()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             const string Xml = "<SimpleContractItem><Text>test</Text><Value>2</Value></SimpleContractItem>";
 
             var serializer = _factory.Create<SimpleContractItem>();
@@ -56,6 +60,8 @@ namespace LinqConvertTools.Tests.Implementations
         [Test]
         public void CreatedSerializerCanSerializeDataContractType()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             var serializer = _factory.Create<SimpleContractItem>();
 
             var deserializedResult = serializer.Serialize(new SimpleContractItem());
@@ -66,6 +72,8 @@ namespace LinqConvertTools.Tests.Implementations
         [Test]
         public void WhenCreatingSerializerThenDoesNotReturnNull()
         {
+            ArgumentNullException.ThrowIfNull(_factory);
+
             Assert.NotNull(_factory.Create<SimpleContractItem>());
         }
     }
