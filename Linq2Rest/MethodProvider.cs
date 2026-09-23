@@ -27,6 +27,8 @@ namespace LinqConvertTools
         private static readonly MethodInfo InnerSubstringMethod;
         private static readonly MethodInfo InnerToLowerMethod;
         private static readonly MethodInfo InnerToUpperMethod;
+        private static readonly MethodInfo InnerToLowerInvariantMethod;
+        private static readonly MethodInfo InnerToUpperInvariantMethod;
         private static readonly MethodInfo InnerTrimMethod;
         private static readonly PropertyInfo InnerDayProperty;
         private static readonly PropertyInfo InnerHourProperty;
@@ -53,8 +55,10 @@ namespace LinqConvertTools
             InnerStartsWithMethod = stringType.GetMethod("StartsWith", new[] { stringType });
             InnerLengthProperty = stringType.GetProperty("Length", Type.EmptyTypes);
             InnerSubstringMethod = stringType.GetMethod("Substring", new[] { typeof(int) });
-            InnerToLowerMethod = stringType.GetMethod("ToLowerInvariant", Type.EmptyTypes);
-            InnerToUpperMethod = stringType.GetMethod("ToUpperInvariant", Type.EmptyTypes);
+            InnerToLowerMethod = stringType.GetMethod("ToLower", Type.EmptyTypes);
+            InnerToUpperMethod = stringType.GetMethod("ToUpper", Type.EmptyTypes);
+            InnerToLowerInvariantMethod = stringType.GetMethod("ToLowerInvariant", Type.EmptyTypes);
+            InnerToUpperInvariantMethod = stringType.GetMethod("ToUpperInvariant", Type.EmptyTypes);
             InnerTrimMethod = stringType.GetMethod("Trim", Type.EmptyTypes);
 
             InnerDayProperty = datetimeType.GetProperty("Day", Type.EmptyTypes);
@@ -124,22 +128,14 @@ namespace LinqConvertTools
             }
         }
 
-        public static MethodInfo ToLowerMethod
+        public static MethodInfo GetToLowerMethod(StringCaseFolding caseFolding)
         {
-            get
-            {
-
-                return InnerToLowerMethod;
-            }
+            return caseFolding == StringCaseFolding.Invariant ? InnerToLowerInvariantMethod : InnerToLowerMethod;
         }
 
-        public static MethodInfo ToUpperMethod
+        public static MethodInfo GetToUpperMethod(StringCaseFolding caseFolding)
         {
-            get
-            {
-
-                return InnerToUpperMethod;
-            }
+            return caseFolding == StringCaseFolding.Invariant ? InnerToUpperInvariantMethod : InnerToUpperMethod;
         }
 
         public static MethodInfo TrimMethod

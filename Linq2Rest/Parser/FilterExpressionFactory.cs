@@ -32,16 +32,39 @@ namespace LinqConvertTools.Parser
 
         private readonly IMemberNameResolver _memberNameResolver;
         private readonly ParameterValueReader _valueReader;
+        private readonly StringCaseFolding _caseFolding;
+        private readonly MethodInfo _toUpperMethod;
+        private readonly MethodInfo _toLowerMethod;
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="FilterExpressionFactory"/> class that converts string case
+        /// with <see cref="StringCaseFolding.CurrentCulture"/>.
+        /// </summary>
+        /// <param name="memberNameResolver">An <see cref="IMemberNameResolver"/> for name resolution.</param>
+        /// <param name="expressionFactories">The custom <see cref="IValueExpressionFactory"/> to use for value conversion.</param>
+        public FilterExpressionFactory(IMemberNameResolver memberNameResolver, IEnumerable<IValueExpressionFactory> expressionFactories)
+            : this(memberNameResolver, expressionFactories, StringCaseFolding.CurrentCulture)
+        {
+        }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="FilterExpressionFactory"/> class.
         /// </summary>
         /// <param name="memberNameResolver">An <see cref="IMemberNameResolver"/> for name resolution.</param>
         /// <param name="expressionFactories">The custom <see cref="IValueExpressionFactory"/> to use for value conversion.</param>
-        public FilterExpressionFactory(IMemberNameResolver memberNameResolver, IEnumerable<IValueExpressionFactory> expressionFactories)
+        /// <param name="caseFolding">The string methods used for case-insensitive comparisons and the <c>toupper()</c> and <c>tolower()</c> functions.</param>
+        public FilterExpressionFactory(IMemberNameResolver memberNameResolver, IEnumerable<IValueExpressionFactory> expressionFactories, StringCaseFolding caseFolding)
         {
+            if (!Enum.IsDefined(typeof(StringCaseFolding), caseFolding))
+            {
+                throw new ArgumentOutOfRangeException(nameof(caseFolding), caseFolding, "Unknown string case folding.");
+            }
+
             _valueReader = new ParameterValueReader(expressionFactories);
             _memberNameResolver = memberNameResolver;
+            _caseFolding = caseFolding;
+            _toUpperMethod = MethodProvider.GetToUpperMethod(caseFolding);
+            _toLowerMethod = MethodProvider.GetToLowerMethod(caseFolding);
         }
 
         /// <summary>
@@ -91,12 +114,12 @@ namespace LinqConvertTools.Parser
             }
         }
 
-        private static Expression GetOperation(string token, Expression? left, Expression right, bool ignoreCase)
+        private Expression GetOperation(string token, Expression? left, Expression right, bool ignoreCase)
         {
             return left == null ? GetRightOperation(token, right) : GetNullSafeLeftRightOperation(token, left, right, ignoreCase);
         }
 
-        private static Expression GetNullSafeLeftRightOperation(string token, Expression left, Expression right, bool ignoreCase)
+        private Expression GetNullSafeLeftRightOperation(string token, Expression left, Expression right, bool ignoreCase)
         {
             Expression binaryExpression = GetLeftRightOperation(token, left, right, ignoreCase);
             if (left is MemberExpression memberExpression && memberExpression.Expression?.NodeType == ExpressionType.MemberAccess && !memberExpression.Expression.Type.IsValueType)
@@ -111,19 +134,19 @@ namespace LinqConvertTools.Parser
             return binaryExpression;
         }
 
-        private static Expression GetCaseAwareLeftRightOperation(BinaryExpression binaryExpression, bool ignoreCase)
+        private Expression GetCaseAwareLeftRightOperation(BinaryExpression binaryExpression, bool ignoreCase)
         {
             if (!ignoreCase || binaryExpression.Left.Type != typeof(string))
             {
                 return binaryExpression;
             }
 
-            Expression left = Expression.Call(binaryExpression.Left, MethodProvider.ToUpperMethod);
-            Expression right = Expression.Call(binaryExpression.Right, MethodProvider.ToUpperMethod);
+            Expression left = Expression.Call(binaryExpression.Left, _toUpperMethod);
+            Expression right = Expression.Call(binaryExpression.Right, _toUpperMethod);
             return binaryExpression.Update(left, binaryExpression.Conversion, right);
         }
 
-        private static Expression GetArrayConstant(Expression expression, bool toUpper)
+        private Expression GetArrayConstant(Expression expression, bool toUpper)
         {
             if (expression is not ConstantExpression constantExpression || constantExpression.Value is not string constantValue)
             {
@@ -134,24 +157,35 @@ namespace LinqConvertTools.Parser
             object[] values = cleanConstantValue
                 .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
                 .Select(value => value.Trim().Trim('\''))
-                .Select(value => toUpper ? value.ToUpperInvariant() : value)
+                .Select(value => toUpper ? ToUpper(value) : value)
                 .ToArray();
 
             return Expression.Constant(values);
         }
 
-        private static Expression GetInOperation(Expression left, Expression right, bool ignoreCase)
+        /// <summary>
+        /// Converts a filter constant to upper case the same way the generated expression converts the member,
+        /// so both sides of a case-insensitive comparison use the same rules.
+        /// </summary>
+        private string ToUpper(string value)
+        {
+            return _caseFolding == StringCaseFolding.Invariant
+                ? value.ToUpperInvariant()
+                : value.ToUpper(CultureInfo.CurrentCulture);
+        }
+
+        private Expression GetInOperation(Expression left, Expression right, bool ignoreCase)
         {
             if (!ignoreCase || left.Type != typeof(string))
             {
                 return Expression.Call(typeof(Enumerable), nameof(Enumerable.Contains), new[] { left.Type }, GetArrayConstant(right, false), left);
             }
 
-            Expression contains = Expression.Call(typeof(Enumerable), nameof(Enumerable.Contains), new[] { left.Type }, GetArrayConstant(right, true), Expression.Call(left, MethodProvider.ToUpperMethod));
+            Expression contains = Expression.Call(typeof(Enumerable), nameof(Enumerable.Contains), new[] { left.Type }, GetArrayConstant(right, true), Expression.Call(left, _toUpperMethod));
             return Expression.AndAlso(Expression.NotEqual(left, _nullConstantExpression), contains);
         }
 
-        private static Expression GetLeftRightOperation(string token, Expression left, Expression right, bool ignoreCase)
+        private Expression GetLeftRightOperation(string token, Expression left, Expression right, bool ignoreCase)
         {
             switch (token.ToUpperInvariant())
             {
@@ -214,15 +248,15 @@ namespace LinqConvertTools.Parser
             return result;
         }
 
-        private static Expression? GetCaseAwareFunction(Expression instance, MethodInfo method, Expression[] parameters, bool ignoreCase)
+        private Expression? GetCaseAwareFunction(Expression instance, MethodInfo method, Expression[] parameters, bool ignoreCase)
         {
-            Expression innerInstance = ignoreCase ? Expression.Call(instance, MethodProvider.ToUpperMethod) : instance;
-            Expression[] innerParameters = ignoreCase ? parameters.Select(x => Expression.Call(x, MethodProvider.ToUpperMethod)).ToArray() : parameters;
+            Expression innerInstance = ignoreCase ? Expression.Call(instance, _toUpperMethod) : instance;
+            Expression[] innerParameters = ignoreCase ? parameters.Select(x => Expression.Call(x, _toUpperMethod)).ToArray() : parameters;
 
             return Expression.Call(innerInstance, method, innerParameters);
         }
 
-        private static Expression? GetFunction(string function, Expression left, Expression? right, ParameterExpression sourceParameter, ICollection<ParameterExpression> lambdaParameters, bool ignoreCase)
+        private Expression? GetFunction(string function, Expression left, Expression? right, ParameterExpression sourceParameter, ICollection<ParameterExpression> lambdaParameters, bool ignoreCase)
         {
             switch (function.ToUpperInvariant())
             {
@@ -241,9 +275,9 @@ namespace LinqConvertTools.Parser
                 case "SUBSTRING":
                     return Expression.Call(left, MethodProvider.SubstringMethod, new[] { right });
                 case "TOLOWER":
-                    return Expression.Call(left, MethodProvider.ToLowerMethod);
+                    return Expression.Call(left, _toLowerMethod);
                 case "TOUPPER":
-                    return Expression.Call(left, MethodProvider.ToUpperMethod);
+                    return Expression.Call(left, _toUpperMethod);
                 case "TRIM":
                     return Expression.Call(left, MethodProvider.TrimMethod);
                 case "HOUR":
