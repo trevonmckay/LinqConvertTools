@@ -20,6 +20,9 @@ namespace LinqConvertTools.Parser.Readers
     {
         private static readonly Regex GuidRegex = new Regex(@"guid['\""]([a-f0-9\-]+)['\""]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+        // OData v4 literal: a bare 8-4-4-4-12 hex GUID (e.g. 0f000000-0000-7000-8000-000000000001) without the v3 guid'' wrapper.
+        private static readonly Regex BareGuidRegex = new(@"^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
         public override ConstantExpression Convert(string token)
         {
             var match = GuidRegex.Match(token);
@@ -30,6 +33,12 @@ namespace LinqConvertTools.Parser.Readers
                 {
                     return Expression.Constant(guid);
                 }
+            }
+
+            if (BareGuidRegex.IsMatch(token)
+                && Guid.TryParseExact(token, "D", out Guid bareGuid))
+            {
+                return Expression.Constant(bareGuid);
             }
 
             throw new FormatException("Could not read " + token + " as Guid.");
