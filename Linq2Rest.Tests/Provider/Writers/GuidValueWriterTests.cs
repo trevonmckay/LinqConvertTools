@@ -19,7 +19,7 @@ namespace LinqConvertTools.Tests.Provider.Writers
     [TestFixture]
     public class GuidValueWriterTests
     {
-        private GuidValueWriter _writer;
+        private GuidValueWriter _writer = null!;
 
         [SetUp]
         public void Setup()

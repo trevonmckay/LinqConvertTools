@@ -20,7 +20,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
     [TestFixture]
     public class TimeSpanExpressionFactoryTests
     {
-        private TimeSpanExpressionFactory _factory;
+        private TimeSpanExpressionFactory _factory = null!;
 
         [SetUp]
         public void Setup()

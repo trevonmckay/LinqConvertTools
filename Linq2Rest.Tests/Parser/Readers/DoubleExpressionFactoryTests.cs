@@ -19,7 +19,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
     [TestFixture]
     public class DoubleExpressionFactoryTests
     {
-        private DoubleExpressionFactory _factory;
+        private DoubleExpressionFactory _factory = null!;
 
         [SetUp]
         public void Setup()

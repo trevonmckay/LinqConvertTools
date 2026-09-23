@@ -22,7 +22,7 @@ namespace LinqConvertTools.Tests.Provider
         public int ID { get; set; }
 
         [DataMember]
-        public string Content { get; set; }
+        public string Content { get; set; } = null!;
 
         [DataMember]
         public double Value { get; set; }
@@ -47,7 +47,7 @@ namespace LinqConvertTools.Tests.Provider
         public int AliasID { get; set; }
 
         [DataMember(Name = "Content")]
-        public string AliasContent { get; set; }
+        public string AliasContent { get; set; } = null!;
 
         [DataMember(Name = "Value")]
         public double AliasValue { get; set; }

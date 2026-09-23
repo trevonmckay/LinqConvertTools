@@ -19,7 +19,7 @@ namespace LinqConvertTools.Tests
     [TestFixture]
     public class RuntimeTypeProviderTests
     {
-        private RuntimeTypeProvider _typeProvider;
+        private RuntimeTypeProvider _typeProvider = null!;
 
         [SetUp]
         public void Setup()
@@ -30,7 +30,7 @@ namespace LinqConvertTools.Tests
         [Test]
         public void WhenCreatingDynamicTypeThenTransfersCustomAttributesWithDefaultConstructor()
         {
-            var properties = new[] { typeof(FakeItem).GetProperty("DateValue") };
+            var properties = new[] { typeof(FakeItem).GetProperty("DateValue")! };
 
             var dynamicType = _typeProvider.Get(typeof(FakeItem), properties);
 
@@ -47,19 +47,19 @@ namespace LinqConvertTools.Tests
         [Test]
         public void WhenCreatingDynamicTypeWithNullFiledsThenThrows()
         {
-            PropertyInfo[] propertyInfos = null;
+            PropertyInfo[] propertyInfos = null!;
             Assert.Throws<ArgumentNullException>(() => _typeProvider.Get(typeof(FakeItem), propertyInfos));
         }
 
         [Test]
         public void WhenCreatingDynamicTypeWithOnePropertyInfoThenCreatesTypeWithOneProperty()
         {
-            var properties = new[] { typeof(FakeItem).GetProperty("ChoiceValue") };
+            var properties = new[] { typeof(FakeItem).GetProperty("ChoiceValue")! };
 
             var dynamicType = _typeProvider.Get(typeof(FakeItem), properties);
 
             var dataMemberAttribute = dynamicType
-                .GetProperty("Choice")
+                .GetProperty("Choice")!
                 .GetCustomAttributes(false);
 
             Assert.IsNotEmpty(dataMemberAttribute);
@@ -68,10 +68,10 @@ namespace LinqConvertTools.Tests
         [Test]
         public void WhenCreatingDynamicTypeWithOnePropertyInfoThenCreatesTypeWithOnePropertyWhereTypeMatchesProperty()
         {
-            var properties = new[] { typeof(FakeItem).GetProperty("DateValue") };
+            var properties = new[] { typeof(FakeItem).GetProperty("DateValue")! };
 
             var dynamicType = _typeProvider.Get(typeof(FakeItem), properties);
-            var property = dynamicType.GetProperty("DateValue");
+            var property = dynamicType.GetProperty("DateValue")!;
 
             Assert.AreEqual(typeof(DateTime), property.PropertyType);
         }
@@ -80,11 +80,11 @@ namespace LinqConvertTools.Tests
         public void WhenCreatingDynamicTypeWithOnePropertyInfoThenGettingValueReturnsSetValue()
         {
             var expected = DateTime.UtcNow;
-            var properties = new[] { typeof(FakeItem).GetProperty("DateValue") };
+            var properties = new[] { typeof(FakeItem).GetProperty("DateValue")! };
 
             var dynamicType = _typeProvider.Get(typeof(FakeItem), properties);
 
-            dynamic instance = Activator.CreateInstance(dynamicType);
+            dynamic instance = Activator.CreateInstance(dynamicType)!;
             instance.DateValue = expected;
 
             Assert.AreEqual(expected, instance.DateValue);
@@ -93,7 +93,7 @@ namespace LinqConvertTools.Tests
         [Test]
         public void WhenCreatingRuntimeTypeWithAttributeThenSetCustomAttribute()
         {
-            var properties = new[] { typeof(FakeItem).GetProperty("DateValue") };
+            var properties = new[] { typeof(FakeItem).GetProperty("DateValue")! };
 
             var dynamicType = _typeProvider.Get(typeof(FakeItem), properties);
 

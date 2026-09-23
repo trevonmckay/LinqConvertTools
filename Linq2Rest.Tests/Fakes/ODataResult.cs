@@ -19,6 +19,6 @@ namespace LinqConvertTools.Tests.Fakes
     public class ODataResult<T>
     {
         [DataMember(Name = "value")]
-        public IEnumerable<T> Results { get; set; }
+        public IEnumerable<T> Results { get; set; } = null!;
     }
 }

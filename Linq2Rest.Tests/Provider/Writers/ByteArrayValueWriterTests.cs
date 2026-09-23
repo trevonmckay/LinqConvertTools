@@ -18,7 +18,7 @@ namespace LinqConvertTools.Tests.Provider.Writers
     [TestFixture]
     public class ByteArrayValueWriterTests
     {
-        private ByteArrayValueWriter _writer;
+        private ByteArrayValueWriter _writer = null!;
 
         [SetUp]
         public void Setup()

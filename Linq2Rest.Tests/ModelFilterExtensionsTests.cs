@@ -21,7 +21,7 @@ namespace LinqConvertTools.Tests
     [TestFixture]
     public class ModelFilterExtensionsTests
     {
-        private FakeItem[] _source;
+        private FakeItem[] _source = null!;
 
         [SetUp]
         public void TestSetup()

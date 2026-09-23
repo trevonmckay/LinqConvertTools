@@ -20,9 +20,9 @@ namespace LinqConvertTools.Tests.Parser
     [TestFixture]
     public class ParameterParserTests
     {
-        private ParameterParser<FakeItem> _parser;
-        private FakeItem[] _items;
-        private FakeItem[] _nestedItems;
+        private ParameterParser<FakeItem> _parser = null!;
+        private FakeItem[] _items = null!;
+        private FakeItem[] _nestedItems = null!;
 
         [OneTimeSetUp]
         public void TestFixtureSetup()

@@ -32,7 +32,7 @@ namespace LinqConvertTools.Tests.Fakes.ComplexDomain
         /// <summary>
         /// The reference user defined id value.
         /// </summary>
-        public string ReferenceValue { get; set; }
+        public string ReferenceValue { get; set; } = null!;
 
         /// <summary>
         /// The bool value.
@@ -52,14 +52,14 @@ namespace LinqConvertTools.Tests.Fakes.ComplexDomain
         /// <summary>
         /// The string value .
         /// </summary>
-        public string StringNonUnicodeValue { get; set; }
+        public string StringNonUnicodeValue { get; set; } = null!;
 
         /// <summary>
         /// Overriden. Determines whether the specified Object is equal to the current object.
         /// </summary>
         /// <param name="other">The Object to compare with the current object.</param>
         /// <returns>Returns true if the specified object is equal to the current object; otherwise false.</returns>
-        public override bool Equals(object other)
+        public override bool Equals(object? other)
         {
             return Equals(other as PropertyInstanceValueData);
         }
@@ -69,7 +69,7 @@ namespace LinqConvertTools.Tests.Fakes.ComplexDomain
         /// </summary>
         /// <param name="that">The PropertyInstanceValueData to compare with the current object.</param>
         /// <returns>Returns true if the specified object has the same value type and same vale as the current PropertyInstanceValueData; otherwise false.</returns>
-        public virtual bool Equals(PropertyInstanceValueData that)
+        public virtual bool Equals(PropertyInstanceValueData? that)
         {
             // if that is null - not equal
             if (ReferenceEquals(that, null))

@@ -26,12 +26,12 @@ namespace LinqConvertTools.Tests.Fakes
 
         public ComplexDto Deserialize(Stream input)
         {
-            return (ComplexDto)_innerSerializer.ReadObject(input);
+            return (ComplexDto)_innerSerializer.ReadObject(input)!;
         }
 
         public IEnumerable<ComplexDto> DeserializeList(Stream input)
         {
-            return (List<ComplexDto>)_innerListSerializer.ReadObject(input);
+            return (List<ComplexDto>)_innerListSerializer.ReadObject(input)!;
         }
 
         public Stream Serialize(ComplexDto item)

@@ -22,7 +22,7 @@ namespace LinqConvertTools.Tests.Fakes.ComplexDomain
         /// <summary>
         /// The unique id of this object, given by the user who created it.
         /// </summary>
-        public string UserDefinedId { get; set; }
+        public string UserDefinedId { get; set; } = null!;
 
         /// <summary>
         /// The last changed time.
@@ -33,12 +33,12 @@ namespace LinqConvertTools.Tests.Fakes.ComplexDomain
         /// The full name of the type definition that this instance belongs to.
         /// Full name includes all hierarchies (for Example: CPU\SNB\SNB2Core1Gfx).
         /// </summary>
-        public string DefinitionFullName { get; set; }
+        public string DefinitionFullName { get; set; } = null!;
 
         /// <summary>
         /// The properties that belong to this type instance.
         /// </summary>
-        public PropertyInstanceData[] Properties { get; set; }
+        public PropertyInstanceData[] Properties { get; set; } = null!;
 
         /// <summary>
         /// Determines whether this type instance was soft deleted.
@@ -48,6 +48,6 @@ namespace LinqConvertTools.Tests.Fakes.ComplexDomain
         /// <summary>
         /// The name of the user which last updated this object.
         /// </summary>
-        public string LastUpdatedBy { get; set; }
+        public string LastUpdatedBy { get; set; } = null!;
     }
 }

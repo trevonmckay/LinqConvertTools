@@ -19,7 +19,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
     [TestFixture]
     public class UnsignedIntExpressionFactoryTests
     {
-        private UnsignedIntExpressionFactory _factory;
+        private UnsignedIntExpressionFactory _factory = null!;
 
         [SetUp]
         public void Setup()

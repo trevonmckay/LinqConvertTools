@@ -19,7 +19,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
     [TestFixture]
     public class ByteExpressionFactoryTests
     {
-        private ByteExpressionFactory _factory;
+        private ByteExpressionFactory _factory = null!;
 
         [SetUp]
         public void Setup()

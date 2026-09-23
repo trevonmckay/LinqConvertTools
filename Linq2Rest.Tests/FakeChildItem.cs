@@ -23,7 +23,7 @@ namespace LinqConvertTools.Tests
 
         public int ID { get; set; }
 
-        public string ChildStringValue { get; set; }
+        public string ChildStringValue { get; set; } = null!;
 
         public ICollection<FakeGrandChildItem> Children
         {

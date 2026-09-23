@@ -18,8 +18,8 @@ namespace LinqConvertTools.Tests
 
     public class SelectExpressionFactoryTests
     {
-        private SelectExpressionFactory<FakeItem> _factory;
-        private FakeItem[] _items;
+        private SelectExpressionFactory<FakeItem> _factory = null!;
+        private FakeItem[] _items = null!;
 
         [OneTimeSetUp]
         public void FixtureSetup()
@@ -38,7 +38,7 @@ namespace LinqConvertTools.Tests
         [Test]
         public void WhenApplyingSelectionThenReturnsObjectWithOnlySelectedPropertiesAsFields()
         {
-            var expression = _factory.Create("Number").Compile();
+            var expression = _factory.Create("Number")!.Compile();
 
             var selection = _items.Select(expression);
 

@@ -20,7 +20,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
     [TestFixture]
     public class DateTimeExpressionFactoryTests
     {
-        private DateTimeExpressionFactory _factory;
+        private DateTimeExpressionFactory _factory = null!;
         private DateTime _dateTime;
 
         [SetUp]

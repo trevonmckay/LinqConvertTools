@@ -19,7 +19,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
     [TestFixture]
     public class GuidExpressionFactoryTests
     {
-        private GuidExpressionFactory _factory;
+        private GuidExpressionFactory _factory = null!;
 
         [SetUp]
         public void Setup()

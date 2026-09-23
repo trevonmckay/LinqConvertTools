@@ -18,7 +18,7 @@ namespace LinqConvertTools.Tests.Provider.Writers
     [TestFixture]
     public class LongValueWriterTests
     {
-        private LongValueWriter _writer;
+        private LongValueWriter _writer = null!;
 
         [SetUp]
         public void Setup()

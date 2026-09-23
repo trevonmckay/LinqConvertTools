@@ -20,7 +20,7 @@ namespace LinqConvertTools.Tests.Implementations
     [TestFixture]
     public class XmlDataContractSerializerFactoryTests
     {
-        private XmlDataContractSerializerFactory _factory;
+        private XmlDataContractSerializerFactory _factory = null!;
 
         [SetUp]
         public void Setup()

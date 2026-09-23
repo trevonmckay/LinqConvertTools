@@ -17,6 +17,6 @@ namespace LinqConvertTools.Tests
 
     internal static class AnonymousTypeSerializerHelper
     {
-        public static readonly MethodInfo InnerChangeTypeMethod = typeof(Convert).GetMethod("ChangeType", new[] { typeof(object), typeof(Type) });
+        public static readonly MethodInfo InnerChangeTypeMethod = typeof(Convert).GetMethod("ChangeType", new[] { typeof(object), typeof(Type) })!;
     }
 }

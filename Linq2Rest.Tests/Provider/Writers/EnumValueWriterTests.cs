@@ -18,7 +18,7 @@ namespace LinqConvertTools.Tests.Provider.Writers
     [TestFixture]
     public class EnumValueWriterTests
     {
-        private EnumValueWriter _writer;
+        private EnumValueWriter _writer = null!;
 
         [SetUp]
         public void Setup()

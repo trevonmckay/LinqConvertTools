@@ -16,13 +16,13 @@ namespace LinqConvertTools.Tests.Fakes
 
     internal class User : IQueryableUser
     {
-        public string GivenName { get; set; }
+        public string? GivenName { get; set; }
 
-        public string FamilyName { get; set; }
+        public string FamilyName { get; set; } = null!;
 
         public ValueObject? Salutation { get; set; }
 
-        public ICollection<string> Roles { get; set; }
+        public ICollection<string> Roles { get; set; } = null!;
 
         public EmailAddress? EmailAddress { get; set; }
 

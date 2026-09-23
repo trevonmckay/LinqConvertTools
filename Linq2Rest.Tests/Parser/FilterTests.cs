@@ -21,7 +21,7 @@ namespace LinqConvertTools.Tests.Parser
     [TestFixture]
     public class FilterTests
     {
-        private FakeItem[] _collection;
+        private FakeItem[] _collection = null!;
 
         [SetUp]
         public void TestSetup()

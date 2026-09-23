@@ -10,8 +10,8 @@ namespace LinqConvertTools.Tests.Parser
     [TestFixture]
     public class DateFunctionTests
     {
-        private ODataExpressionConverter _converter;
-        private Event[] _events;
+        private ODataExpressionConverter _converter = null!;
+        private Event[] _events = null!;
 
         [SetUp]
         public void Setup()

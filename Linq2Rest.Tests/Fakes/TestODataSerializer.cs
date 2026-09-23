@@ -25,13 +25,13 @@ namespace LinqConvertTools.Tests.Fakes
 
         public T Deserialize(Stream input)
         {
-            var response = (ODataResponse<T>)_innerSerializer.ReadObject(input);
-            return response.Results.FirstOrDefault();
+            var response = (ODataResponse<T>)_innerSerializer.ReadObject(input)!;
+            return response.Results.FirstOrDefault()!;
         }
 
         public IEnumerable<T> DeserializeList(Stream input)
         {
-            var response = (ODataResponse<T>)_innerSerializer.ReadObject(input);
+            var response = (ODataResponse<T>)_innerSerializer.ReadObject(input)!;
             return response.Results;
         }
 

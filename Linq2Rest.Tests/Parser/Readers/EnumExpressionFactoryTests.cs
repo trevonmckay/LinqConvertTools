@@ -20,7 +20,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
     public class EnumExpressionFactoryTests
     {
         private const string EnumString = "LinqConvertTools.Tests.Choice'That'";
-        private EnumExpressionFactory _factory;
+        private EnumExpressionFactory _factory = null!;
 
         [SetUp]
         public void Setup()

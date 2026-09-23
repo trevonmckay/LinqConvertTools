@@ -19,7 +19,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
     [TestFixture]
     public class ShortExpressionFactoryTests
     {
-        private ShortExpressionFactory _factory;
+        private ShortExpressionFactory _factory = null!;
 
         [SetUp]
         public void Setup()

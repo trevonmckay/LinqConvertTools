@@ -12,8 +12,8 @@ namespace LinqConvertTools.Tests.Parser
         private static readonly Guid DigitLed = Guid.Parse("0f000000-0000-7000-8000-000000000001");
         private static readonly Guid LetterLed = Guid.Parse("deadbeef-0000-7000-8000-000000000002");
 
-        private ODataExpressionConverter _converter;
-        private Record[] _records;
+        private ODataExpressionConverter _converter = null!;
+        private Record[] _records = null!;
 
         [SetUp]
         public void Setup()

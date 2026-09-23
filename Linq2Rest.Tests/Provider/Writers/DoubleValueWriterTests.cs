@@ -18,7 +18,7 @@ namespace LinqConvertTools.Tests.Provider.Writers
     [TestFixture]
     public class DoubleValueWriterTests
     {
-        private DoubleValueWriter _writer;
+        private DoubleValueWriter _writer = null!;
 
         [SetUp]
         public void Setup()

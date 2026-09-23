@@ -25,8 +25,8 @@ namespace LinqConvertTools.Tests.Parser
         [TestFixture]
         public class FakeItemSortExpressionFactoryTests
         {
-            private FakeItem[] _items;
-            private SortExpressionFactory _factory;
+            private FakeItem[] _items = null!;
+            private SortExpressionFactory _factory = null!;
 
             [SetUp]
             public void TestSetup()
@@ -214,8 +214,8 @@ namespace LinqConvertTools.Tests.Parser
         [TestFixture]
         public class AliasItemSortExpressionFactoryTests
         {
-            private AliasItem[] _items;
-            private SortExpressionFactory _factory;
+            private AliasItem[] _items = null!;
+            private SortExpressionFactory _factory = null!;
 
             [SetUp]
             public void TestSetup()

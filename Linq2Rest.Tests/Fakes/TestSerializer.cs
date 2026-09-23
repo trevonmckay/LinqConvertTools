@@ -24,12 +24,12 @@ namespace LinqConvertTools.Tests.Fakes
 
         public T Deserialize(Stream input)
         {
-            return (T)_innerSerializer.ReadObject(input);
+            return (T)_innerSerializer.ReadObject(input)!;
         }
 
         public IEnumerable<T> DeserializeList(Stream input)
         {
-            return (IEnumerable<T>)_innerListSerializer.ReadObject(input);
+            return (IEnumerable<T>)_innerListSerializer.ReadObject(input)!;
         }
 
         public Stream Serialize(T item)

@@ -26,7 +26,7 @@ namespace LinqConvertTools.Tests.Parser
             var factory = new SelectExpressionFactory<FakeItem>(nameResolver, new RuntimeTypeProvider(nameResolver));
             var items = new[] { new FakeItem { StringValue = "test" } };
 
-            var expression = factory.Create("Text");
+            var expression = factory.Create("Text")!;
 
             dynamic result = items.AsQueryable().Select(expression).First();
 
@@ -40,7 +40,7 @@ namespace LinqConvertTools.Tests.Parser
             var factory = new SelectExpressionFactory<FakeItem>(nameResolver, new RuntimeTypeProvider(nameResolver));
             var items = new[] { new FakeItem { IntValue = 2 } };
 
-            var expression = factory.Create("Number");
+            var expression = factory.Create("Number")!;
 
             dynamic result = items.AsQueryable().Select(expression).First();
 

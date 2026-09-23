@@ -33,7 +33,7 @@ namespace LinqConvertTools.Tests.Fakes
 
             if (typeof(T) == typeof(ComplexDto))
             {
-                return new TestComplexSerializer() as ISerializer<T>;
+                return (ISerializer<T>)new TestComplexSerializer();
             }
 
             return new TestSerializer<T>();
@@ -54,7 +54,7 @@ namespace LinqConvertTools.Tests.Fakes
 
             if (typeof(T) == typeof(ComplexDto))
             {
-                return new TestComplexSerializer() as ISerializer<T>;
+                return (ISerializer<T>)new TestComplexSerializer();
             }
 
             return new TestSerializer<T>();

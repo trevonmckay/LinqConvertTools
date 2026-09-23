@@ -22,7 +22,7 @@ namespace LinqConvertTools.Tests
     [TestFixture]
     public class ComplexDomainFilterTests
     {
-        private TypeInstanceData[] _model;
+        private TypeInstanceData[] _model = null!;
 
         [SetUp]
         public void Setup()

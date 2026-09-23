@@ -18,7 +18,7 @@ namespace LinqConvertTools.Tests.Provider.Writers
     [TestFixture]
     public class BooleanValueWriterTests
     {
-        private BooleanValueWriter _writer;
+        private BooleanValueWriter _writer = null!;
 
         [SetUp]
         public void Setup()

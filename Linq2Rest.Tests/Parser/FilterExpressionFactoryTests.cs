@@ -34,7 +34,7 @@ namespace LinqConvertTools.Tests.Parser
         [TestFixture]
         public class FakeItemFilterExpressionFactoryTests
         {
-            private FilterExpressionFactory _factory;
+            private FilterExpressionFactory _factory = null!;
 
             [SetUp]
             public void Setup()
@@ -265,7 +265,7 @@ namespace LinqConvertTools.Tests.Parser
         [TestFixture]
         public class AliasItemFilterExpressionFactoryTests
         {
-            private FilterExpressionFactory _factory;
+            private FilterExpressionFactory _factory = null!;
 
             [SetUp]
             public void Setup()

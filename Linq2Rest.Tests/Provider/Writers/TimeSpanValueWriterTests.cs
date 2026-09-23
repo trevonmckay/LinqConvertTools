@@ -19,7 +19,7 @@ namespace LinqConvertTools.Tests.Provider.Writers
     [TestFixture]
     public class TimeSpanValueWriterTests
     {
-        private TimeSpanValueWriter _writer;
+        private TimeSpanValueWriter _writer = null!;
 
         [SetUp]
         public void Setup()

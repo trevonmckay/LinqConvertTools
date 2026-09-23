@@ -13,7 +13,7 @@ namespace LinqConvertTools.Tests.Parser
     {
         private static readonly DateTimeOffset Expected = new(2026, 10, 1, 0, 0, 0, TimeSpan.Zero);
 
-        private ODataExpressionConverter _converter;
+        private ODataExpressionConverter _converter = null!;
 
         [SetUp]
         public void Setup()

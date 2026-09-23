@@ -18,7 +18,7 @@ namespace LinqConvertTools.Tests.Provider.Writers
     [TestFixture]
     public class ShortValueWriterTests
     {
-        private ShortValueWriter _writer;
+        private ShortValueWriter _writer = null!;
 
         [SetUp]
         public void Setup()

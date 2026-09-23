@@ -20,7 +20,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
     [TestFixture]
     public class DateTimeOffsetExpressionFactoryTests
     {
-        private DateTimeOffsetExpressionFactory _factory;
+        private DateTimeOffsetExpressionFactory _factory = null!;
 
         [SetUp]
         public void Setup()

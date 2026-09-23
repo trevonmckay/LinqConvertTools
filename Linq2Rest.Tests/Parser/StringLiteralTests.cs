@@ -6,8 +6,8 @@ namespace LinqConvertTools.Tests.Parser
     [TestFixture]
     public class StringLiteralTests
     {
-        private ODataExpressionConverter _converter;
-        private User[] _users;
+        private ODataExpressionConverter _converter = null!;
+        private User[] _users = null!;
 
         [SetUp]
         public void Setup()

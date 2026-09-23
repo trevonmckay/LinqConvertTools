@@ -18,7 +18,7 @@ namespace LinqConvertTools.Tests.Provider.Writers
     [TestFixture]
     public class IntValueWriterTests
     {
-        private IntValueWriter _writer;
+        private IntValueWriter _writer = null!;
 
         [SetUp]
         public void Setup()

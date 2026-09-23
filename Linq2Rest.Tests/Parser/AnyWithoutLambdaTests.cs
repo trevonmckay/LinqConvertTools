@@ -8,8 +8,8 @@ namespace LinqConvertTools.Tests.Parser
     [TestFixture]
     public class AnyWithoutLambdaTests
     {
-        private ODataExpressionConverter _converter;
-        private Team[] _teams;
+        private ODataExpressionConverter _converter = null!;
+        private Team[] _teams = null!;
 
         [SetUp]
         public void Setup()

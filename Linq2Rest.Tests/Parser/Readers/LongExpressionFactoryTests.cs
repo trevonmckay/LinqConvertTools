@@ -19,7 +19,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
     [TestFixture]
     public class LongExpressionFactoryTests
     {
-        private LongExpressionFactory _factory;
+        private LongExpressionFactory _factory = null!;
 
         [SetUp]
         public void Setup()

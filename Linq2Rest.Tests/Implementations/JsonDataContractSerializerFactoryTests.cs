@@ -20,7 +20,7 @@ namespace LinqConvertTools.Tests.Implementations
     [TestFixture]
     public class JsonDataContractSerializerFactoryTests
     {
-        private JsonDataContractSerializerFactory _factory;
+        private JsonDataContractSerializerFactory _factory = null!;
 
         [SetUp]
         public void Setup()

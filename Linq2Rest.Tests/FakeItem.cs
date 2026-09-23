@@ -23,7 +23,7 @@ namespace LinqConvertTools.Tests
     {
         private readonly Collection<FakeChildItem> _children = new Collection<FakeChildItem>();
         [DataMember(Name = "Text")]
-        private string _stringValue;
+        private string _stringValue = null!;
 
         public int ID { get; set; }
 
@@ -58,7 +58,7 @@ namespace LinqConvertTools.Tests
         [DataMember(Name = "Choice")]
         public Choice ChoiceValue { get; set; }
 
-        public ChildFakeItem Child { get; set; }
+        public ChildFakeItem Child { get; set; } = null!;
 
         public ICollection<FakeChildItem> Children
         {

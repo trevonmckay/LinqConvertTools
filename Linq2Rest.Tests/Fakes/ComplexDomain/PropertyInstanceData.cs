@@ -22,19 +22,19 @@ namespace LinqConvertTools.Tests.Fakes.ComplexDomain
         /// <summary>
         /// The property definition name that this instance belongs to.
         /// </summary>
-        public string DefinitionName { get; set; }
+        public string DefinitionName { get; set; } = null!;
 
         /// <summary>
         /// The values for this instance.
         /// </summary>
-        public PropertyInstanceValueData[] Values { get; set; }
+        public PropertyInstanceValueData[] Values { get; set; } = null!;
 
         /// <summary>
         /// Overriden. Determines whether the specified Object is equal to the current object.
         /// </summary>
         /// <param name="other">The Object to compare with the current object.</param>
         /// <returns>Returns true if the specified object is equal to the current object; otherwise false.</returns>
-        public override bool Equals(object other)
+        public override bool Equals(object? other)
         {
             return Equals(other as PropertyInstanceData);
         }
@@ -46,7 +46,7 @@ namespace LinqConvertTools.Tests.Fakes.ComplexDomain
         /// <returns>Returns true if the specified object has the same DefinitionName and the same values 
         /// (using the PropertyInstanceValueData Equals method) as the current PropertyInstanceValueData; 
         /// otherwise false.</returns>
-        public virtual bool Equals(PropertyInstanceData that)
+        public virtual bool Equals(PropertyInstanceData? that)
         {
             // if data is null - not equal
             if (ReferenceEquals(that, null))

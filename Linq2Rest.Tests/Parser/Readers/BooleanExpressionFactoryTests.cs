@@ -18,7 +18,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
     [TestFixture]
     public class BooleanExpressionFactoryTests
     {
-        private BooleanExpressionFactory _factory;
+        private BooleanExpressionFactory _factory = null!;
 
         [SetUp]
         public void Setup()

@@ -18,7 +18,7 @@ namespace LinqConvertTools.Tests.Provider.Writers
     [TestFixture]
     public class DecimalValueWriterTests
     {
-        private DecimalValueWriter _writer;
+        private DecimalValueWriter _writer = null!;
 
         [SetUp]
         public void Setup()

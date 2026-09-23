@@ -19,7 +19,7 @@ namespace LinqConvertTools.Tests.Provider.Writers
     [TestFixture]
     public class DateTimeValueWriterTests
     {
-        private DateTimeValueWriter _writer;
+        private DateTimeValueWriter _writer = null!;
 
         [SetUp]
         public void Setup()

@@ -19,7 +19,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
     [TestFixture]
     public class DecimalExpressionFactoryTests
     {
-        private DecimalExpressionFactory _factory;
+        private DecimalExpressionFactory _factory = null!;
 
         [SetUp]
         public void Setup()
