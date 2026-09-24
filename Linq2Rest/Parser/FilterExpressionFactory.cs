@@ -33,11 +33,17 @@ namespace LinqConvertTools.Parser
         private static readonly char[] InListSeparators = { ',' };
         private static readonly Expression _nullConstantExpression = Expression.Constant(null, typeof(object));
 
+        /// <summary>
+        /// The default for <see cref="MaxDepth"/>.
+        /// </summary>
+        public const int DefaultMaxDepth = 256;
+
         private readonly IMemberNameResolver _memberNameResolver;
         private readonly ParameterValueReader _valueReader;
         private readonly StringCaseFolding _caseFolding;
         private readonly MethodInfo _toUpperMethod;
         private readonly MethodInfo _toLowerMethod;
+        private int _maxDepth = DefaultMaxDepth;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="FilterExpressionFactory"/> class that converts string case
@@ -71,6 +77,21 @@ namespace LinqConvertTools.Parser
         }
 
         /// <summary>
+        /// Gets or sets the deepest a parsed filter may nest, counted in levels of the expression tree it
+        /// produces. A filter nested deeper, or a chain of conditions longer, throws
+        /// <see cref="InvalidOperationException"/>. Code that walks the returned expression, such as a query
+        /// provider, typically recurses once per level, so this bounds the stack that code needs.
+        /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException">The value is less than 1.</exception>
+        public int MaxDepth
+        {
+            get => _maxDepth;
+            set => _maxDepth = value >= 1
+                ? value
+                : throw new ArgumentOutOfRangeException(nameof(value), value, "The maximum depth must be at least 1.");
+        }
+
+        /// <summary>
         /// Creates a filter expression from its string representation.
         /// </summary>
         /// <param name="filter">The string representation of the filter.</param>
@@ -99,11 +120,20 @@ namespace LinqConvertTools.Parser
 
             var parameter = Expression.Parameter(typeof(T), "x");
 
-            Expression? expression = CreateExpression<T>(filter, parameter, new List<ParameterExpression>(), null, formatProvider, ignoreCase);
+            Expression? expression = CreateExpression<T>(filter, parameter, new List<ParameterExpression>(), null, formatProvider, ignoreCase, 1);
+            if (expression is null)
+            {
+                throw new InvalidOperationException("Could not create valid expression from: " + filter);
+            }
 
-            return expression is null
-                ? throw new InvalidOperationException("Could not create valid expression from: " + filter)
-                : Expression.Lambda<Func<T, bool>>(expression, parameter);
+            // A chain of conditions is built in a loop rather than by recursion, so the parser's own depth
+            // check does not bound it. The finished tree is measured instead.
+            if (ExpressionDepth.Exceeds(expression, _maxDepth))
+            {
+                throw DepthExceeded();
+            }
+
+            return Expression.Lambda<Func<T, bool>>(expression, parameter);
         }
 
         private static Type? GetFunctionParameterType(string operation)
@@ -569,11 +599,22 @@ namespace LinqConvertTools.Parser
             return propertyExpression;
         }
 
-        private Expression? CreateExpression<T>(string filter, ParameterExpression sourceParameter, ICollection<ParameterExpression> lambdaParameters, Type? type, IFormatProvider formatProvider, bool ignoreCase)
+        private InvalidOperationException DepthExceeded()
         {
-            // The parser recurses once per nesting level of the filter. A filter nested deeply enough to
-            // exhaust the stack must fail as a catchable InsufficientExecutionStackException, because a stack
-            // overflow cannot be caught and ends the process.
+            return new InvalidOperationException("The filter is nested more than " + _maxDepth.ToString(CultureInfo.InvariantCulture) + " levels deep.");
+        }
+
+        private Expression? CreateExpression<T>(string filter, ParameterExpression sourceParameter, ICollection<ParameterExpression> lambdaParameters, Type? type, IFormatProvider formatProvider, bool ignoreCase, int depth)
+        {
+            // The parser recurses once per nesting level of the filter, so a filter nested past MaxDepth is
+            // rejected before its remaining levels are parsed. A filter nested deeply enough to exhaust the stack
+            // first must still fail as a catchable InsufficientExecutionStackException, because a stack overflow
+            // cannot be caught and ends the process.
+            if (depth > _maxDepth)
+            {
+                throw DepthExceeded();
+            }
+
             RuntimeHelpers.EnsureSufficientExecutionStack();
 
             if (string.IsNullOrWhiteSpace(filter))
@@ -585,7 +626,7 @@ namespace LinqConvertTools.Parser
 
             if (tokens.Any())
             {
-                return GetTokenExpression<T>(sourceParameter, lambdaParameters, type, formatProvider, tokens, ignoreCase);
+                return GetTokenExpression<T>(sourceParameter, lambdaParameters, type, formatProvider, tokens, ignoreCase, depth);
             }
 
             if (string.Equals(filter, "null", StringComparison.OrdinalIgnoreCase))
@@ -606,7 +647,8 @@ namespace LinqConvertTools.Parser
                     lambdaParameters,
                     type,
                     formatProvider,
-                    ignoreCase);
+                    ignoreCase,
+                    depth + 1);
 
                 if (negateExpression is not null && SupportsNegate(negateExpression.Type))
                 {
@@ -616,17 +658,17 @@ namespace LinqConvertTools.Parser
                 throw new InvalidOperationException("Cannot negate " + negateExpression);
             }
 
-            Expression? expression = GetAnyAllFunctionExpression<T>(filter, sourceParameter, lambdaParameters, formatProvider, ignoreCase)
+            Expression? expression = GetAnyAllFunctionExpression<T>(filter, sourceParameter, lambdaParameters, formatProvider, ignoreCase, depth)
                 ?? GetPropertyExpression<T>(filter, sourceParameter, lambdaParameters)
-                ?? GetArithmeticExpression<T>(filter, sourceParameter, lambdaParameters, type, formatProvider, ignoreCase)
-                ?? GetFunctionExpression<T>(filter, sourceParameter, lambdaParameters, type, formatProvider, ignoreCase)
+                ?? GetArithmeticExpression<T>(filter, sourceParameter, lambdaParameters, type, formatProvider, ignoreCase, depth)
+                ?? GetFunctionExpression<T>(filter, sourceParameter, lambdaParameters, type, formatProvider, ignoreCase, depth)
                 ?? GetParameterExpression(filter, type, formatProvider)
                 ?? GetBooleanExpression(filter, formatProvider);
 
             return expression ?? throw new InvalidOperationException("Could not create expression from: " + filter);
         }
 
-        private Expression? GetTokenExpression<T>(ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters, Type? type, IFormatProvider formatProvider, ICollection<TokenSet> tokens, bool ignoreCase)
+        private Expression? GetTokenExpression<T>(ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters, Type? type, IFormatProvider formatProvider, ICollection<TokenSet> tokens, bool ignoreCase, int depth)
         {
             string? combiner = null;
             Expression? existing = null;
@@ -642,7 +684,8 @@ namespace LinqConvertTools.Parser
                                                         lambdaParameters,
                                                         type ?? GetExpressionType<T>(tokenSet, parameter, lambdaParameters),
                                                         formatProvider,
-                                                        ignoreCase);
+                                                        ignoreCase,
+                                                        depth + 1);
 
                         return right is null
                                 ? null
@@ -659,7 +702,8 @@ namespace LinqConvertTools.Parser
                                                    lambdaParameters,
                                                    type ?? GetExpressionType<T>(tokenSet, parameter, lambdaParameters),
                                                    formatProvider,
-                                                   ignoreCase);
+                                                   ignoreCase,
+                                                   depth + 1);
                     if (left is null)
                     {
                         return null;
@@ -668,7 +712,7 @@ namespace LinqConvertTools.Parser
                     Type? rightExpressionType = tokenSet.Operation == "and" ? null : left.Type;
                     var right = IsInOperation(tokenSet.Operation) && left.Type != typeof(string)
                         ? GetTypedInList(tokenSet.Right, left.Type, formatProvider)
-                        : CreateExpression<T>(tokenSet.Right, parameter, lambdaParameters, rightExpressionType, formatProvider, ignoreCase);
+                        : CreateExpression<T>(tokenSet.Right, parameter, lambdaParameters, rightExpressionType, formatProvider, ignoreCase, depth + 1);
 
                     if (existing != null && combiner is not null && !string.IsNullOrWhiteSpace(combiner))
                     {
@@ -685,7 +729,7 @@ namespace LinqConvertTools.Parser
             return existing;
         }
 
-        private Expression? GetArithmeticExpression<T>(string filter, ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters, Type? type, IFormatProvider formatProvider, bool ignoreCase)
+        private Expression? GetArithmeticExpression<T>(string filter, ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters, Type? type, IFormatProvider formatProvider, bool ignoreCase, int depth)
         {
             var arithmeticToken = filter.GetArithmeticToken();
             if (arithmeticToken is null)
@@ -694,15 +738,15 @@ namespace LinqConvertTools.Parser
             }
 
             Type? type1 = type ?? GetExpressionType<T>(arithmeticToken, parameter, lambdaParameters);
-            Expression? leftExpression = CreateExpression<T>(arithmeticToken.Left, parameter, lambdaParameters, type1, formatProvider, ignoreCase);
-            Expression? rightExpression = CreateExpression<T>(arithmeticToken.Right, parameter, lambdaParameters, type1, formatProvider, ignoreCase);
+            Expression? leftExpression = CreateExpression<T>(arithmeticToken.Left, parameter, lambdaParameters, type1, formatProvider, ignoreCase, depth + 1);
+            Expression? rightExpression = CreateExpression<T>(arithmeticToken.Right, parameter, lambdaParameters, type1, formatProvider, ignoreCase, depth + 1);
 
             return leftExpression == null || rightExpression == null
                     ? null
                     : GetLeftRightOperation(arithmeticToken.Operation, leftExpression, rightExpression, ignoreCase);
         }
 
-        private Expression? GetAnyAllFunctionExpression<T>(string filter, ParameterExpression sourceParameter, ICollection<ParameterExpression> lambdaParameters, IFormatProvider formatProvider, bool ignoreCase)
+        private Expression? GetAnyAllFunctionExpression<T>(string filter, ParameterExpression sourceParameter, ICollection<ParameterExpression> lambdaParameters, IFormatProvider formatProvider, bool ignoreCase, int depth)
         {
             TokenSet? functionTokens = filter.GetAnyAllFunctionTokens();
             if (functionTokens is null)
@@ -718,7 +762,8 @@ namespace LinqConvertTools.Parser
                 lambdaParameters,
                 leftType,
                 formatProvider,
-                ignoreCase);
+                ignoreCase,
+                depth + 1);
 
             if (left is null)
             {
@@ -747,13 +792,13 @@ namespace LinqConvertTools.Parser
 
             var isLambdaAnyAllFunction = lambdaFilter.GetAnyAllFunctionTokens() != null;
             var right = isLambdaAnyAllFunction
-                ? GetAnyAllFunctionExpression<T>(lambdaFilter, lambdaParameter, lambdaParameters, formatProvider, ignoreCase)
-                : CreateExpression<T>(lambdaFilter, sourceParameter, lambdaParameters, lambdaType, formatProvider, ignoreCase);
+                ? GetAnyAllFunctionExpression<T>(lambdaFilter, lambdaParameter, lambdaParameters, formatProvider, ignoreCase, depth + 1)
+                : CreateExpression<T>(lambdaFilter, sourceParameter, lambdaParameters, lambdaType, formatProvider, ignoreCase, depth + 1);
 
             return GetFunction(functionTokens.Operation, left, right, sourceParameter, lambdaParameters, ignoreCase);
         }
 
-        private Expression? GetFunctionExpression<T>(string filter, ParameterExpression sourceParameter, ICollection<ParameterExpression> lambdaParameters, Type? type, IFormatProvider formatProvider, bool ignoreCase)
+        private Expression? GetFunctionExpression<T>(string filter, ParameterExpression sourceParameter, ICollection<ParameterExpression> lambdaParameters, Type? type, IFormatProvider formatProvider, bool ignoreCase, int depth)
         {
             var functionTokens = filter.GetFunctionTokens();
             if (functionTokens is null)
@@ -767,7 +812,8 @@ namespace LinqConvertTools.Parser
                 lambdaParameters,
                 type ?? GetExpressionType<T>(functionTokens, sourceParameter, lambdaParameters),
                 formatProvider,
-                ignoreCase);
+                ignoreCase,
+                depth + 1);
 
             if (left is null)
             {
@@ -780,7 +826,8 @@ namespace LinqConvertTools.Parser
                                 lambdaParameters,
                                 GetFunctionParameterType(functionTokens.Operation) ?? left.Type,
                                 formatProvider,
-                                ignoreCase);
+                                ignoreCase,
+                                depth + 1);
 
             return GetFunction(functionTokens.Operation, left, right, sourceParameter, lambdaParameters, ignoreCase);
         }
@@ -802,6 +849,9 @@ namespace LinqConvertTools.Parser
 
             public override Expression? Visit(Expression? node)
             {
+                // Runs on a partly built tree, before the depth of the whole filter is known.
+                RuntimeHelpers.EnsureSufficientExecutionStack();
+
                 if (node is not null && node.NodeType == ExpressionType.Call && AnyAllMethodNames.Contains(((MethodCallExpression)node).Method.Name))
                 {
                     // Skip the second parameter of the Any/All as this has already been covered

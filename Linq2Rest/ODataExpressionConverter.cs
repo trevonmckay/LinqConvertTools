@@ -77,6 +77,17 @@ namespace LinqConvertTools
         }
 
         /// <summary>
+        /// Gets or sets the deepest a parsed filter may nest, counted in levels of the expression tree it produces.
+        /// Defaults to <see cref="FilterExpressionFactory.DefaultMaxDepth"/>.
+        /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException">The value is less than 1.</exception>
+        public int MaxDepth
+        {
+            get => _parser.MaxDepth;
+            set => _parser.MaxDepth = value;
+        }
+
+        /// <summary>
         /// Converts an expression into an OData formatted query.
         /// </summary>
         /// <param name="expression">The expression to convert.</param>
@@ -95,6 +106,12 @@ namespace LinqConvertTools
         /// <param name="ignoreCase">When true the returned expression ensures string case is ignored.</param>
         /// <typeparam name="T">The parameter type.</typeparam>
         /// <returns>An expression tree for the passed query.</returns>
+        /// <remarks>
+        /// Parsing time grows faster than the length of <paramref name="filter"/>, and each regular expression match
+        /// is limited separately rather than the parse as a whole, so callers that accept filters from untrusted
+        /// sources should cap their length before calling this method.
+        /// </remarks>
+        /// <exception cref="InvalidOperationException">The filter is not valid, or it nests deeper than <see cref="MaxDepth"/>.</exception>
         /// <exception cref="InsufficientExecutionStackException">The filter is nested too deeply to parse on the current thread's stack.</exception>
         /// <exception cref="System.Text.RegularExpressions.RegexMatchTimeoutException">Tokenizing part of the filter took longer than the parser allows.</exception>
         public Expression<Func<T, bool>> Convert<T>(string filter, bool ignoreCase = false)
