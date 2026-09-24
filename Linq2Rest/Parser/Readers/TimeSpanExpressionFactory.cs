@@ -19,7 +19,7 @@ namespace LinqConvertTools.Parser.Readers
 
     internal class TimeSpanExpressionFactory : ValueExpressionFactoryBase<TimeSpan>
     {
-        private static readonly Regex TimeSpanRegex = new Regex(@"^time['\""](P.+)['\""]$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex TimeSpanRegex = new Regex(@"^time['\""](P.+)['\""]$", RegexOptions.Compiled | RegexOptions.IgnoreCase, ParserRegex.MatchTimeout);
 
         public override ConstantExpression Convert(string token)
         {

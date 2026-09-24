@@ -20,9 +20,9 @@ namespace LinqConvertTools.Parser
 
     internal static class ExpressionTokenizer
     {
-        private static readonly Regex FunctionRx = new Regex(@"^([^\(\)]+)\((.+)\)$", RegexOptions.Compiled);
-        private static readonly Regex FunctionContentRx = new Regex(@"^(.*\((?>[^()]+|\((?<Depth>.*)|\)(?<-Depth>.*))*(?(Depth)(?!))\)|.*?)\s*,\s*(((?<Open>').*(?<Close-Open>')(?(Open)(?!)))|[^,]*)$", RegexOptions.Compiled);
-        private static readonly Regex AnyAllFunctionRx = new Regex(@"^(([0-9a-zA-Z_/]+/)+)(any|all)\((.*)\)$", RegexOptions.Compiled);
+        private static readonly Regex FunctionRx = new Regex(@"^([^\(\)]+)\((.+)\)$", RegexOptions.Compiled, ParserRegex.MatchTimeout);
+        private static readonly Regex FunctionContentRx = new Regex(@"^(.*\((?>[^()]+|\((?<Depth>.*)|\)(?<-Depth>.*))*(?(Depth)(?!))\)|.*?)\s*,\s*(((?<Open>').*(?<Close-Open>')(?(Open)(?!)))|[^,]*)$", RegexOptions.Compiled, ParserRegex.MatchTimeout);
+        private static readonly Regex AnyAllFunctionRx = new Regex(@"^(([0-9a-zA-Z_]+/)+)(any|all)\((.*)\)$", RegexOptions.Compiled, ParserRegex.MatchTimeout);
 
         public static ICollection<TokenSet> GetTokens(this string expression)
         {
