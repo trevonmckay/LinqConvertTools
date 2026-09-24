@@ -19,6 +19,7 @@ namespace LinqConvertTools.Parser
     using System.Linq;
     using System.Linq.Expressions;
     using System.Reflection;
+    using System.Runtime.CompilerServices;
     using System.Text.RegularExpressions;
 
     /// <summary>
@@ -27,8 +28,8 @@ namespace LinqConvertTools.Parser
     public class FilterExpressionFactory : IFilterExpressionFactory
     {
         // Embedded quotes are accepted as-is, and a doubled '' is read as a single quote.
-        private static readonly Regex StringRx = new(@"^(?:'(.*)'|""(.*)"")$", RegexOptions.Compiled | RegexOptions.Singleline);
-        private static readonly Regex NegateRx = new(@"^-[^\d]*", RegexOptions.Compiled);
+        private static readonly Regex StringRx = new(@"^(?:'(.*)'|""(.*)"")$", RegexOptions.Compiled | RegexOptions.Singleline, ParserRegex.MatchTimeout);
+        private static readonly Regex NegateRx = new(@"^-[^\d]*", RegexOptions.Compiled, ParserRegex.MatchTimeout);
         private static readonly char[] InListSeparators = { ',' };
         private static readonly Expression _nullConstantExpression = Expression.Constant(null, typeof(object));
 
@@ -501,12 +502,14 @@ namespace LinqConvertTools.Parser
 
         private Type? GetExpressionType<T>(TokenSet? set, ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters)
         {
+            RuntimeHelpers.EnsureSufficientExecutionStack();
+
             if (set is null)
             {
                 return null;
             }
 
-            if (Regex.IsMatch(set.Left, @"^\(.*\)$") && set.Operation.IsCombinationOperation())
+            if (Regex.IsMatch(set.Left, @"^\(.*\)$", RegexOptions.None, ParserRegex.MatchTimeout) && set.Operation.IsCombinationOperation())
             {
                 return null;
             }
@@ -533,6 +536,8 @@ namespace LinqConvertTools.Parser
 
         private Expression? GetPropertyExpression<T>(string propertyToken, ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters)
         {
+            RuntimeHelpers.EnsureSufficientExecutionStack();
+
             if (string.IsNullOrWhiteSpace(propertyToken))
             {
                 return null;
@@ -566,6 +571,11 @@ namespace LinqConvertTools.Parser
 
         private Expression? CreateExpression<T>(string filter, ParameterExpression sourceParameter, ICollection<ParameterExpression> lambdaParameters, Type? type, IFormatProvider formatProvider, bool ignoreCase)
         {
+            // The parser recurses once per nesting level of the filter. A filter nested deeply enough to
+            // exhaust the stack must fail as a catchable InsufficientExecutionStackException, because a stack
+            // overflow cannot be caught and ends the process.
+            RuntimeHelpers.EnsureSufficientExecutionStack();
+
             if (string.IsNullOrWhiteSpace(filter))
             {
                 return null;

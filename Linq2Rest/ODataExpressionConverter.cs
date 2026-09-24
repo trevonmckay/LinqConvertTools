@@ -95,6 +95,8 @@ namespace LinqConvertTools
         /// <param name="ignoreCase">When true the returned expression ensures string case is ignored.</param>
         /// <typeparam name="T">The parameter type.</typeparam>
         /// <returns>An expression tree for the passed query.</returns>
+        /// <exception cref="InsufficientExecutionStackException">The filter is nested too deeply to parse on the current thread's stack.</exception>
+        /// <exception cref="System.Text.RegularExpressions.RegexMatchTimeoutException">Tokenizing part of the filter took longer than the parser allows.</exception>
         public Expression<Func<T, bool>> Convert<T>(string filter, bool ignoreCase = false)
         {
             return _parser.Create<T>(filter, ignoreCase);

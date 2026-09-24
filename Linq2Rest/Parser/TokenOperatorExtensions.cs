@@ -23,11 +23,11 @@ namespace LinqConvertTools.Parser
         private static readonly string[] Arithmetic = new[] { "add", "sub", "mul", "div", "mod" };
 
         private static readonly string[] BooleanFunctions = new[] { "substringof", "contains", "endswith", "startswith" };
-        private static readonly Regex CollectionFunctionRx = new(@"^[0-9a-zA-Z_]+/(all|any)\((.+)\)$", RegexOptions.Compiled);
-        private static readonly Regex CleanRx = new(@"^\((.+)\)$", RegexOptions.Compiled);
-        private static readonly Regex FunctionRegex = new(@"^([^()/]+)\(.+\)$");
-        private static readonly Regex StringStartRx = new("^[(]*'", RegexOptions.Compiled);
-        private static readonly Regex StringEndRx = new("'[)]*$", RegexOptions.Compiled);
+        private static readonly Regex CollectionFunctionRx = new(@"^[0-9a-zA-Z_]+/(all|any)\((.+)\)$", RegexOptions.Compiled, ParserRegex.MatchTimeout);
+        private static readonly Regex CleanRx = new(@"^\((.+)\)$", RegexOptions.Compiled, ParserRegex.MatchTimeout);
+        private static readonly Regex FunctionRegex = new(@"^([^()/]+)\(.+\)$", RegexOptions.None, ParserRegex.MatchTimeout);
+        private static readonly Regex StringStartRx = new("^[(]*'", RegexOptions.Compiled, ParserRegex.MatchTimeout);
+        private static readonly Regex StringEndRx = new("'[)]*$", RegexOptions.Compiled, ParserRegex.MatchTimeout);
 
         public static bool IsCombinationOperation(this string operation)
         {
