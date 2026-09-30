@@ -67,6 +67,26 @@ namespace LinqConvertTools.Parser
 
                         if (string.IsNullOrWhiteSpace(currentTokens.Left))
                         {
+                            if (i == startExpression && blocks[i].IsUnaryOperation())
+                            {
+                                var operandEnd = FindOperandEnd(blocks, i + 1);
+                                if (operandEnd < blocks.Count)
+                                {
+                                    // Unary not binds tighter than and/or, so it takes only the operand up to the
+                                    // next top-level and/or; the rest of the filter continues as its own operands.
+                                    var i0 = i;
+                                    currentTokens.Operation = blocks[i];
+                                    currentTokens.Right = string.Join(" ", blocks.Where((x, j) => j > i0 && j < operandEnd));
+                                    tokens.Add(currentTokens);
+                                    tokens.Add(new TokenSet { Operation = blocks[operandEnd].ToLowerInvariant() });
+
+                                    currentTokens = new TokenSet();
+                                    startExpression = operandEnd + 1;
+                                    i = operandEnd;
+                                    continue;
+                                }
+                            }
+
                             var i1 = i;
                             Func<string, int, bool> leftPredicate = (x, j) => j >= expression1 && j < i1;
 
@@ -200,6 +220,26 @@ namespace LinqConvertTools.Parser
                 Left = functionContentMatch.Groups[1].Value,
                 Right = functionContentMatch.Groups[2].Value
             };
+        }
+
+        /// <summary>
+        /// Finds the index of the first <c>and</c> or <c>or</c> at or after <paramref name="start"/> that is not
+        /// enclosed in parentheses, or <c>blocks.Count</c> when the operand runs to the end.
+        /// </summary>
+        private static int FindOperandEnd(IList<string> blocks, int start)
+        {
+            var openGroups = 0;
+            for (var i = start; i < blocks.Count; i++)
+            {
+                openGroups += blocks[i].Count(c => c == '(') - blocks[i].Count(c => c == ')');
+
+                if (openGroups == 0 && blocks[i].IsBinaryCombinationOperation())
+                {
+                    return i;
+                }
+            }
+
+            return blocks.Count;
         }
 
         private static int GetArithmeticOperationIndex(IList<string> blocks)

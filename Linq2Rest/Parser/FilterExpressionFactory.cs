@@ -672,61 +672,84 @@ namespace LinqConvertTools.Parser
         {
             string? combiner = null;
             Expression? existing = null;
+
+            // Operands and and/or combiners must alternate, starting and ending with an operand, and every operand
+            // must parse. Anything else makes the filter invalid rather than silently dropping a condition.
+            bool awaitingOperand = true;
             foreach (TokenSet tokenSet in tokens)
             {
-                if (string.IsNullOrWhiteSpace(tokenSet.Left))
+                bool isCombiner = string.IsNullOrWhiteSpace(tokenSet.Left) && !tokenSet.Operation.IsUnaryOperation();
+                if (isCombiner)
                 {
-                    if (string.Equals(tokenSet.Operation, "not", StringComparison.OrdinalIgnoreCase))
-                    {
-                        Expression? right = CreateExpression<T>(
-                                                        tokenSet.Right,
-                                                        parameter,
-                                                        lambdaParameters,
-                                                        type ?? GetExpressionType<T>(tokenSet, parameter, lambdaParameters),
-                                                        formatProvider,
-                                                        ignoreCase,
-                                                        depth + 1);
-
-                        return right is null
-                                ? null
-                                : GetOperation(tokenSet.Operation, null, right, ignoreCase);
-                    }
-
-                    combiner = tokenSet.Operation;
-                }
-                else
-                {
-                    Expression? left = CreateExpression<T>(
-                                                   tokenSet.Left,
-                                                   parameter,
-                                                   lambdaParameters,
-                                                   type ?? GetExpressionType<T>(tokenSet, parameter, lambdaParameters),
-                                                   formatProvider,
-                                                   ignoreCase,
-                                                   depth + 1);
-                    if (left is null)
+                    if (awaitingOperand || !string.IsNullOrWhiteSpace(tokenSet.Right))
                     {
                         return null;
                     }
 
-                    Type? rightExpressionType = tokenSet.Operation == "and" ? null : left.Type;
-                    var right = IsInOperation(tokenSet.Operation) && left.Type != typeof(string)
-                        ? GetTypedInList(tokenSet.Right, left.Type, formatProvider)
-                        : CreateExpression<T>(tokenSet.Right, parameter, lambdaParameters, rightExpressionType, formatProvider, ignoreCase, depth + 1);
-
-                    if (existing != null && combiner is not null && !string.IsNullOrWhiteSpace(combiner))
-                    {
-                        Expression? current = right is null ? null : GetOperation(tokenSet.Operation, left, right, ignoreCase);
-                        existing = GetOperation(combiner, existing, current ?? left, ignoreCase);
-                    }
-                    else if (right != null)
-                    {
-                        existing = GetOperation(tokenSet.Operation, left, right, ignoreCase);
-                    }
+                    combiner = tokenSet.Operation;
+                    awaitingOperand = true;
+                    continue;
                 }
+
+                if (!awaitingOperand)
+                {
+                    return null;
+                }
+
+                Expression? operand = string.IsNullOrWhiteSpace(tokenSet.Left)
+                    ? GetUnaryOperand<T>(tokenSet, parameter, lambdaParameters, type, formatProvider, ignoreCase, depth)
+                    : GetBinaryOperand<T>(tokenSet, parameter, lambdaParameters, type, formatProvider, ignoreCase, depth);
+                if (operand is null)
+                {
+                    return null;
+                }
+
+                existing = existing is null ? operand : GetOperation(combiner!, existing, operand, ignoreCase);
+                awaitingOperand = false;
             }
 
-            return existing;
+            return awaitingOperand ? null : existing;
+        }
+
+        private Expression? GetUnaryOperand<T>(TokenSet tokenSet, ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters, Type? type, IFormatProvider formatProvider, bool ignoreCase, int depth)
+        {
+            Expression? right = CreateExpression<T>(
+                                            tokenSet.Right,
+                                            parameter,
+                                            lambdaParameters,
+                                            type ?? GetExpressionType<T>(tokenSet, parameter, lambdaParameters),
+                                            formatProvider,
+                                            ignoreCase,
+                                            depth + 1);
+
+            return right is null ? null : GetOperation(tokenSet.Operation, null, right, ignoreCase);
+        }
+
+        /// <summary>
+        /// Builds a token with a left side: a comparison or combination of left and right, or, when the token has no
+        /// operation, the left side alone. A token with an operation whose right side does not parse is invalid.
+        /// </summary>
+        private Expression? GetBinaryOperand<T>(TokenSet tokenSet, ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters, Type? type, IFormatProvider formatProvider, bool ignoreCase, int depth)
+        {
+            Expression? left = CreateExpression<T>(
+                                           tokenSet.Left,
+                                           parameter,
+                                           lambdaParameters,
+                                           type ?? GetExpressionType<T>(tokenSet, parameter, lambdaParameters),
+                                           formatProvider,
+                                           ignoreCase,
+                                           depth + 1);
+            if (left is null || string.IsNullOrWhiteSpace(tokenSet.Operation))
+            {
+                return left;
+            }
+
+            Type? rightExpressionType = tokenSet.Operation == "and" ? null : left.Type;
+            var right = IsInOperation(tokenSet.Operation) && left.Type != typeof(string)
+                ? GetTypedInList(tokenSet.Right, left.Type, formatProvider)
+                : CreateExpression<T>(tokenSet.Right, parameter, lambdaParameters, rightExpressionType, formatProvider, ignoreCase, depth + 1);
+
+            return right is null ? null : GetOperation(tokenSet.Operation, left, right, ignoreCase);
         }
 
         private Expression? GetArithmeticExpression<T>(string filter, ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters, Type? type, IFormatProvider formatProvider, bool ignoreCase, int depth)

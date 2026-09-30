@@ -19,7 +19,9 @@ namespace LinqConvertTools.Parser
     internal static class TokenOperatorExtensions
     {
         private static readonly string[] Operations = new[] { "eq", "ne", "gt", "ge", "lt", "le", "and", "or", "not", "in" };
-        private static readonly string[] Combiners = new[] { "and", "or", "not" };
+        private const string UnaryOperator = "not";
+        private static readonly string[] BinaryCombiners = new[] { "and", "or" };
+        private static readonly string[] Combiners = BinaryCombiners.Append(UnaryOperator).ToArray();
         private static readonly string[] Arithmetic = new[] { "add", "sub", "mul", "div", "mod" };
 
         private static readonly string[] BooleanFunctions = new[] { "substringof", "contains", "endswith", "startswith" };
@@ -32,6 +34,16 @@ namespace LinqConvertTools.Parser
         public static bool IsCombinationOperation(this string operation)
         {
             return Array.Exists(Combiners, x => string.Equals(x, operation, StringComparison.OrdinalIgnoreCase));
+        }
+
+        public static bool IsBinaryCombinationOperation(this string operation)
+        {
+            return Array.Exists(BinaryCombiners, x => string.Equals(x, operation, StringComparison.OrdinalIgnoreCase));
+        }
+
+        public static bool IsUnaryOperation(this string operation)
+        {
+            return string.Equals(operation, UnaryOperator, StringComparison.OrdinalIgnoreCase);
         }
 
         public static bool IsOperation(this string operation)
