@@ -539,7 +539,8 @@ namespace LinqConvertTools.Parser
                 return null;
             }
 
-            if (Regex.IsMatch(set.Left, @"^\(.*\)$", RegexOptions.None, ParserRegex.MatchTimeout) && set.Operation.IsCombinationOperation())
+            // The operands of and/or are conditions, so their members give no type to read literals as.
+            if (set.Operation.IsBinaryCombinationOperation())
             {
                 return null;
             }
@@ -744,7 +745,7 @@ namespace LinqConvertTools.Parser
                 return left;
             }
 
-            Type? rightExpressionType = tokenSet.Operation == "and" ? null : left.Type;
+            Type? rightExpressionType = tokenSet.Operation.IsBinaryCombinationOperation() ? null : left.Type;
             var right = IsInOperation(tokenSet.Operation) && left.Type != typeof(string)
                 ? GetTypedInList(tokenSet.Right, left.Type, formatProvider)
                 : CreateExpression<T>(tokenSet.Right, parameter, lambdaParameters, rightExpressionType, formatProvider, ignoreCase, depth + 1);

@@ -50,6 +50,21 @@ namespace LinqConvertTools.Parser
 
             var blocks = GetBlocks(expression);
 
+            // And binds tighter than or. When both appear outside parentheses, the filter splits at the first or,
+            // so each side holds only and-combined operands and the right side splits again at its own next or.
+            var orIndex = FindTopLevel(blocks, 0, IsOr);
+            if (orIndex < blocks.Count && FindTopLevel(blocks, 0, IsAnd) < blocks.Count)
+            {
+                tokens.Add(new TokenSet
+                {
+                    Left = string.Join(" ", blocks.Where((x, j) => j < orIndex)),
+                    Operation = blocks[orIndex].ToLowerInvariant(),
+                    Right = string.Join(" ", blocks.Where((x, j) => j > orIndex))
+                });
+
+                return tokens;
+            }
+
             var openGroups = 0;
             var startExpression = 0;
             var currentTokens = new TokenSet();
@@ -69,7 +84,7 @@ namespace LinqConvertTools.Parser
                         {
                             if (i == startExpression && blocks[i].IsUnaryOperation())
                             {
-                                var operandEnd = FindOperandEnd(blocks, i + 1);
+                                var operandEnd = FindTopLevel(blocks, i + 1, TokenOperatorExtensions.IsBinaryCombinationOperation);
                                 if (operandEnd < blocks.Count)
                                 {
                                     // Unary not binds tighter than and/or, so it takes only the operand up to the
@@ -222,18 +237,28 @@ namespace LinqConvertTools.Parser
             };
         }
 
+        private static bool IsAnd(string block)
+        {
+            return string.Equals(block, "and", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsOr(string block)
+        {
+            return string.Equals(block, "or", StringComparison.OrdinalIgnoreCase);
+        }
+
         /// <summary>
-        /// Finds the index of the first <c>and</c> or <c>or</c> at or after <paramref name="start"/> that is not
-        /// enclosed in parentheses, or <c>blocks.Count</c> when the operand runs to the end.
+        /// Finds the index of the first block at or after <paramref name="start"/> that is not enclosed in
+        /// parentheses and matches <paramref name="predicate"/>, or <c>blocks.Count</c> when none does.
         /// </summary>
-        private static int FindOperandEnd(IList<string> blocks, int start)
+        private static int FindTopLevel(IList<string> blocks, int start, Func<string, bool> predicate)
         {
             var openGroups = 0;
             for (var i = start; i < blocks.Count; i++)
             {
                 openGroups += blocks[i].Count(c => c == '(') - blocks[i].Count(c => c == ')');
 
-                if (openGroups == 0 && blocks[i].IsBinaryCombinationOperation())
+                if (openGroups == 0 && predicate(blocks[i]))
                 {
                     return i;
                 }
