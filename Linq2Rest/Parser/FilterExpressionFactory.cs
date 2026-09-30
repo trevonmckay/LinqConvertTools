@@ -687,9 +687,16 @@ namespace LinqConvertTools.Parser
                                                         ignoreCase,
                                                         depth + 1);
 
-                        return right is null
-                                ? null
-                                : GetOperation(tokenSet.Operation, null, right, ignoreCase);
+                        if (right is null)
+                        {
+                            return null;
+                        }
+
+                        Expression negated = GetOperation(tokenSet.Operation, null, right, ignoreCase);
+                        existing = existing != null && !string.IsNullOrWhiteSpace(combiner)
+                            ? GetOperation(combiner!, existing, negated, ignoreCase)
+                            : negated;
+                        continue;
                     }
 
                     combiner = tokenSet.Operation;
