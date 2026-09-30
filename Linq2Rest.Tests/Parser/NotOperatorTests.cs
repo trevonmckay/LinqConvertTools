@@ -87,6 +87,11 @@ namespace LinqConvertTools.Tests.Parser
         [TestCase("Priority eq 1 and not IsActive and")]
         [TestCase("not IsActive and not IsActive and")]
         [TestCase("and not IsActive")]
+        [TestCase("Priority eq 1 and IsActive and")]
+        [TestCase("Priority eq 1 or IsActive or not")]
+        [TestCase("Priority eq 1 and IsActive and not IsActive and and Priority eq 2")]
+        [TestCase("Priority eq 1 eq not IsActive and Priority eq 2")]
+        [TestCase("Priority eq 1 and Priority eq 2 eq not IsActive")]
         public void RejectsMisplacedCombinerAroundNot(string filter)
         {
             ArgumentNullException.ThrowIfNull(_converter);
