@@ -714,11 +714,12 @@ namespace LinqConvertTools.Parser
 
         private Expression? GetUnaryOperand<T>(TokenSet tokenSet, ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters, Type? type, IFormatProvider formatProvider, bool ignoreCase, int depth)
         {
+            // The operand of not is a condition, so no member inside it gives a type to read literals as.
             Expression? right = CreateExpression<T>(
                                             tokenSet.Right,
                                             parameter,
                                             lambdaParameters,
-                                            type ?? GetExpressionType<T>(tokenSet, parameter, lambdaParameters),
+                                            null,
                                             formatProvider,
                                             ignoreCase,
                                             depth + 1);
@@ -732,15 +733,18 @@ namespace LinqConvertTools.Parser
         /// </summary>
         private Expression? GetBinaryOperand<T>(TokenSet tokenSet, ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters, Type? type, IFormatProvider formatProvider, bool ignoreCase, int depth)
         {
+            // A token with no operation is a whole condition between combiners, such as a group of and-combined
+            // conditions, so like the operand of not it gets no type for its literals.
+            bool isCondition = string.IsNullOrWhiteSpace(tokenSet.Operation);
             Expression? left = CreateExpression<T>(
                                            tokenSet.Left,
                                            parameter,
                                            lambdaParameters,
-                                           type ?? GetExpressionType<T>(tokenSet, parameter, lambdaParameters),
+                                           isCondition ? null : type ?? GetExpressionType<T>(tokenSet, parameter, lambdaParameters),
                                            formatProvider,
                                            ignoreCase,
                                            depth + 1);
-            if (left is null || string.IsNullOrWhiteSpace(tokenSet.Operation))
+            if (left is null || isCondition)
             {
                 return left;
             }

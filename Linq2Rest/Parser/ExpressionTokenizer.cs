@@ -50,18 +50,21 @@ namespace LinqConvertTools.Parser
 
             var blocks = GetBlocks(expression);
 
-            // And binds tighter than or. When both appear outside parentheses, the filter splits at the first or,
-            // so each side holds only and-combined operands and the right side splits again at its own next or.
-            var orIndex = FindTopLevel(blocks, 0, IsOr);
-            if (orIndex < blocks.Count && FindTopLevel(blocks, 0, IsAnd) < blocks.Count)
-            {
-                tokens.Add(new TokenSet
-                {
-                    Left = string.Join(" ", blocks.Where((x, j) => j < orIndex)),
-                    Operation = blocks[orIndex].ToLowerInvariant(),
-                    Right = string.Join(" ", blocks.Where((x, j) => j > orIndex))
-                });
+            var combinerIndexes = GetTopLevelCombinerIndexes(blocks);
 
+            // And binds tighter than or. When both appear outside parentheses, the filter splits at every
+            // top-level or into groups that hold only and-combined operands, and the groups are combined with or.
+            if (combinerIndexes.Any(j => blocks[j].IsOrOperation()) && combinerIndexes.Any(j => !blocks[j].IsOrOperation()))
+            {
+                var groupStart = 0;
+                foreach (var orIndex in combinerIndexes.Where(j => blocks[j].IsOrOperation()))
+                {
+                    tokens.Add(new TokenSet { Left = JoinBlocks(blocks, groupStart, orIndex) });
+                    tokens.Add(new TokenSet { Operation = blocks[orIndex].ToLowerInvariant() });
+                    groupStart = orIndex + 1;
+                }
+
+                tokens.Add(new TokenSet { Left = JoinBlocks(blocks, groupStart, blocks.Count) });
                 return tokens;
             }
 
@@ -84,14 +87,14 @@ namespace LinqConvertTools.Parser
                         {
                             if (i == startExpression && blocks[i].IsUnaryOperation())
                             {
-                                var operandEnd = FindTopLevel(blocks, i + 1, TokenOperatorExtensions.IsBinaryCombinationOperation);
+                                var i0 = i;
+                                var operandEnd = combinerIndexes.Where(j => j > i0).DefaultIfEmpty(blocks.Count).First();
                                 if (operandEnd < blocks.Count)
                                 {
                                     // Unary not binds tighter than and/or, so it takes only the operand up to the
                                     // next top-level and/or; the rest of the filter continues as its own operands.
-                                    var i0 = i;
                                     currentTokens.Operation = blocks[i];
-                                    currentTokens.Right = string.Join(" ", blocks.Where((x, j) => j > i0 && j < operandEnd));
+                                    currentTokens.Right = JoinBlocks(blocks, i + 1, operandEnd);
                                     tokens.Add(currentTokens);
                                     tokens.Add(new TokenSet { Operation = blocks[operandEnd].ToLowerInvariant() });
 
@@ -237,34 +240,29 @@ namespace LinqConvertTools.Parser
             };
         }
 
-        private static bool IsAnd(string block)
-        {
-            return string.Equals(block, "and", StringComparison.OrdinalIgnoreCase);
-        }
-
-        private static bool IsOr(string block)
-        {
-            return string.Equals(block, "or", StringComparison.OrdinalIgnoreCase);
-        }
-
         /// <summary>
-        /// Finds the index of the first block at or after <paramref name="start"/> that is not enclosed in
-        /// parentheses and matches <paramref name="predicate"/>, or <c>blocks.Count</c> when none does.
+        /// Finds the indexes of the <c>and</c> and <c>or</c> blocks that are not enclosed in parentheses, in order.
         /// </summary>
-        private static int FindTopLevel(IList<string> blocks, int start, Func<string, bool> predicate)
+        private static IList<int> GetTopLevelCombinerIndexes(IList<string> blocks)
         {
+            var indexes = new List<int>();
             var openGroups = 0;
-            for (var i = start; i < blocks.Count; i++)
+            for (var i = 0; i < blocks.Count; i++)
             {
                 openGroups += blocks[i].Count(c => c == '(') - blocks[i].Count(c => c == ')');
 
-                if (openGroups == 0 && predicate(blocks[i]))
+                if (openGroups == 0 && blocks[i].IsBinaryCombinationOperation())
                 {
-                    return i;
+                    indexes.Add(i);
                 }
             }
 
-            return blocks.Count;
+            return indexes;
+        }
+
+        private static string JoinBlocks(IList<string> blocks, int start, int end)
+        {
+            return string.Join(" ", blocks.Skip(start).Take(end - start));
         }
 
         private static int GetArithmeticOperationIndex(IList<string> blocks)

@@ -71,6 +71,35 @@ namespace LinqConvertTools.Tests.Parser
             Assert.AreEqual(expected, predicate.ToString());
         }
 
+        [TestCase("not (Status eq 'Draft' or 3 eq Priority)", "1,4")]
+        [TestCase("IsActive and not (Status eq 'Draft' or 3 eq Priority)", "1")]
+        [TestCase("not (Status eq 'Draft' and 3 eq Priority or IsActive)", "2,4")]
+        [TestCase("Status eq 'Archived' or (Status eq 'Draft' and 2 eq Priority)", "2,3")]
+        [TestCase("(Status eq 'Draft' and 2 eq Priority) or Status eq 'Archived' and IsActive", "2,3")]
+        public void ReadsLiteralsInsideNegatedAndGroupedConditionsByTheirOwnComparison(string filter, string expectedIds)
+        {
+            ArgumentNullException.ThrowIfNull(_converter);
+            ArgumentNullException.ThrowIfNull(_records);
+
+            var predicate = _converter.Convert<Record>(filter);
+
+            var matches = _records.AsQueryable().Where(predicate).Select(r => r.Id).ToArray();
+
+            CollectionAssert.AreEqual(expectedIds.Split(',').Select(int.Parse).ToArray(), matches, "Failed for " + predicate);
+        }
+
+        [TestCase("Priority eq 1 or or IsActive and Priority eq 3")]
+        [TestCase("Priority eq 1 and IsActive or")]
+        [TestCase("or Priority eq 1 and IsActive")]
+        [TestCase("Priority eq 1 and and IsActive or Priority eq 3")]
+        [TestCase("Priority eq 1 and IsActive or and Priority eq 3")]
+        public void RejectsMisplacedCombinerInMixedChain(string filter)
+        {
+            ArgumentNullException.ThrowIfNull(_converter);
+
+            Assert.Throws<InvalidOperationException>(() => _converter.Convert<Record>(filter));
+        }
+
         [Test]
         public void ParsesLongMixedChainWithinMaxDepth()
         {
