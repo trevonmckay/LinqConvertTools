@@ -698,7 +698,7 @@ namespace LinqConvertTools.Parser
                 }
 
                 Expression? operand = string.IsNullOrWhiteSpace(tokenSet.Left)
-                    ? GetUnaryOperand<T>(tokenSet, parameter, lambdaParameters, type, formatProvider, ignoreCase, depth)
+                    ? GetUnaryOperand<T>(tokenSet, parameter, lambdaParameters, formatProvider, ignoreCase, depth)
                     : GetBinaryOperand<T>(tokenSet, parameter, lambdaParameters, type, formatProvider, ignoreCase, depth);
                 if (operand is null)
                 {
@@ -712,7 +712,7 @@ namespace LinqConvertTools.Parser
             return awaitingOperand ? null : existing;
         }
 
-        private Expression? GetUnaryOperand<T>(TokenSet tokenSet, ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters, Type? type, IFormatProvider formatProvider, bool ignoreCase, int depth)
+        private Expression? GetUnaryOperand<T>(TokenSet tokenSet, ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters, IFormatProvider formatProvider, bool ignoreCase, int depth)
         {
             // The operand of not is a condition, so no member inside it gives a type to read literals as.
             Expression? right = CreateExpression<T>(
@@ -816,12 +816,12 @@ namespace LinqConvertTools.Parser
             var lambdaParameter = Expression.Parameter(elementType, parameterName);
             lambdaParameters.Add(lambdaParameter);
             var lambdaFilter = functionTokens.Right.Substring(separatorIndex + 1).Trim();
-            var lambdaType = GetFunctionParameterType(functionTokens.Operation) ?? left.Type;
 
+            // The lambda body is a condition, so the collection's type gives no type to read its literals as.
             var isLambdaAnyAllFunction = lambdaFilter.GetAnyAllFunctionTokens() != null;
             var right = isLambdaAnyAllFunction
                 ? GetAnyAllFunctionExpression<T>(lambdaFilter, lambdaParameter, lambdaParameters, formatProvider, ignoreCase, depth + 1)
-                : CreateExpression<T>(lambdaFilter, sourceParameter, lambdaParameters, lambdaType, formatProvider, ignoreCase, depth + 1);
+                : CreateExpression<T>(lambdaFilter, sourceParameter, lambdaParameters, null, formatProvider, ignoreCase, depth + 1);
 
             return GetFunction(functionTokens.Operation, left, right, sourceParameter, lambdaParameters, ignoreCase);
         }
