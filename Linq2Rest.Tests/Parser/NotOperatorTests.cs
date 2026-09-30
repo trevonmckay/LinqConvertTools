@@ -80,6 +80,20 @@ namespace LinqConvertTools.Tests.Parser
             Assert.Catch(() => _converter.Convert<Record>(filter));
         }
 
+        [TestCase("not IsActive and and Priority eq 1")]
+        [TestCase("not IsActive or or Priority eq 1")]
+        [TestCase("not IsActive and")]
+        [TestCase("not IsActive or")]
+        [TestCase("Priority eq 1 and not IsActive and")]
+        [TestCase("not IsActive and not IsActive and")]
+        [TestCase("and not IsActive")]
+        public void RejectsMisplacedCombinerAroundNot(string filter)
+        {
+            ArgumentNullException.ThrowIfNull(_converter);
+
+            Assert.Throws<InvalidOperationException>(() => _converter.Convert<Record>(filter));
+        }
+
         public class Record
         {
             public int Id { get; set; }

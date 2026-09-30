@@ -672,12 +672,17 @@ namespace LinqConvertTools.Parser
         {
             string? combiner = null;
             Expression? existing = null;
+
+            // Operands and and/or combiners must alternate, starting and ending with an operand. A combiner that
+            // is doubled, leading or trailing makes the filter invalid rather than silently dropping a condition.
+            bool awaitingOperand = true;
             foreach (TokenSet tokenSet in tokens)
             {
                 if (string.IsNullOrWhiteSpace(tokenSet.Left))
                 {
                     if (string.Equals(tokenSet.Operation, "not", StringComparison.OrdinalIgnoreCase))
                     {
+                        awaitingOperand = false;
                         Expression? right = CreateExpression<T>(
                                                         tokenSet.Right,
                                                         parameter,
@@ -699,10 +704,17 @@ namespace LinqConvertTools.Parser
                         continue;
                     }
 
+                    if (awaitingOperand || !string.IsNullOrWhiteSpace(tokenSet.Right))
+                    {
+                        return null;
+                    }
+
                     combiner = tokenSet.Operation;
+                    awaitingOperand = true;
                 }
                 else
                 {
+                    awaitingOperand = false;
                     Expression? left = CreateExpression<T>(
                                                    tokenSet.Left,
                                                    parameter,
@@ -733,7 +745,7 @@ namespace LinqConvertTools.Parser
                 }
             }
 
-            return existing;
+            return awaitingOperand ? null : existing;
         }
 
         private Expression? GetArithmeticExpression<T>(string filter, ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters, Type? type, IFormatProvider formatProvider, bool ignoreCase, int depth)
