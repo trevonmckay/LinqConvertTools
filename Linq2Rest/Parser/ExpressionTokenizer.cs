@@ -25,17 +25,15 @@ namespace LinqConvertTools.Parser
         private static readonly Regex AnyAllFunctionRx = new Regex(@"^(([0-9a-zA-Z_]+/)+)(any|all)\((.*)\)$", RegexOptions.Compiled, ParserRegex.MatchTimeout);
 
         /// <summary>
-        /// Splits a filter into its conditions and the and/or combiners between them, following OData precedence:
-        /// <c>not</c> binds tightest, then <c>and</c>, then <c>or</c>, and parentheses override it.
+        /// Splits a filter into its conditions and the and/or combiners between them.
         /// </summary>
         /// <remarks>
-        /// A filter with a top-level <c>or</c> yields its or-separated groups; a group that still holds an <c>and</c>
-        /// is returned whole, as a token with only <see cref="TokenSet.Left"/>, and is split again when it is parsed.
-        /// A filter with only top-level <c>and</c> yields its and-separated operands. A filter with a single top-level
-        /// combiner whose first operand is a whole condition, such as <c>(a or b) and c</c>, instead yields one token
-        /// that combines the two sides. Each operand is a negation (<c>not</c> and its operand), a comparison, or a
-        /// whole condition. A filter that is a single operand yields its negation or comparison, or no tokens when it
-        /// is a member, function or literal.
+        /// The conditions and combiners are returned in order and are combined by OData precedence when parsed:
+        /// <c>not</c> binds tightest, then <c>and</c>, then <c>or</c>, and parentheses override it. Each condition is a
+        /// negation (<c>not</c> and its operand), a comparison, or a whole condition such as a group in parentheses.
+        /// A filter with a single combiner whose first operand is a whole condition, such as <c>(a or b) and c</c>,
+        /// instead yields one token that combines the two sides. A filter that is a single condition yields its
+        /// negation or comparison, or no tokens when it is a member, function or literal.
         /// </remarks>
         public static ICollection<TokenSet> GetTokens(this string expression)
         {
@@ -45,10 +43,7 @@ namespace LinqConvertTools.Parser
                 return tokens;
             }
 
-            while (expression.TryGetEnclosedContent(out var content))
-            {
-                expression = content;
-            }
+            expression = expression.StripEnclosingParentheses();
 
             if (expression.IsImpliedBoolean())
             {
@@ -57,72 +52,105 @@ namespace LinqConvertTools.Parser
 
             var blocks = GetBlocks(expression);
             var topLevel = GetTopLevelFlags(blocks);
-
-            var orIndexes = GetTopLevelIndexes(blocks, topLevel, 0, blocks.Count, TokenOperatorExtensions.IsOrOperation);
-            if (orIndexes.Count > 0)
+            var combinerIndexes = new List<int>();
+            for (var i = 0; i < blocks.Count; i++)
             {
-                AddSeparated(tokens, blocks, topLevel, orIndexes, AddOrGroup);
+                if (topLevel[i] && blocks[i].IsBinaryCombinationOperation())
+                {
+                    combinerIndexes.Add(i);
+                }
+            }
+
+            var firstOperandEnd = combinerIndexes.Count > 0 ? combinerIndexes[0] : blocks.Count;
+            var firstOperand = GetOperand(blocks, topLevel, 0, firstOperandEnd);
+            if (combinerIndexes.Count == 0)
+            {
+                if (!string.IsNullOrWhiteSpace(firstOperand.Operation))
+                {
+                    tokens.Add(firstOperand);
+                }
+
                 return tokens;
             }
 
-            var andIndexes = GetTopLevelIndexes(blocks, topLevel, 0, blocks.Count, TokenOperatorExtensions.IsAndOperation);
-            if (andIndexes.Count > 0)
+            if (combinerIndexes.Count == 1 && firstOperand.IsWholeCondition)
             {
-                AddSeparated(tokens, blocks, topLevel, andIndexes, AddOperand);
+                tokens.Add(new TokenSet
+                {
+                    Left = firstOperand.Left,
+                    Operation = blocks[firstOperandEnd].ToLowerInvariant(),
+                    Right = JoinBlocks(blocks, firstOperandEnd + 1, blocks.Count)
+                });
                 return tokens;
             }
 
-            var operand = GetOperand(blocks, topLevel, 0, blocks.Count);
-            if (!string.IsNullOrWhiteSpace(operand.Operation))
+            tokens.Add(firstOperand);
+            for (var c = 0; c < combinerIndexes.Count; c++)
             {
-                tokens.Add(operand);
+                var combinerIndex = combinerIndexes[c];
+                var operandEnd = c + 1 < combinerIndexes.Count ? combinerIndexes[c + 1] : blocks.Count;
+                tokens.Add(new TokenSet { Operation = blocks[combinerIndex].ToLowerInvariant() });
+                tokens.Add(GetOperand(blocks, topLevel, combinerIndex + 1, operandEnd));
             }
 
             return tokens;
         }
 
         /// <summary>
-        /// Gets the text inside parentheses that enclose the whole of <paramref name="expression"/>, such as
-        /// <c>a eq 1</c> from <c>(a eq 1)</c>, but not from <c>(a eq 1) or (b eq 2)</c>.
-        /// Parentheses inside quoted string literals are ignored.
+        /// Removes parentheses that enclose the whole of <paramref name="expression"/>, at any depth, such as
+        /// <c>((a eq 1))</c> to <c>a eq 1</c>, but not those of <c>(a eq 1) or (b eq 2)</c>. Parentheses inside quoted
+        /// string literals are ignored, and an expression with unbalanced parentheses is returned unchanged.
         /// </summary>
-        public static bool TryGetEnclosedContent(this string expression, out string content)
+        public static string StripEnclosingParentheses(this string expression)
         {
-            content = string.Empty;
-            if (expression.Length < 2 || expression[0] != '(' || expression[expression.Length - 1] != ')')
+            if (expression.Length < 2 || expression.IndexOf('(') < 0)
+            {
+                return expression;
+            }
+
+            var closeIndexes = GetCloseIndexes(expression);
+            if (closeIndexes is null)
+            {
+                return expression;
+            }
+
+            var start = 0;
+            var end = expression.Length - 1;
+            SkipWhiteSpace(expression, ref start, ref end);
+            var stripped = false;
+            while (start < end && expression[start] == '(' && closeIndexes[start] == end)
+            {
+                start++;
+                end--;
+                SkipWhiteSpace(expression, ref start, ref end);
+                stripped = true;
+            }
+
+            return stripped ? expression.Substring(start, end - start + 1) : expression;
+        }
+
+        /// <summary>
+        /// Determines whether <paramref name="expression"/> is a call to a boolean string function or a collection
+        /// <c>any</c>/<c>all</c>, and nothing else, so it needs no splitting into conditions.
+        /// </summary>
+        public static bool IsImpliedBoolean(this string expression)
+        {
+            if (string.IsNullOrWhiteSpace(expression) || !expression.IsFunction())
             {
                 return false;
             }
 
-            var depth = 0;
-            char? quote = null;
-            for (var i = 0; i < expression.Length; i++)
-            {
-                if (TryAdvanceQuote(expression, ref i, ref quote))
-                {
-                    continue;
-                }
-
-                depth += expression[i] == '(' ? 1 : expression[i] == ')' ? -1 : 0;
-                if (depth == 0 && i < expression.Length - 1)
-                {
-                    return false;
-                }
-            }
-
-            content = expression.Substring(1, expression.Length - 2);
-            return depth == 0;
+            var blocks = GetBlocks(expression);
+            return !blocks.Exists(TokenOperatorExtensions.IsOperation)
+                && (TokenOperatorExtensions.IsBooleanFunctionName(blocks[0]) || expression.IsCollectionFunction());
         }
 
         public static TokenSet? GetArithmeticToken(this string expression)
         {
-            if (expression.TryGetEnclosedContent(out var content))
-            {
-                expression = content;
-            }
+            expression = expression.StripEnclosingParentheses();
 
-            var blocks = expression.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-            var hasOperation = blocks.Any(x => x.IsArithmetic());
+            var blocks = GetBlocks(expression);
+            var hasOperation = blocks.Exists(TokenOperatorExtensions.IsArithmetic);
             if (!hasOperation)
             {
                 return null;
@@ -130,11 +158,12 @@ namespace LinqConvertTools.Parser
 
             var operationIndex = GetArithmeticOperationIndex(blocks);
 
-            var left = string.Join(" ", blocks.Where((x, i) => i < operationIndex));
-            var right = string.Join(" ", blocks.Where((x, i) => i > operationIndex));
-            var operation = blocks[operationIndex];
-
-            return new TokenSet { Left = left, Operation = operation, Right = right };
+            return new TokenSet
+            {
+                Left = JoinBlocks(blocks, 0, operationIndex),
+                Operation = blocks[operationIndex],
+                Right = JoinBlocks(blocks, operationIndex + 1, blocks.Count)
+            };
         }
 
         public static TokenSet? GetAnyAllFunctionTokens(this string filter)
@@ -185,52 +214,6 @@ namespace LinqConvertTools.Parser
             };
         }
 
-        private static void AddSeparated(
-            Collection<TokenSet> tokens,
-            List<string> blocks,
-            bool[] topLevel,
-            List<int> separatorIndexes,
-            Action<Collection<TokenSet>, List<string>, bool[], int, int> addPart)
-        {
-            if (separatorIndexes.Count == 1 && GetOperand(blocks, topLevel, 0, separatorIndexes[0]).IsWholeCondition)
-            {
-                var separatorIndex = separatorIndexes[0];
-                tokens.Add(new TokenSet
-                {
-                    Left = JoinBlocks(blocks, 0, separatorIndex),
-                    Operation = blocks[separatorIndex].ToLowerInvariant(),
-                    Right = JoinBlocks(blocks, separatorIndex + 1, blocks.Count)
-                });
-                return;
-            }
-
-            var start = 0;
-            foreach (var separatorIndex in separatorIndexes)
-            {
-                addPart(tokens, blocks, topLevel, start, separatorIndex);
-                tokens.Add(new TokenSet { Operation = blocks[separatorIndex].ToLowerInvariant() });
-                start = separatorIndex + 1;
-            }
-
-            addPart(tokens, blocks, topLevel, start, blocks.Count);
-        }
-
-        private static void AddOrGroup(Collection<TokenSet> tokens, List<string> blocks, bool[] topLevel, int start, int end)
-        {
-            if (GetTopLevelIndexes(blocks, topLevel, start, end, TokenOperatorExtensions.IsAndOperation).Count > 0)
-            {
-                tokens.Add(new TokenSet { Left = JoinBlocks(blocks, start, end) });
-                return;
-            }
-
-            AddOperand(tokens, blocks, topLevel, start, end);
-        }
-
-        private static void AddOperand(Collection<TokenSet> tokens, List<string> blocks, bool[] topLevel, int start, int end)
-        {
-            tokens.Add(GetOperand(blocks, topLevel, start, end));
-        }
-
         /// <summary>
         /// Reads the operand in <paramref name="blocks"/> from <paramref name="start"/> up to <paramref name="end"/>,
         /// which holds no top-level and/or: a negation, a comparison at its first top-level operator, or a whole
@@ -262,20 +245,6 @@ namespace LinqConvertTools.Parser
             }
 
             return new TokenSet { Left = JoinBlocks(blocks, start, end) };
-        }
-
-        private static List<int> GetTopLevelIndexes(List<string> blocks, bool[] topLevel, int start, int end, Func<string, bool> predicate)
-        {
-            var indexes = new List<int>();
-            for (var i = start; i < end; i++)
-            {
-                if (topLevel[i] && predicate(blocks[i]))
-                {
-                    indexes.Add(i);
-                }
-            }
-
-            return indexes;
         }
 
         /// <summary>
@@ -350,26 +319,66 @@ namespace LinqConvertTools.Parser
             return true;
         }
 
+        /// <summary>
+        /// Finds the index of the closing parenthesis that matches each opening one, ignoring parentheses inside quoted
+        /// string literals.
+        /// </summary>
+        /// <returns>The closing index at each opening index, or <c>null</c> when the parentheses are unbalanced.</returns>
+        private static int[]? GetCloseIndexes(string expression)
+        {
+            var closeIndexes = new int[expression.Length];
+            var openIndexes = new Stack<int>();
+            char? quote = null;
+            for (var i = 0; i < expression.Length; i++)
+            {
+                if (TryAdvanceQuote(expression, ref i, ref quote))
+                {
+                    continue;
+                }
+
+                if (expression[i] == '(')
+                {
+                    openIndexes.Push(i);
+                }
+                else if (expression[i] == ')')
+                {
+                    if (openIndexes.Count == 0)
+                    {
+                        return null;
+                    }
+
+                    closeIndexes[openIndexes.Pop()] = i;
+                }
+            }
+
+            return openIndexes.Count == 0 ? closeIndexes : null;
+        }
+
+        private static void SkipWhiteSpace(string expression, ref int start, ref int end)
+        {
+            while (start <= end && char.IsWhiteSpace(expression[start]))
+            {
+                start++;
+            }
+
+            while (end >= start && char.IsWhiteSpace(expression[end]))
+            {
+                end--;
+            }
+        }
+
         private static string JoinBlocks(List<string> blocks, int start, int end)
         {
             return string.Join(" ", blocks.Skip(start).Take(end - start));
         }
 
-        private static int GetArithmeticOperationIndex(IList<string> blocks)
+        private static int GetArithmeticOperationIndex(List<string> blocks)
         {
-
-
-            var openGroups = 0;
+            var topLevel = GetTopLevelFlags(blocks);
             var operationIndex = -1;
             for (var i = 0; i < blocks.Count; i++)
             {
-                var source = blocks[i];
-
-
-
-                openGroups += GetNetParentheses(source);
-
-                if (openGroups == 0 && source.IsArithmetic())
+                if (topLevel[i] && blocks[i].IsArithmetic())
                 {
                     operationIndex = i;
                 }

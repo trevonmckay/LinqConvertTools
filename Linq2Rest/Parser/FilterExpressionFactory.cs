@@ -482,8 +482,11 @@ namespace LinqConvertTools.Parser
         /// <summary>
         /// Reads a quoted string literal.
         /// </summary>
-        /// <returns><c>true</c> when <paramref name="token"/> is a string literal; <c>false</c> when it does not start with a quote.</returns>
-        /// <exception cref="FormatException">The token starts with a quote but does not end with the same quote.</exception>
+        /// <returns>
+        /// <c>true</c> when <paramref name="token"/> is a string literal; <c>false</c> when it does not start with a
+        /// quote, or is a literal followed by more, such as the operand <c>'a' add 1</c>.
+        /// </returns>
+        /// <exception cref="FormatException">The token starts with a quote that is never closed.</exception>
         private static bool TryReadStringLiteral(string token, out string? value)
         {
             value = null;
@@ -495,13 +498,35 @@ namespace LinqConvertTools.Parser
             Match match = StringRx.Match(token);
             if (!match.Success)
             {
-                throw new FormatException("Unterminated string literal: " + token);
+                return HasClosingQuote(token) ? false : throw new FormatException("Unterminated string literal: " + token);
             }
 
             value = match.Groups[1].Success
                 ? match.Groups[1].Value.Replace("''", "'")
                 : match.Groups[2].Value.Replace("''", "'");
             return true;
+        }
+
+        private static bool HasClosingQuote(string token)
+        {
+            char quote = token[0];
+            for (int i = 1; i < token.Length; i++)
+            {
+                if (token[i] != quote)
+                {
+                    continue;
+                }
+
+                if (i + 1 < token.Length && token[i + 1] == quote)
+                {
+                    i++;
+                    continue;
+                }
+
+                return true;
+            }
+
+            return false;
         }
 
         private static Type GetNonNullableType(Type type)
@@ -585,6 +610,8 @@ namespace LinqConvertTools.Parser
                 return null;
             }
 
+            propertyToken = propertyToken.StripEnclosingParentheses();
+
             if (!propertyToken.IsImpliedBoolean())
             {
                 var token = propertyToken.GetTokens().FirstOrDefault();
@@ -634,6 +661,9 @@ namespace LinqConvertTools.Parser
                 return null;
             }
 
+            // A condition, member or literal in parentheses, such as (IsActive) or (true), is read without them.
+            filter = filter.StripEnclosingParentheses();
+
             ICollection<TokenSet> tokens = filter.GetTokens();
 
             if (tokens.Any())
@@ -677,23 +707,19 @@ namespace LinqConvertTools.Parser
                 ?? GetParameterExpression(filter, type, formatProvider)
                 ?? GetBooleanExpression(filter, formatProvider);
 
-            if (expression is null && filter.TryGetEnclosedContent(out string enclosed))
-            {
-                // A member or function in parentheses, such as (IsActive), is read without them.
-                return CreateExpression<T>(enclosed, sourceParameter, lambdaParameters, type, formatProvider, ignoreCase, depth + 1);
-            }
-
             return expression ?? throw new InvalidOperationException("Could not create expression from: " + filter);
         }
 
         /// <summary>
-        /// Builds the conditions in <paramref name="tokens"/>. A comparison reads its literals by the type of its own
-        /// members; a type from the enclosing expression does not apply to a condition.
+        /// Builds the conditions in <paramref name="tokens"/> and combines them by precedence: each run of
+        /// and-combined conditions first, then those runs with or. A comparison reads its literals by the type of its
+        /// own members; a type from the enclosing expression does not apply to a condition.
         /// </summary>
         private Expression? GetTokenExpression<T>(ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters, IFormatProvider formatProvider, ICollection<TokenSet> tokens, bool ignoreCase, int depth)
         {
             string? combiner = null;
-            Expression? existing = null;
+            Expression? orCombined = null;
+            Expression? andCombined = null;
 
             // Operands and and/or combiners must alternate, starting and ending with an operand, and every operand
             // must parse. Anything else makes the filter invalid rather than silently dropping a condition.
@@ -726,11 +752,29 @@ namespace LinqConvertTools.Parser
                     return null;
                 }
 
-                existing = existing is null ? operand : GetOperation(combiner!, existing, operand, ignoreCase);
+                if (andCombined is null)
+                {
+                    andCombined = operand;
+                }
+                else if (combiner!.IsOrOperation())
+                {
+                    orCombined = orCombined is null ? andCombined : GetOperation(combiner, orCombined, andCombined, ignoreCase);
+                    andCombined = operand;
+                }
+                else
+                {
+                    andCombined = GetOperation(combiner, andCombined, operand, ignoreCase);
+                }
+
                 awaitingOperand = false;
             }
 
-            return awaitingOperand ? null : existing;
+            if (awaitingOperand)
+            {
+                return null;
+            }
+
+            return orCombined is null ? andCombined : GetOperation("or", orCombined, andCombined!, ignoreCase);
         }
 
         private Expression? GetUnaryOperand<T>(TokenSet tokenSet, ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters, IFormatProvider formatProvider, bool ignoreCase, int depth)
@@ -770,9 +814,20 @@ namespace LinqConvertTools.Parser
                 return left;
             }
 
-            var right = IsInOperation(tokenSet.Operation) && left.Type != typeof(string)
-                ? GetTypedInList(tokenSet.Right, left.Type, formatProvider)
-                : CreateExpression<T>(tokenSet.Right, parameter, lambdaParameters, combinesConditions ? null : left.Type, formatProvider, ignoreCase, depth + 1);
+            Expression? right;
+            if (IsInOperation(tokenSet.Operation) && left.Type != typeof(string))
+            {
+                right = GetTypedInList(tokenSet.Right, left.Type, formatProvider);
+            }
+            else if (IsInOperation(tokenSet.Operation) && tokenSet.Right.StartsWith("(", StringComparison.Ordinal))
+            {
+                // The list is kept whole here and split into its items when the in operation is built.
+                right = Expression.Constant(tokenSet.Right, typeof(string));
+            }
+            else
+            {
+                right = CreateExpression<T>(tokenSet.Right, parameter, lambdaParameters, combinesConditions ? null : left.Type, formatProvider, ignoreCase, depth + 1);
+            }
 
             return right is null ? null : GetOperation(tokenSet.Operation, left, right, ignoreCase);
         }

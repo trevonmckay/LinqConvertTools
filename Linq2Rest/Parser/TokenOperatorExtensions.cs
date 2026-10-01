@@ -26,7 +26,6 @@ namespace LinqConvertTools.Parser
 
         private static readonly string[] BooleanFunctions = new[] { "substringof", "contains", "endswith", "startswith" };
         private static readonly Regex CollectionFunctionRx = new(@"^[0-9a-zA-Z_]+/(all|any)\((.+)\)$", RegexOptions.Compiled, ParserRegex.MatchTimeout);
-        private static readonly Regex CleanRx = new(@"^\((.+)\)$", RegexOptions.Compiled, ParserRegex.MatchTimeout);
         private static readonly Regex FunctionRegex = new(@"^([^()/]+)\(.+\)$", RegexOptions.None, ParserRegex.MatchTimeout);
         private static readonly Regex StringStartRx = new("^[(]*'", RegexOptions.Compiled, ParserRegex.MatchTimeout);
         private static readonly Regex StringEndRx = new("'[)]*$", RegexOptions.Compiled, ParserRegex.MatchTimeout);
@@ -66,29 +65,14 @@ namespace LinqConvertTools.Parser
             return Array.Exists(Arithmetic, x => string.Equals(x, operation, StringComparison.OrdinalIgnoreCase));
         }
 
-        public static bool IsImpliedBoolean(this string expression)
+        public static bool IsBooleanFunctionName(string block)
         {
-            if (!string.IsNullOrWhiteSpace(expression) && !expression.IsEnclosed() && expression.IsFunction())
-            {
-                var split = expression.Split(' ');
-                return !split.Intersect(Operations, StringComparer.OrdinalIgnoreCase).Any()
-                && !split.Intersect(Combiners, StringComparer.OrdinalIgnoreCase).Any()
-                && (Array.Exists(BooleanFunctions, x => split[0].StartsWith(x, StringComparison.OrdinalIgnoreCase)) ||
-                    CollectionFunctionRx.IsMatch(expression));
-            }
-
-            return false;
+            return Array.Exists(BooleanFunctions, x => block.StartsWith(x, StringComparison.OrdinalIgnoreCase));
         }
 
-        public static Match EnclosedMatch(this string expression)
+        public static bool IsCollectionFunction(this string expression)
         {
-            return CleanRx.Match(expression);
-        }
-
-        public static bool IsEnclosed(this string expression)
-        {
-            var match = expression.EnclosedMatch();
-            return match != null && match.Success;
+            return CollectionFunctionRx.IsMatch(expression);
         }
 
         public static bool IsStringStart(this string expression)
