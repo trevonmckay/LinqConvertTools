@@ -25,6 +25,8 @@ namespace LinqConvertTools.IntegrationTests
         public Author Author { get; set; } = new();
 
         public List<Tag> Tags { get; set; } = new();
+
+        public List<string> Keywords { get; set; } = new();
     }
 
     public class Author

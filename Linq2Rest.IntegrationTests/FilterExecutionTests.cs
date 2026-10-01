@@ -114,6 +114,9 @@ namespace LinqConvertTools.IntegrationTests
             new object[] { "indexof(title, 'REVIEW') eq 7", true, "B" },
             new object[] { "status eq 'open'", true, "A,D" },
             new object[] { "status ne 'open'", true, "B,C" },
+            new object[] { "status eq null", true, "C" },
+            new object[] { "status ne null", true, "A,B,D" },
+            new object[] { "status in keywords", true, "A,B" },
             new object[] { "author/name eq 'ada'", true, "A,C" },
             new object[] { "tags/any(t: t/value eq 'EMAIL')", true, "A,B" },
         };
@@ -187,6 +190,7 @@ namespace LinqConvertTools.IntegrationTests
                 CreatedAt = new DateTimeOffset(2024, 1, 15, 8, 30, 15, TimeSpan.Zero),
                 Author = new Author { Name = "Ada" },
                 Tags = { new Tag { Value = "email" }, new Tag { Value = "finance" } },
+                Keywords = { "open", "priority" },
             };
             yield return new Document
             {
@@ -198,6 +202,7 @@ namespace LinqConvertTools.IntegrationTests
                 ClosedAt = new DateTimeOffset(2024, 7, 1, 9, 0, 0, TimeSpan.Zero),
                 Author = new Author { Name = "Grace" },
                 Tags = { new Tag { Value = "email" } },
+                Keywords = { "CLOSED" },
             };
             yield return new Document
             {
@@ -207,6 +212,7 @@ namespace LinqConvertTools.IntegrationTests
                 Priority = 3,
                 CreatedAt = new DateTimeOffset(2025, 2, 10, 23, 59, 59, TimeSpan.Zero),
                 Author = new Author { Name = "Ada" },
+                Keywords = { "draft" },
             };
             yield return new Document
             {
@@ -218,6 +224,7 @@ namespace LinqConvertTools.IntegrationTests
                 ClosedAt = new DateTimeOffset(2025, 10, 1, 9, 0, 0, TimeSpan.Zero),
                 Author = new Author { Name = "Linus" },
                 Tags = { new Tag { Value = "legal" } },
+                Keywords = { "archived" },
             };
         }
     }

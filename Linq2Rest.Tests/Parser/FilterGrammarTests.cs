@@ -219,6 +219,39 @@ namespace LinqConvertTools.Tests.Parser
             CollectionAssert.AreEqual(new[] { 1, 2, 4 }, _records.AsQueryable().Where(predicate).Select(r => r.Id).ToArray());
         }
 
+        [TestCase("Note eq 'N1'", "1")]
+        [TestCase("Note ne 'N1'", "2,3,4")]
+        [TestCase("Note eq null", "2,4")]
+        [TestCase("Note ne null", "1,3")]
+        public void ComparesNullableMemberIgnoringCase(string filter, string expectedIds)
+        {
+            ArgumentNullException.ThrowIfNull(_converter);
+            ArgumentNullException.ThrowIfNull(_records);
+
+            var predicate = _converter.Convert<Record>(filter, true);
+
+            var matches = _records.AsQueryable().Where(predicate).Select(r => r.Id).ToArray();
+            var expected = expectedIds.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(int.Parse).ToArray();
+            CollectionAssert.AreEqual(expected, matches, "Failed for " + predicate);
+        }
+
+        [Test]
+        public void ComparesInCollectionMemberIgnoringCase()
+        {
+            ArgumentNullException.ThrowIfNull(_converter);
+            var records = new[]
+            {
+                new Record { Id = 1, Status = "EMAIL", Aliases = { "email", "finance" } },
+                new Record { Id = 2, Status = "legal", Aliases = { "LEGAL" } },
+                new Record { Id = 3, Status = "memo", Aliases = { "draft", null! } },
+                new Record { Id = 4, Status = "none", Aliases = { } },
+            };
+
+            var predicate = _converter.Convert<Record>("Status in Aliases", true);
+
+            CollectionAssert.AreEqual(new[] { 1, 2 }, records.AsQueryable().Where(predicate).Select(r => r.Id).ToArray());
+        }
+
         [TestCase(200, "1")]
         [TestCase(300, null)]
         [TestCase(40000, null)]
