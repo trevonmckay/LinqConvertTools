@@ -12,27 +12,23 @@
 
 namespace LinqConvertTools.Parser.Readers
 {
+    using System;
     using System.Linq.Expressions;
-    using System.Text.RegularExpressions;
 
     internal class BooleanExpressionFactory : ValueExpressionFactoryBase<bool>
     {
-        private static readonly Regex TrueRegex = new Regex("1|true", RegexOptions.IgnoreCase | RegexOptions.Compiled);
-        private static readonly Regex FalseRegex = new Regex("0|false", RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
         public override ConstantExpression Convert(string token)
         {
-            if (TrueRegex.IsMatch(token))
-            {
-                return Expression.Constant(true);
-            }
+            return TryParse(token, out bool value) ? Expression.Constant(value) : Expression.Constant(null);
+        }
 
-            if (FalseRegex.IsMatch(token))
-            {
-                return Expression.Constant(false);
-            }
-
-            return Expression.Constant(null);
+        /// <summary>
+        /// Reads <c>1</c>, <c>0</c>, <c>true</c> or <c>false</c>, in any case, and nothing else.
+        /// </summary>
+        public static bool TryParse(string token, out bool value)
+        {
+            value = token == "1" || string.Equals(token, "true", StringComparison.OrdinalIgnoreCase);
+            return value || token == "0" || string.Equals(token, "false", StringComparison.OrdinalIgnoreCase);
         }
     }
 }

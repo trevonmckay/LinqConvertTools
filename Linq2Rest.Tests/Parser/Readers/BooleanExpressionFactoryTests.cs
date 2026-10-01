@@ -52,6 +52,21 @@ namespace LinqConvertTools.Tests.Parser.Readers
             Assert.AreEqual(value, expression.Value);
         }
 
+        [TestCase("12")]
+        [TestCase("10")]
+        [TestCase("true1")]
+        [TestCase("untrue")]
+        [TestCase("falsehood")]
+        [TestCase("((Priority eq 1))")]
+        [TestCase("true\n")]
+        [TestCase(" true")]
+        public void WhenTokenOnlyContainsBooleanTextThenReturnsNullValue(string parameter)
+        {
+            ArgumentNullException.ThrowIfNull(_factory);
+
+            Assert.AreEqual(null, _factory.Convert(parameter).Value);
+        }
+
         [Test]
         public void WhenFilterIsIncorrectFormatThenReturnsNullValue()
         {

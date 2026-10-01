@@ -13,7 +13,6 @@
 namespace LinqConvertTools.Parser
 {
     using System;
-    using System.Linq;
     using System.Text.RegularExpressions;
 
     internal static class TokenOperatorExtensions
@@ -21,20 +20,12 @@ namespace LinqConvertTools.Parser
         private static readonly string[] Operations = new[] { "eq", "ne", "gt", "ge", "lt", "le", "and", "or", "not", "in" };
         private const string UnaryOperator = "not";
         private static readonly string[] BinaryCombiners = new[] { "and", "or" };
-        private static readonly string[] Combiners = BinaryCombiners.Append(UnaryOperator).ToArray();
         private static readonly string[] Arithmetic = new[] { "add", "sub", "mul", "div", "mod" };
 
         private static readonly string[] BooleanFunctions = new[] { "substringof", "contains", "endswith", "startswith" };
         private static readonly Regex CollectionFunctionRx = new(@"^[0-9a-zA-Z_]+/(all|any)\((.+)\)$", RegexOptions.Compiled, ParserRegex.MatchTimeout);
-        private static readonly Regex CleanRx = new(@"^\((.+)\)$", RegexOptions.Compiled, ParserRegex.MatchTimeout);
-        private static readonly Regex FunctionRegex = new(@"^([^()/]+)\(.+\)$", RegexOptions.None, ParserRegex.MatchTimeout);
-        private static readonly Regex StringStartRx = new("^[(]*'", RegexOptions.Compiled, ParserRegex.MatchTimeout);
-        private static readonly Regex StringEndRx = new("'[)]*$", RegexOptions.Compiled, ParserRegex.MatchTimeout);
-
-        public static bool IsCombinationOperation(this string operation)
-        {
-            return Array.Exists(Combiners, x => string.Equals(x, operation, StringComparison.OrdinalIgnoreCase));
-        }
+        private static readonly Regex FunctionRegex = new(@"^([A-Za-z_][A-Za-z0-9_]*)\(.*\)$", RegexOptions.Compiled | RegexOptions.Singleline, ParserRegex.MatchTimeout);
+        private static readonly Regex CallRegex = new(@"^[A-Za-z_][A-Za-z0-9_/]*\(.*\)$", RegexOptions.Compiled | RegexOptions.Singleline, ParserRegex.MatchTimeout);
 
         public static bool IsBinaryCombinationOperation(this string operation)
         {
@@ -61,39 +52,14 @@ namespace LinqConvertTools.Parser
             return Array.Exists(Arithmetic, x => string.Equals(x, operation, StringComparison.OrdinalIgnoreCase));
         }
 
-        public static bool IsImpliedBoolean(this string expression)
+        public static bool IsBooleanFunctionName(string block)
         {
-            if (!string.IsNullOrWhiteSpace(expression) && !expression.IsEnclosed() && expression.IsFunction())
-            {
-                var split = expression.Split(' ');
-                return !split.Intersect(Operations, StringComparer.OrdinalIgnoreCase).Any()
-                && !split.Intersect(Combiners, StringComparer.OrdinalIgnoreCase).Any()
-                && (Array.Exists(BooleanFunctions, x => split[0].StartsWith(x, StringComparison.OrdinalIgnoreCase)) ||
-                    CollectionFunctionRx.IsMatch(expression));
-            }
-
-            return false;
+            return Array.Exists(BooleanFunctions, x => block.StartsWith(x, StringComparison.OrdinalIgnoreCase));
         }
 
-        public static Match EnclosedMatch(this string expression)
+        public static bool IsCollectionFunction(this string expression)
         {
-            return CleanRx.Match(expression);
-        }
-
-        public static bool IsEnclosed(this string expression)
-        {
-            var match = expression.EnclosedMatch();
-            return match != null && match.Success;
-        }
-
-        public static bool IsStringStart(this string expression)
-        {
-            return !string.IsNullOrWhiteSpace(expression) && StringStartRx.IsMatch(expression);
-        }
-
-        public static bool IsStringEnd(this string expression)
-        {
-            return !string.IsNullOrWhiteSpace(expression) && StringEndRx.IsMatch(expression);
+            return CollectionFunctionRx.IsMatch(expression);
         }
 
         public static string GetFunctionName(this string expression)
@@ -107,12 +73,13 @@ namespace LinqConvertTools.Parser
             return string.Empty;
         }
 
+        /// <summary>
+        /// Determines whether <paramref name="expression"/> starts with a call such as <c>length(</c> or
+        /// <c>Tags/any(</c> and ends with a closing parenthesis.
+        /// </summary>
         public static bool IsFunction(this string expression)
         {
-            var open = expression.IndexOf('(');
-            var close = expression.IndexOf(')');
-
-            return open > 0 && close > -1;
+            return CallRegex.IsMatch(expression);
         }
     }
 }

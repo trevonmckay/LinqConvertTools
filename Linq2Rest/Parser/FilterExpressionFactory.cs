@@ -27,10 +27,8 @@ namespace LinqConvertTools.Parser
     /// </summary>
     public class FilterExpressionFactory : IFilterExpressionFactory
     {
-        // Embedded quotes are accepted as-is, and a doubled '' is read as a single quote.
-        private static readonly Regex StringRx = new(@"^(?:'(.*)'|""(.*)"")$", RegexOptions.Compiled | RegexOptions.Singleline, ParserRegex.MatchTimeout);
+        private static readonly char[] LiteralCharacters = { '\'', '"', '(', ')' };
         private static readonly Regex NegateRx = new(@"^-[^\d]*", RegexOptions.Compiled, ParserRegex.MatchTimeout);
-        private static readonly char[] InListSeparators = { ',' };
         private static readonly Expression _nullConstantExpression = Expression.Constant(null, typeof(object));
 
         /// <summary>
@@ -196,19 +194,11 @@ namespace LinqConvertTools.Parser
             return binaryExpression.Update(left, binaryExpression.Conversion, right);
         }
 
-        private Expression GetArrayConstant(Expression expression, bool toUpper)
+        private Expression GetUpperCaseList(Expression expression)
         {
-            if (expression is not ConstantExpression constantExpression || constantExpression.Value is not string constantValue)
-            {
-                return expression;
-            }
-
-            object[] values = SplitInList(constantValue)
-                .Select(value => TryReadStringLiteral(value, out string? literal) ? literal! : value)
-                .Select(value => toUpper ? ToUpper(value) : value)
-                .ToArray();
-
-            return Expression.Constant(values);
+            return expression is ConstantExpression { Value: string?[] values }
+                ? Expression.Constant(values.Select(value => value is null ? null : ToUpper(value)).ToArray())
+                : expression;
         }
 
         private static bool IsInOperation(string operation)
@@ -216,20 +206,44 @@ namespace LinqConvertTools.Parser
             return string.Equals(operation, "in", StringComparison.OrdinalIgnoreCase);
         }
 
-        private static IEnumerable<string> SplitInList(string list)
+        /// <summary>
+        /// Reads the right side of <c>in</c>: a list of literals in parentheses, or else a collection member such as
+        /// <c>Tags</c>, or a single literal.
+        /// </summary>
+        /// <exception cref="FormatException">The parentheses do not enclose the whole list, as in <c>(1), (3)</c>.</exception>
+        private Expression GetInListOperand<T>(string operand, Type memberType, ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters, IFormatProvider formatProvider, int depth)
         {
-            return list.TrimStart('(').TrimEnd(')')
-                .Split(InListSeparators, StringSplitOptions.RemoveEmptyEntries)
-                .Select(value => value.Trim());
+            operand = operand.Trim();
+            if (operand.StartsWith("(", StringComparison.Ordinal))
+            {
+                string items = operand.StripEnclosingParentheses(out int levels);
+                return levels > 0
+                    ? GetTypedInList(items, memberType, formatProvider)
+                    : throw new FormatException("Could not read " + operand + " as an in list.");
+            }
+
+            Expression? collection = GetPropertyExpression<T>(operand, parameter, lambdaParameters, depth + 1);
+            bool isCollection = collection is not null
+                && collection.Type != typeof(string)
+                && typeof(IEnumerable<>).MakeGenericType(memberType).IsAssignableFrom(collection.Type);
+            return isCollection ? collection! : GetTypedInList(operand, memberType, formatProvider);
         }
 
         /// <summary>
         /// Reads each item of an <c>in</c> list as a literal of the member's type, so the list becomes an array the
         /// member's type can be looked up in.
         /// </summary>
+        /// <param name="list">The items, separated by commas, without the parentheses around the list.</param>
+        /// <param name="memberType">The type of the member looked up in the list.</param>
+        /// <param name="formatProvider">The format provider to read items with.</param>
+        /// <exception cref="FormatException">An item is not a literal of the member's type.</exception>
         private ConstantExpression GetTypedInList(string list, Type memberType, IFormatProvider formatProvider)
         {
-            string[] items = SplitInList(list).ToArray();
+            string[] items = list
+                .SplitTopLevel()
+                .Select(item => item.Trim().StripEnclosingParentheses())
+                .Where(item => item.Length > 0)
+                .ToArray();
             Array values = Array.CreateInstance(memberType, items.Length);
             for (int i = 0; i < items.Length; i++)
             {
@@ -242,6 +256,19 @@ namespace LinqConvertTools.Parser
         private object? ReadInListItem(string item, Type memberType, IFormatProvider formatProvider)
         {
             Type? underlyingType = Nullable.GetUnderlyingType(memberType);
+            if (memberType == typeof(string) && !string.Equals(item, "null", StringComparison.OrdinalIgnoreCase))
+            {
+                if (TryReadStringLiteral(item, out string? literal))
+                {
+                    return literal;
+                }
+
+                // An unquoted item is read as its text. A quote or parenthesis in it means a malformed literal.
+                return item.IndexOfAny(LiteralCharacters) < 0
+                    ? item
+                    : throw new FormatException("Could not read " + item + " as a string literal.");
+            }
+
             if (string.Equals(item, "null", StringComparison.OrdinalIgnoreCase))
             {
                 return !memberType.IsValueType || underlyingType is not null
@@ -274,11 +301,14 @@ namespace LinqConvertTools.Parser
         {
             if (!ignoreCase || left.Type != typeof(string))
             {
-                return Expression.Call(typeof(Enumerable), nameof(Enumerable.Contains), new[] { left.Type }, GetArrayConstant(right, false), left);
+                return Expression.Call(typeof(Enumerable), nameof(Enumerable.Contains), new[] { left.Type }, right, left);
             }
 
-            Expression contains = Expression.Call(typeof(Enumerable), nameof(Enumerable.Contains), new[] { left.Type }, GetArrayConstant(right, true), Expression.Call(left, _toUpperMethod));
-            return Expression.AndAlso(Expression.NotEqual(left, _nullConstantExpression), contains);
+            Expression contains = Expression.Call(typeof(Enumerable), nameof(Enumerable.Contains), new[] { left.Type }, GetUpperCaseList(right), Expression.Call(left, _toUpperMethod));
+            Expression nonNullMatch = Expression.AndAlso(Expression.NotEqual(left, _nullConstantExpression), contains);
+            return right is ConstantExpression { Value: string?[] values } && values.Contains(null)
+                ? Expression.OrElse(Expression.Equal(left, _nullConstantExpression), nonNullMatch)
+                : nonNullMatch;
         }
 
         private Expression GetLeftRightOperation(string token, Expression left, Expression right, bool ignoreCase)
@@ -480,10 +510,12 @@ namespace LinqConvertTools.Parser
         }
 
         /// <summary>
-        /// Reads a quoted string literal.
+        /// Reads a quoted string literal. An unescaped quote inside the text, such as the apostrophe in
+        /// <c>'O'Brien'</c>, is kept as-is; a doubled <c>''</c> is read as a single quote. The literal must be the whole
+        /// token, so trailing text such as <c>'abc'def</c> is rejected.
         /// </summary>
         /// <returns><c>true</c> when <paramref name="token"/> is a string literal; <c>false</c> when it does not start with a quote.</returns>
-        /// <exception cref="FormatException">The token starts with a quote but does not end with the same quote.</exception>
+        /// <exception cref="FormatException">The token starts with a quote but is not a whole literal.</exception>
         private static bool TryReadStringLiteral(string token, out string? value)
         {
             value = null;
@@ -492,15 +524,12 @@ namespace LinqConvertTools.Parser
                 return false;
             }
 
-            Match match = StringRx.Match(token);
-            if (!match.Success)
+            if (token.GetStringLiteralEnd() != token.Length - 1)
             {
                 throw new FormatException("Unterminated string literal: " + token);
             }
 
-            value = match.Groups[1].Success
-                ? match.Groups[1].Value.Replace("''", "'")
-                : match.Groups[2].Value.Replace("''", "'");
+            value = token.Substring(1, token.Length - 2).Replace("''", "'");
             return true;
         }
 
@@ -542,14 +571,35 @@ namespace LinqConvertTools.Parser
 
         private Expression? GetParameterExpression(string filter, Type? type, IFormatProvider formatProvider)
         {
-            return type is not null
-                ? _valueReader.Read(type, filter, formatProvider)
-                : GetBooleanExpression(filter, formatProvider);
+            if (type is null)
+            {
+                return GetBooleanExpression(filter, formatProvider);
+            }
+
+            if (GetNonNullableType(type) == typeof(bool) && !_valueReader.HasCustomFactory(type) && !_valueReader.HasCustomFactory(typeof(bool)))
+            {
+                if (!BooleanExpressionFactory.TryParse(filter, out bool boolean))
+                {
+                    throw new InvalidOperationException("Could not read " + filter + " as boolean.");
+                }
+
+                return type == typeof(bool) ? Expression.Constant(boolean) : Expression.Convert(Expression.Constant(boolean), type);
+            }
+
+            return _valueReader.Read(type, filter, formatProvider);
         }
 
-        private Type? GetExpressionType<T>(TokenSet? set, ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters)
+        private Type? GetExpressionType<T>(TokenSet? set, ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters, int depth)
         {
             RuntimeHelpers.EnsureSufficientExecutionStack();
+
+            // This lookahead recurses once per arithmetic level and rescans the remaining text each time, so without
+            // the same depth limit the main parse uses, deeply nested arithmetic would cost quadratic time here before
+            // the parse ever rejects it.
+            if (depth > _maxDepth)
+            {
+                throw DepthExceeded();
+            }
 
             if (set is null)
             {
@@ -565,35 +615,48 @@ namespace LinqConvertTools.Parser
                 }
             }
 
-            var property = GetPropertyExpression<T>(set.Left, parameter, lambdaParameters) ?? GetPropertyExpression<T>(set.Right, parameter, lambdaParameters);
+            var property = GetPropertyExpression<T>(set.Left, parameter, lambdaParameters, depth + 1) ?? GetPropertyExpression<T>(set.Right, parameter, lambdaParameters, depth + 1);
             if (property != null)
             {
                 return property.Type;
             }
 
-            var type = GetExpressionType<T>(set.Left.GetArithmeticToken(), parameter, lambdaParameters);
+            var type = GetExpressionType<T>(set.Left.GetArithmeticToken(), parameter, lambdaParameters, depth + 1);
 
-            return type ?? GetExpressionType<T>(set.Right.GetArithmeticToken(), parameter, lambdaParameters);
+            return type ?? GetExpressionType<T>(set.Right.GetArithmeticToken(), parameter, lambdaParameters, depth + 1);
         }
 
-        private Expression? GetPropertyExpression<T>(string propertyToken, ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters)
+        private Expression? GetPropertyExpression<T>(string propertyToken, ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters, int depth)
         {
             RuntimeHelpers.EnsureSufficientExecutionStack();
+
+            if (depth > _maxDepth)
+            {
+                throw DepthExceeded();
+            }
 
             if (string.IsNullOrWhiteSpace(propertyToken))
             {
                 return null;
             }
 
-            if (!propertyToken.IsImpliedBoolean())
+            propertyToken = propertyToken.StripEnclosingParentheses();
+
+            var token = propertyToken.GetTokens().FirstOrDefault();
+            if (token != null)
             {
-                var token = propertyToken.GetTokens().FirstOrDefault();
-                if (token != null)
-                {
-                    return GetPropertyExpression<T>(token.Left, parameter, lambdaParameters) ?? GetPropertyExpression<T>(token.Right, parameter, lambdaParameters);
-                }
+                return GetPropertyExpression<T>(token.Left, parameter, lambdaParameters, depth + 1) ?? GetPropertyExpression<T>(token.Right, parameter, lambdaParameters, depth + 1);
             }
 
+            return GetMemberExpression<T>(propertyToken, parameter, lambdaParameters);
+        }
+
+        /// <summary>
+        /// Resolves <paramref name="propertyToken"/> as a member path, such as <c>Child/Age</c>, from the source or a
+        /// lambda parameter.
+        /// </summary>
+        private Expression? GetMemberExpression<T>(string propertyToken, ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters)
+        {
             Type parentType = parameter.Type;
             Expression? propertyExpression = null;
 
@@ -634,6 +697,19 @@ namespace LinqConvertTools.Parser
                 return null;
             }
 
+            // A condition, member or literal in parentheses, such as (IsActive) or (true), is read without them.
+            filter = filter.StripEnclosingParentheses(out int levels);
+            depth += levels;
+            if (depth > _maxDepth)
+            {
+                throw DepthExceeded();
+            }
+
+            if (string.IsNullOrWhiteSpace(filter))
+            {
+                return null;
+            }
+
             ICollection<TokenSet> tokens = filter.GetTokens();
 
             if (tokens.Any())
@@ -646,8 +722,18 @@ namespace LinqConvertTools.Parser
                 return Expression.Constant(null);
             }
 
-            if (TryReadStringLiteral(filter, out string? stringLiteral))
+            if (filter[0] == '\'' || filter[0] == '"')
             {
+                // An arithmetic expression can start with a literal operand, such as 'a' add 1.
+                Expression? literalArithmetic = filter.IsWholeStringLiteral()
+                    ? null
+                    : GetArithmeticExpression<T>(filter, sourceParameter, lambdaParameters, type, formatProvider, ignoreCase, depth);
+                if (literalArithmetic is not null)
+                {
+                    return literalArithmetic;
+                }
+
+                TryReadStringLiteral(filter, out string? stringLiteral);
                 return Expression.Constant(stringLiteral, typeof(string));
             }
 
@@ -671,7 +757,7 @@ namespace LinqConvertTools.Parser
             }
 
             Expression? expression = GetAnyAllFunctionExpression<T>(filter, sourceParameter, lambdaParameters, formatProvider, ignoreCase, depth)
-                ?? GetPropertyExpression<T>(filter, sourceParameter, lambdaParameters)
+                ?? GetMemberExpression<T>(filter, sourceParameter, lambdaParameters)
                 ?? GetArithmeticExpression<T>(filter, sourceParameter, lambdaParameters, type, formatProvider, ignoreCase, depth)
                 ?? GetFunctionExpression<T>(filter, sourceParameter, lambdaParameters, type, formatProvider, ignoreCase, depth)
                 ?? GetParameterExpression(filter, type, formatProvider)
@@ -681,13 +767,15 @@ namespace LinqConvertTools.Parser
         }
 
         /// <summary>
-        /// Builds the conditions in <paramref name="tokens"/>. A comparison reads its literals by the type of its own
-        /// members; a type from the enclosing expression does not apply to a condition.
+        /// Builds the conditions in <paramref name="tokens"/> and combines them by precedence: each run of
+        /// and-combined conditions first, then those runs with or. A comparison reads its literals by the type of its
+        /// own members; a type from the enclosing expression does not apply to a condition.
         /// </summary>
         private Expression? GetTokenExpression<T>(ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters, IFormatProvider formatProvider, ICollection<TokenSet> tokens, bool ignoreCase, int depth)
         {
             string? combiner = null;
-            Expression? existing = null;
+            Expression? orCombined = null;
+            Expression? andCombined = null;
 
             // Operands and and/or combiners must alternate, starting and ending with an operand, and every operand
             // must parse. Anything else makes the filter invalid rather than silently dropping a condition.
@@ -720,11 +808,29 @@ namespace LinqConvertTools.Parser
                     return null;
                 }
 
-                existing = existing is null ? operand : GetOperation(combiner!, existing, operand, ignoreCase);
+                if (combiner is null)
+                {
+                    andCombined = operand;
+                }
+                else if (combiner.IsOrOperation())
+                {
+                    orCombined = orCombined is null ? andCombined : GetOperation(combiner, orCombined, andCombined!, ignoreCase);
+                    andCombined = operand;
+                }
+                else
+                {
+                    andCombined = GetOperation(combiner, andCombined, operand, ignoreCase);
+                }
+
                 awaitingOperand = false;
             }
 
-            return awaitingOperand ? null : existing;
+            if (awaitingOperand)
+            {
+                return null;
+            }
+
+            return orCombined is null ? andCombined : GetOperation("or", orCombined, andCombined!, ignoreCase);
         }
 
         private Expression? GetUnaryOperand<T>(TokenSet tokenSet, ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters, IFormatProvider formatProvider, bool ignoreCase, int depth)
@@ -743,21 +849,19 @@ namespace LinqConvertTools.Parser
         }
 
         /// <summary>
-        /// Builds a token with a left side: a comparison or combination of left and right, or, when the token has no
-        /// operation, the left side alone. A token with an operation whose right side does not parse is invalid.
+        /// Builds a token with a left side: a comparison or combination of left and right, or, for a whole condition,
+        /// the left side alone. A token with an operation whose right side does not parse is invalid.
         /// </summary>
         private Expression? GetBinaryOperand<T>(TokenSet tokenSet, ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters, IFormatProvider formatProvider, bool ignoreCase, int depth)
         {
-            // A token with no operation is a whole condition between combiners, such as a group of and-combined
-            // conditions, and the operands of and/or are conditions too, so like the operand of not they get no type
-            // for their literals.
-            bool isCondition = string.IsNullOrWhiteSpace(tokenSet.Operation);
+            // A whole condition and the operands of and/or, like the operand of not, get no type for their literals.
+            bool isCondition = tokenSet.IsWholeCondition;
             bool combinesConditions = tokenSet.Operation.IsBinaryCombinationOperation();
             Expression? left = CreateExpression<T>(
                                            tokenSet.Left,
                                            parameter,
                                            lambdaParameters,
-                                           isCondition || combinesConditions ? null : GetExpressionType<T>(tokenSet, parameter, lambdaParameters),
+                                           isCondition || combinesConditions ? null : GetExpressionType<T>(tokenSet, parameter, lambdaParameters, depth),
                                            formatProvider,
                                            ignoreCase,
                                            depth + 1);
@@ -766,10 +870,9 @@ namespace LinqConvertTools.Parser
                 return left;
             }
 
-            Type? rightExpressionType = combinesConditions ? null : left.Type;
-            var right = IsInOperation(tokenSet.Operation) && left.Type != typeof(string)
-                ? GetTypedInList(tokenSet.Right, left.Type, formatProvider)
-                : CreateExpression<T>(tokenSet.Right, parameter, lambdaParameters, rightExpressionType, formatProvider, ignoreCase, depth + 1);
+            Expression? right = IsInOperation(tokenSet.Operation)
+                ? GetInListOperand<T>(tokenSet.Right, left.Type, parameter, lambdaParameters, formatProvider, depth)
+                : CreateExpression<T>(tokenSet.Right, parameter, lambdaParameters, combinesConditions ? null : left.Type, formatProvider, ignoreCase, depth + 1);
 
             return right is null ? null : GetOperation(tokenSet.Operation, left, right, ignoreCase);
         }
@@ -782,7 +885,7 @@ namespace LinqConvertTools.Parser
                 return null;
             }
 
-            Type? type1 = type ?? GetExpressionType<T>(arithmeticToken, parameter, lambdaParameters);
+            Type? type1 = type ?? GetExpressionType<T>(arithmeticToken, parameter, lambdaParameters, depth);
             Expression? leftExpression = CreateExpression<T>(arithmeticToken.Left, parameter, lambdaParameters, type1, formatProvider, ignoreCase, depth + 1);
             Expression? rightExpression = CreateExpression<T>(arithmeticToken.Right, parameter, lambdaParameters, type1, formatProvider, ignoreCase, depth + 1);
 
@@ -799,7 +902,7 @@ namespace LinqConvertTools.Parser
                 return null;
             }
 
-            Expression? propertyExpression = GetPropertyExpression<T>(functionTokens.Left, sourceParameter, lambdaParameters);
+            Expression? propertyExpression = GetPropertyExpression<T>(functionTokens.Left, sourceParameter, lambdaParameters, depth);
             Type? leftType = propertyExpression?.Type;
             Expression? left = CreateExpression<T>(
                 functionTokens.Left,
@@ -855,7 +958,7 @@ namespace LinqConvertTools.Parser
                 functionTokens.Left,
                 sourceParameter,
                 lambdaParameters,
-                type ?? GetExpressionType<T>(functionTokens, sourceParameter, lambdaParameters),
+                type ?? GetExpressionType<T>(functionTokens, sourceParameter, lambdaParameters, depth),
                 formatProvider,
                 ignoreCase,
                 depth + 1);

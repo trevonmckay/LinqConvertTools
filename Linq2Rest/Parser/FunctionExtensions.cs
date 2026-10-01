@@ -40,9 +40,9 @@ namespace LinqConvertTools.Parser
                                                                                   { "round", typeof(double) }
                                                                               };
 
-        public static Type GetFunctionType(this string functionName)
+        public static Type? GetFunctionType(this string functionName)
         {
-            return KnownFunctions[functionName];
+            return KnownFunctions.TryGetValue(functionName, out Type? type) ? type : null;
         }
     }
 }

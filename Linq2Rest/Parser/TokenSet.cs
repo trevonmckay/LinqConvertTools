@@ -73,6 +73,12 @@ namespace LinqConvertTools.Parser
             }
         }
 
+        /// <summary>
+        /// Gets a value indicating whether the token holds a whole condition with no operation of its own, such as
+        /// a group in parentheses or a boolean member between and/or.
+        /// </summary>
+        public bool IsWholeCondition => string.IsNullOrWhiteSpace(Operation) && !string.IsNullOrWhiteSpace(Left);
+
         public override string ToString()
         {
             return string.Format(CultureInfo.InvariantCulture, "{0} {1} {2}", Left, Operation, Right);

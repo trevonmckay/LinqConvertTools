@@ -21,9 +21,21 @@ namespace LinqConvertTools.Parser
     internal static class ExpressionTokenizer
     {
         private static readonly Regex FunctionRx = new Regex(@"^([^\(\)]+)\((.+)\)$", RegexOptions.Compiled, ParserRegex.MatchTimeout);
-        private static readonly Regex FunctionContentRx = new Regex(@"^(.*\((?>[^()]+|\((?<Depth>.*)|\)(?<-Depth>.*))*(?(Depth)(?!))\)|.*?)\s*,\s*(((?<Open>').*(?<Close-Open>')(?(Open)(?!)))|[^,]*)$", RegexOptions.Compiled, ParserRegex.MatchTimeout);
         private static readonly Regex AnyAllFunctionRx = new Regex(@"^(([0-9a-zA-Z_]+/)+)(any|all)\((.*)\)$", RegexOptions.Compiled, ParserRegex.MatchTimeout);
 
+        /// <summary>
+        /// Splits a filter into its conditions and the and/or combiners between them.
+        /// </summary>
+        /// <remarks>
+        /// The conditions and combiners are returned in order and are combined by OData precedence when parsed:
+        /// <c>not</c> binds tightest, then <c>and</c>, then <c>or</c>, and parentheses override it. Each condition is a
+        /// negation (<c>not</c> and its operand), a comparison, or a whole condition such as a group in parentheses.
+        /// A filter with a single combiner whose first operand is a whole condition, such as <c>(a or b) and c</c>,
+        /// instead yields one token that combines the two sides. A filter that is a single condition yields its
+        /// negation or comparison, or no tokens when it is a member, function or literal.
+        /// Parentheses that enclose the whole filter are expected to be removed first, with
+        /// <see cref="StripEnclosingParentheses"/>.
+        /// </remarks>
         public static ICollection<TokenSet> GetTokens(this string expression)
         {
             var tokens = new Collection<TokenSet>();
@@ -32,164 +44,162 @@ namespace LinqConvertTools.Parser
                 return tokens;
             }
 
-            var cleanMatch = expression.EnclosedMatch();
-
-            if (cleanMatch.Success)
-            {
-                var match = cleanMatch.Groups[1].Value;
-                if (!HasOrphanedOpenParenthesis(match))
-                {
-                    expression = match;
-                }
-            }
-
-            if (expression.IsImpliedBoolean())
-            {
-                return tokens;
-            }
-
             var blocks = GetBlocks(expression);
-
-            var combinerIndexes = GetTopLevelCombinerIndexes(blocks);
-
-            // And binds tighter than or. When both appear outside parentheses, the filter splits at every
-            // top-level or into groups that hold only and-combined operands, and the groups are combined with or.
-            if (combinerIndexes.Any(j => blocks[j].IsOrOperation()) && combinerIndexes.Any(j => !blocks[j].IsOrOperation()))
+            if (IsImpliedBoolean(expression, blocks))
             {
-                var groupStart = 0;
-                foreach (var orIndex in combinerIndexes.Where(j => blocks[j].IsOrOperation()))
-                {
-                    tokens.Add(new TokenSet { Left = JoinBlocks(blocks, groupStart, orIndex) });
-                    tokens.Add(new TokenSet { Operation = blocks[orIndex].ToLowerInvariant() });
-                    groupStart = orIndex + 1;
-                }
-
-                tokens.Add(new TokenSet { Left = JoinBlocks(blocks, groupStart, blocks.Count) });
                 return tokens;
             }
 
-            var openGroups = 0;
-            var startExpression = 0;
-            var currentTokens = new TokenSet();
-
+            var topLevel = GetTopLevelFlags(blocks);
+            var combinerIndexes = new List<int>();
             for (var i = 0; i < blocks.Count; i++)
             {
-                var netEnclosed = blocks[i].Count(c => c == '(') - blocks[i].Count(c => c == ')');
-                openGroups += netEnclosed;
-
-                if (openGroups == 0)
+                if (topLevel[i] && blocks[i].IsBinaryCombinationOperation())
                 {
-                    if (blocks[i].IsOperation())
-                    {
-                        var expression1 = startExpression;
-
-                        if (string.IsNullOrWhiteSpace(currentTokens.Left))
-                        {
-                            if (i == startExpression && blocks[i].IsUnaryOperation())
-                            {
-                                var i0 = i;
-                                var operandEnd = combinerIndexes.Where(j => j > i0).DefaultIfEmpty(blocks.Count).First();
-                                if (operandEnd < blocks.Count)
-                                {
-                                    // Unary not binds tighter than and/or, so it takes only the operand up to the
-                                    // next top-level and/or; the rest of the filter continues as its own operands.
-                                    currentTokens.Operation = blocks[i];
-                                    currentTokens.Right = JoinBlocks(blocks, i + 1, operandEnd);
-                                    tokens.Add(currentTokens);
-                                    tokens.Add(new TokenSet { Operation = blocks[operandEnd].ToLowerInvariant() });
-
-                                    currentTokens = new TokenSet();
-                                    startExpression = operandEnd + 1;
-                                    i = operandEnd;
-                                    continue;
-                                }
-                            }
-
-                            var i1 = i;
-                            Func<string, int, bool> leftPredicate = (x, j) => j >= expression1 && j < i1;
-
-                            currentTokens.Left = string.Join(" ", blocks.Where(leftPredicate));
-                            currentTokens.Operation = blocks[i];
-                            startExpression = i + 1;
-
-                            if (blocks[i].IsCombinationOperation())
-                            {
-                                currentTokens.Right = string.Join(" ", blocks.Where((x, j) => j > i));
-
-                                tokens.Add(currentTokens);
-                                return tokens;
-                            }
-                        }
-                        else
-                        {
-                            var i2 = i;
-                            Func<string, int, bool> rightPredicate = (x, j) => j >= expression1 && j < i2;
-                            currentTokens.Right = string.Join(" ", blocks.Where(rightPredicate));
-
-                            tokens.Add(currentTokens);
-
-                            startExpression = i + 1;
-                            currentTokens = new TokenSet();
-
-                            if (blocks[i].IsCombinationOperation())
-                            {
-                                tokens.Add(new TokenSet { Operation = blocks[i].ToLowerInvariant() });
-                            }
-                        }
-                    }
+                    combinerIndexes.Add(i);
                 }
             }
 
-            var remainingToken = string.Join(" ", blocks.Where((x, j) => j >= startExpression));
+            var firstOperandEnd = combinerIndexes.Count > 0 ? combinerIndexes[0] : blocks.Count;
+            var firstOperand = GetOperand(blocks, topLevel, 0, firstOperandEnd);
+            if (combinerIndexes.Count == 0)
+            {
+                if (!string.IsNullOrWhiteSpace(firstOperand.Operation))
+                {
+                    tokens.Add(firstOperand);
+                }
 
-            if (!string.IsNullOrWhiteSpace(currentTokens.Left))
-            {
-                currentTokens.Right = remainingToken;
-                tokens.Add(currentTokens);
+                return tokens;
             }
-            else if (remainingToken.IsEnclosed())
+
+            if (combinerIndexes.Count == 1 && firstOperand.IsWholeCondition)
             {
-                currentTokens.Left = remainingToken;
-                tokens.Add(currentTokens);
+                tokens.Add(new TokenSet
+                {
+                    Left = firstOperand.Left,
+                    Operation = blocks[firstOperandEnd].ToLowerInvariant(),
+                    Right = JoinBlocks(blocks, firstOperandEnd + 1, blocks.Count)
+                });
+                return tokens;
             }
-            else if (tokens.Count > 0)
+
+            tokens.Add(firstOperand);
+            for (var c = 0; c < combinerIndexes.Count; c++)
             {
-                currentTokens.Left = remainingToken;
-                tokens.Add(currentTokens);
+                var combinerIndex = combinerIndexes[c];
+                var operandEnd = c + 1 < combinerIndexes.Count ? combinerIndexes[c + 1] : blocks.Count;
+                tokens.Add(new TokenSet { Operation = blocks[combinerIndex].ToLowerInvariant() });
+                tokens.Add(GetOperand(blocks, topLevel, combinerIndex + 1, operandEnd));
             }
 
             return tokens;
         }
 
-        public static TokenSet? GetArithmeticToken(this string expression)
+        /// <summary>
+        /// Removes parentheses that enclose the whole of <paramref name="expression"/>, at any depth, such as
+        /// <c>((a eq 1))</c> to <c>a eq 1</c>, but not those of <c>(a eq 1) or (b eq 2)</c>. Parentheses inside quoted
+        /// string literals are ignored, and an expression with unbalanced parentheses is returned unchanged.
+        /// </summary>
+        public static string StripEnclosingParentheses(this string expression)
         {
+            return expression.StripEnclosingParentheses(out _);
+        }
 
-
-            var cleanMatch = expression.EnclosedMatch();
-
-            if (cleanMatch.Success)
+        /// <summary>
+        /// Removes parentheses that enclose the whole of <paramref name="expression"/>, at any depth, in one pass.
+        /// </summary>
+        /// <param name="expression">The expression to remove enclosing parentheses from.</param>
+        /// <param name="levels">The number of enclosing pairs that were removed.</param>
+        public static string StripEnclosingParentheses(this string expression, out int levels)
+        {
+            levels = 0;
+            var start = 0;
+            var end = expression.Length - 1;
+            SkipWhiteSpace(expression, ref start, ref end);
+            if (start >= end || expression[start] != '(' || expression[end] != ')')
             {
-                var match = cleanMatch.Groups[1].Value;
-                if (!HasOrphanedOpenParenthesis(match))
-                {
-                    expression = match;
-                }
+                return expression;
             }
 
-            var blocks = expression.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-            var hasOperation = blocks.Any(x => x.IsArithmetic());
-            if (!hasOperation)
+            var interiorStart = start;
+            var leading = 0;
+            while (interiorStart <= end && (expression[interiorStart] == '(' || char.IsWhiteSpace(expression[interiorStart])))
+            {
+                leading += expression[interiorStart] == '(' ? 1 : 0;
+                interiorStart++;
+            }
+
+            var interiorEnd = end;
+            var trailing = 0;
+            while (interiorEnd >= start && (expression[interiorEnd] == ')' || char.IsWhiteSpace(expression[interiorEnd])))
+            {
+                trailing += expression[interiorEnd] == ')' ? 1 : 0;
+                interiorEnd--;
+            }
+
+            // The n-th leading parenthesis encloses the whole expression when the depth between the leading and
+            // trailing runs never falls below n.
+            var lowest = leading;
+            var depth = 0;
+            foreach (var (index, _, after) in ScanOutsideLiterals(expression))
+            {
+                if (after < 0)
+                {
+                    return expression;
+                }
+
+                if (index >= interiorStart && index <= interiorEnd)
+                {
+                    lowest = Math.Min(lowest, after);
+                }
+
+                depth = after;
+            }
+
+            levels = depth == 0 ? Math.Min(lowest, Math.Min(leading, trailing)) : 0;
+            if (levels == 0)
+            {
+                return expression;
+            }
+
+            var from = start;
+            for (var removed = 0; removed < levels; from++)
+            {
+                removed += expression[from] == '(' ? 1 : 0;
+            }
+
+            var to = end;
+            for (var removed = 0; removed < levels; to--)
+            {
+                removed += expression[to] == ')' ? 1 : 0;
+            }
+
+            SkipWhiteSpace(expression, ref from, ref to);
+            return from > to ? string.Empty : expression.Substring(from, to - from + 1);
+        }
+
+        /// <summary>
+        /// Splits an arithmetic expression at its last top-level arithmetic operator.
+        /// </summary>
+        /// <returns>The operands and operator, or <c>null</c> when no arithmetic operator is outside parentheses, such
+        /// as in <c>round(Price mul 2)</c>.</returns>
+        public static TokenSet? GetArithmeticToken(this string expression)
+        {
+            expression = expression.StripEnclosingParentheses();
+
+            var blocks = GetBlocks(expression);
+            var operationIndex = GetArithmeticOperationIndex(blocks);
+            if (operationIndex < 0)
             {
                 return null;
             }
 
-            var operationIndex = GetArithmeticOperationIndex(blocks);
-
-            var left = string.Join(" ", blocks.Where((x, i) => i < operationIndex));
-            var right = string.Join(" ", blocks.Where((x, i) => i > operationIndex));
-            var operation = blocks[operationIndex];
-
-            return new TokenSet { Left = left, Operation = operation, Right = right };
+            return new TokenSet
+            {
+                Left = JoinBlocks(blocks, 0, operationIndex),
+                Operation = blocks[operationIndex],
+                Right = JoinBlocks(blocks, operationIndex + 1, blocks.Count)
+            };
         }
 
         public static TokenSet? GetAnyAllFunctionTokens(this string filter)
@@ -222,8 +232,8 @@ namespace LinqConvertTools.Parser
 
             var functionName = functionMatch.Groups[1].Value;
             var functionContent = functionMatch.Groups[2].Value;
-            var functionContentMatch = FunctionContentRx.Match(functionContent);
-            if (!functionContentMatch.Success)
+            var separatorIndex = GetLastTopLevelIndex(functionContent, ',');
+            if (separatorIndex < 0)
             {
                 return new FunctionTokenSet
                 {
@@ -235,135 +245,300 @@ namespace LinqConvertTools.Parser
             return new FunctionTokenSet
             {
                 Operation = functionName,
-                Left = functionContentMatch.Groups[1].Value,
-                Right = functionContentMatch.Groups[2].Value
+                Left = functionContent.Substring(0, separatorIndex).Trim(),
+                Right = functionContent.Substring(separatorIndex + 1).Trim()
             };
         }
 
         /// <summary>
-        /// Finds the indexes of the <c>and</c> and <c>or</c> blocks that are not enclosed in parentheses, in order.
+        /// Determines whether <paramref name="expression"/> is a call to a boolean string function or a collection
+        /// <c>any</c>/<c>all</c>, and nothing else, so it needs no splitting into conditions.
         /// </summary>
-        private static IList<int> GetTopLevelCombinerIndexes(IList<string> blocks)
+        private static bool IsImpliedBoolean(string expression, List<string> blocks)
         {
-            var indexes = new List<int>();
-            var openGroups = 0;
-            for (var i = 0; i < blocks.Count; i++)
-            {
-                openGroups += blocks[i].Count(c => c == '(') - blocks[i].Count(c => c == ')');
+            return expression.IsFunction()
+                && !blocks.Exists(TokenOperatorExtensions.IsOperation)
+                && (TokenOperatorExtensions.IsBooleanFunctionName(blocks[0]) || expression.IsCollectionFunction());
+        }
 
-                if (openGroups == 0 && blocks[i].IsBinaryCombinationOperation())
+        /// <summary>
+        /// Reads the operand in <paramref name="blocks"/> from <paramref name="start"/> up to <paramref name="end"/>,
+        /// which holds no top-level and/or: a negation, a comparison at its first top-level operator, or a whole
+        /// condition. An empty range gives an empty token, which the parser rejects as a misplaced combiner.
+        /// </summary>
+        private static TokenSet GetOperand(List<string> blocks, bool[] topLevel, int start, int end)
+        {
+            if (start >= end)
+            {
+                return new TokenSet();
+            }
+
+            if (blocks[start].IsUnaryOperation())
+            {
+                return new TokenSet { Operation = blocks[start], Right = JoinBlocks(blocks, start + 1, end) };
+            }
+
+            for (var i = start; i < end; i++)
+            {
+                if (topLevel[i] && blocks[i].IsOperation())
                 {
-                    indexes.Add(i);
+                    return new TokenSet
+                    {
+                        Left = JoinBlocks(blocks, start, i),
+                        Operation = blocks[i],
+                        Right = JoinBlocks(blocks, i + 1, end)
+                    };
                 }
             }
 
-            return indexes;
+            return new TokenSet { Left = JoinBlocks(blocks, start, end) };
         }
 
-        private static string JoinBlocks(IList<string> blocks, int start, int end)
+        /// <summary>
+        /// Marks each block that ends outside all parentheses. Operators hold no parentheses, so an operator marked
+        /// this way is not enclosed in any group.
+        /// </summary>
+        private static bool[] GetTopLevelFlags(List<string> blocks)
+        {
+            var flags = new bool[blocks.Count];
+            var depth = 0;
+            for (var i = 0; i < blocks.Count; i++)
+            {
+                depth += GetNetParentheses(blocks[i]);
+                flags[i] = depth == 0;
+            }
+
+            return flags;
+        }
+
+        /// <summary>
+        /// Counts opening minus closing parentheses in <paramref name="block"/>, ignoring any inside quoted string
+        /// literals.
+        /// </summary>
+        private static int GetNetParentheses(string block)
+        {
+            var depth = 0;
+            foreach (var (_, _, after) in ScanOutsideLiterals(block))
+            {
+                depth = after;
+            }
+
+            return depth;
+        }
+
+        /// <summary>
+        /// Walks the characters of <paramref name="text"/> that are outside quoted string literals, with the
+        /// parenthesis depth after each one.
+        /// </summary>
+        private static IEnumerable<(int Index, char Character, int Depth)> ScanOutsideLiterals(string text)
+        {
+            var depth = 0;
+            char? quote = null;
+            for (var i = 0; i < text.Length; i++)
+            {
+                if (TryAdvanceQuote(text, ref i, ref quote))
+                {
+                    continue;
+                }
+
+                var character = text[i];
+                depth += character == '(' ? 1 : character == ')' ? -1 : 0;
+                yield return (i, character, depth);
+            }
+        }
+
+        /// <summary>
+        /// Tracks whether <paramref name="index"/> is inside a string literal quoted with ' or ". A quote closes the
+        /// literal only where <see cref="ClosesLiteral"/> says it does; any other quote, including one that is part of a
+        /// doubled <c>''</c> escape, is text. The reader turns <c>''</c> into a single quote once it has the content.
+        /// </summary>
+        /// <returns><c>true</c> when the character at <paramref name="index"/> is part of a string literal.</returns>
+        private static bool TryAdvanceQuote(string text, ref int index, ref char? quote)
+        {
+            var c = text[index];
+            if (quote is null)
+            {
+                if (c != '\'' && c != '"')
+                {
+                    return false;
+                }
+
+                quote = c;
+                return true;
+            }
+
+            if (c == quote && ClosesLiteral(text, index))
+            {
+                quote = null;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Decides whether the quote at <paramref name="quoteIndex"/> closes the literal, or is an unescaped quote in
+        /// its text such as the apostrophe in <c>'O'Brien'</c>. A quote closes the literal when the end of the text, a
+        /// <c>)</c> or <c>,</c>, or whitespace and then an operator, combiner or <c>)</c>/<c>,</c> follows it; anything
+        /// else, such as a letter, is part of the text. This is the one rule the literal reader (through
+        /// <see cref="GetStringLiteralEnd"/>) and every structural scan share, so they never disagree on where a
+        /// literal ends.
+        /// </summary>
+        private static bool ClosesLiteral(string text, int quoteIndex)
+        {
+            var i = quoteIndex + 1;
+            if (i >= text.Length || text[i] == ')' || text[i] == ',')
+            {
+                return true;
+            }
+
+            if (!char.IsWhiteSpace(text[i]))
+            {
+                return false;
+            }
+
+            while (i < text.Length && char.IsWhiteSpace(text[i]))
+            {
+                i++;
+            }
+
+            if (i >= text.Length || text[i] == ')' || text[i] == ',')
+            {
+                return true;
+            }
+
+            var wordStart = i;
+            while (i < text.Length && !char.IsWhiteSpace(text[i]) && text[i] != '(' && text[i] != ')' && text[i] != ',')
+            {
+                i++;
+            }
+
+            var word = text.Substring(wordStart, i - wordStart);
+            return word.IsOperation() || word.IsArithmetic();
+        }
+
+        /// <summary>
+        /// Finds the last <paramref name="separator"/> that is outside all parentheses and quoted string literals.
+        /// </summary>
+        /// <returns>The index of the separator, or -1 when there is none.</returns>
+        private static int GetLastTopLevelIndex(string text, char separator)
+        {
+            var last = -1;
+            foreach (var (index, character, after) in ScanOutsideLiterals(text))
+            {
+                if (after == 0 && character == separator)
+                {
+                    last = index;
+                }
+            }
+
+            return last;
+        }
+
+        /// <summary>
+        /// Splits <paramref name="list"/> at each comma that is outside all parentheses and quoted string literals.
+        /// </summary>
+        public static IEnumerable<string> SplitTopLevel(this string list)
+        {
+            var start = 0;
+            foreach (var (index, character, after) in ScanOutsideLiterals(list))
+            {
+                if (after == 0 && character == ',')
+                {
+                    yield return list.Substring(start, index - start);
+                    start = index + 1;
+                }
+            }
+
+            yield return list.Substring(start);
+        }
+
+        /// <summary>
+        /// Finds the quote that closes the string literal <paramref name="text"/> starts with, where a doubled quote
+        /// inside the literal is an escaped quote.
+        /// </summary>
+        /// <returns>The index of the closing quote, or -1 when the literal is never closed.</returns>
+        public static int GetStringLiteralEnd(this string text)
+        {
+            char? quote = null;
+            for (var i = 0; i < text.Length; i++)
+            {
+                TryAdvanceQuote(text, ref i, ref quote);
+                if (quote is null)
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+
+        /// <summary>
+        /// Determines whether <paramref name="text"/> is one string literal, quoted with ' or ", with nothing after
+        /// its closing quote.
+        /// </summary>
+        public static bool IsWholeStringLiteral(this string text)
+        {
+            return text.Length >= 2 && (text[0] == '\'' || text[0] == '"') && text.GetStringLiteralEnd() == text.Length - 1;
+        }
+
+        private static void SkipWhiteSpace(string expression, ref int start, ref int end)
+        {
+            while (start <= end && char.IsWhiteSpace(expression[start]))
+            {
+                start++;
+            }
+
+            while (end >= start && char.IsWhiteSpace(expression[end]))
+            {
+                end--;
+            }
+        }
+
+        private static string JoinBlocks(List<string> blocks, int start, int end)
         {
             return string.Join(" ", blocks.Skip(start).Take(end - start));
         }
 
-        private static int GetArithmeticOperationIndex(IList<string> blocks)
+        private static int GetArithmeticOperationIndex(List<string> blocks)
         {
-
-
-            var openGroups = 0;
-            var operationIndex = -1;
-            for (var i = 0; i < blocks.Count; i++)
+            var topLevel = GetTopLevelFlags(blocks);
+            for (var i = blocks.Count - 1; i >= 0; i--)
             {
-                var source = blocks[i];
-
-
-
-                var netEnclosed = source.Count(c => c == '(') - source.Count(c => c == ')');
-                openGroups += netEnclosed;
-
-                if (openGroups == 0 && source.IsArithmetic())
+                if (topLevel[i] && blocks[i].IsArithmetic())
                 {
-                    operationIndex = i;
+                    return i;
                 }
             }
 
-            return operationIndex;
-        }
-
-        private static bool HasOrphanedOpenParenthesis(string expression)
-        {
-
-
-            var opens = new List<int>();
-            var closes = new List<int>();
-            var index = expression.IndexOf('(');
-            while (index > -1)
-            {
-                opens.Add(index);
-                index = expression.IndexOf('(', index + 1);
-            }
-
-            index = expression.IndexOf(')');
-            while (index > -1)
-            {
-                closes.Add(index);
-                index = expression.IndexOf(')', index + 1);
-            }
-
-            var pairs = opens.Zip(closes, (o, c) => new Tuple<int, int>(o, c));
-            var hasOrphan = opens.Count == closes.Count && pairs.Any(x => x.Item2 < x.Item1);
-
-            return hasOrphan;
+            return -1;
         }
 
         /// <summary>
-        /// Splits <paramref name="str"/> by spaces where the spaces are not contained in single-quoted strings. 
-        /// Empty blocks excluded from returned list.
+        /// Splits <paramref name="str"/> by spaces that are not inside a string literal quoted with ' or ".
+        /// Empty blocks are excluded from the returned list.
         /// </summary>
-        private static IList<string> GetBlocks(string str)
+        private static List<string> GetBlocks(string str)
         {
-            if (string.IsNullOrEmpty(str))
-            {
-                return new List<string>();
-            }
-
             var blocks = new List<string>();
-            var blockStartPos = 0;
-            var stringQuoteCount = 0;
-            var insideString = false;
-            var pos = 0;
-
-            for (; pos < str.Length; pos++)
+            var blockStart = 0;
+            foreach (var (index, character, _) in ScanOutsideLiterals(str))
             {
-                if (str[pos] == '\'')
+                if (character != ' ')
                 {
-                    stringQuoteCount++;
-                    if (!insideString)
-                    {
-                        insideString = true;
-                    }
-                    else if (stringQuoteCount % 2 == 0 && (str.Length == (pos + 1) || str[(pos + 1)] != '\''))
-                    {
-                        // if we're at an even number of single quotes so far and the next character
-                        // is not a single quote, then we've reached the end of the string
-                        insideString = false;
-                    }
+                    continue;
                 }
-                else if (str[pos] == ' ' && !insideString)
-                {
-                    if (pos > 0 && str[pos - 1] != ' ')
-                    {
-                        // we've reached the end of block if the current character is a space and the previous character wasn't
-                        blocks.Add(str.Substring(blockStartPos, pos - blockStartPos));
-                    }
 
-                    blockStartPos = pos + 1;
+                if (index > blockStart)
+                {
+                    blocks.Add(str.Substring(blockStart, index - blockStart));
                 }
+
+                blockStart = index + 1;
             }
 
-            if (str[pos - 1] != ' ')
+            if (blockStart < str.Length)
             {
-                // if we've ended on a space, we've already added the last block
-                blocks.Add(str.Substring(blockStartPos));
+                blocks.Add(str.Substring(blockStart));
             }
 
             return blocks;
