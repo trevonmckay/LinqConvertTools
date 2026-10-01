@@ -677,6 +677,12 @@ namespace LinqConvertTools.Parser
                 ?? GetParameterExpression(filter, type, formatProvider)
                 ?? GetBooleanExpression(filter, formatProvider);
 
+            if (expression is null && filter.TryGetEnclosedContent(out string enclosed))
+            {
+                // A member or function in parentheses, such as (IsActive), is read without them.
+                return CreateExpression<T>(enclosed, sourceParameter, lambdaParameters, type, formatProvider, ignoreCase, depth + 1);
+            }
+
             return expression ?? throw new InvalidOperationException("Could not create expression from: " + filter);
         }
 
@@ -743,15 +749,13 @@ namespace LinqConvertTools.Parser
         }
 
         /// <summary>
-        /// Builds a token with a left side: a comparison or combination of left and right, or, when the token has no
-        /// operation, the left side alone. A token with an operation whose right side does not parse is invalid.
+        /// Builds a token with a left side: a comparison or combination of left and right, or, for a whole condition,
+        /// the left side alone. A token with an operation whose right side does not parse is invalid.
         /// </summary>
         private Expression? GetBinaryOperand<T>(TokenSet tokenSet, ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters, IFormatProvider formatProvider, bool ignoreCase, int depth)
         {
-            // A token with no operation is a whole condition between combiners, such as a group of and-combined
-            // conditions, and the operands of and/or are conditions too, so like the operand of not they get no type
-            // for their literals.
-            bool isCondition = string.IsNullOrWhiteSpace(tokenSet.Operation);
+            // A whole condition and the operands of and/or, like the operand of not, get no type for their literals.
+            bool isCondition = tokenSet.IsWholeCondition;
             bool combinesConditions = tokenSet.Operation.IsBinaryCombinationOperation();
             Expression? left = CreateExpression<T>(
                                            tokenSet.Left,
@@ -766,10 +770,9 @@ namespace LinqConvertTools.Parser
                 return left;
             }
 
-            Type? rightExpressionType = combinesConditions ? null : left.Type;
             var right = IsInOperation(tokenSet.Operation) && left.Type != typeof(string)
                 ? GetTypedInList(tokenSet.Right, left.Type, formatProvider)
-                : CreateExpression<T>(tokenSet.Right, parameter, lambdaParameters, rightExpressionType, formatProvider, ignoreCase, depth + 1);
+                : CreateExpression<T>(tokenSet.Right, parameter, lambdaParameters, combinesConditions ? null : left.Type, formatProvider, ignoreCase, depth + 1);
 
             return right is null ? null : GetOperation(tokenSet.Operation, left, right, ignoreCase);
         }

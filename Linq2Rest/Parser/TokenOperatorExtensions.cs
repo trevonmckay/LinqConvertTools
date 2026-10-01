@@ -41,6 +41,11 @@ namespace LinqConvertTools.Parser
             return Array.Exists(BinaryCombiners, x => string.Equals(x, operation, StringComparison.OrdinalIgnoreCase));
         }
 
+        public static bool IsAndOperation(this string operation)
+        {
+            return string.Equals(operation, "and", StringComparison.OrdinalIgnoreCase);
+        }
+
         public static bool IsOrOperation(this string operation)
         {
             return string.Equals(operation, "or", StringComparison.OrdinalIgnoreCase);
