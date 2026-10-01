@@ -58,6 +58,8 @@ namespace LinqConvertTools.Tests.Parser.Readers
         [TestCase("untrue")]
         [TestCase("falsehood")]
         [TestCase("((Priority eq 1))")]
+        [TestCase("true\n")]
+        [TestCase(" true")]
         public void WhenTokenOnlyContainsBooleanTextThenReturnsNullValue(string parameter)
         {
             ArgumentNullException.ThrowIfNull(_factory);

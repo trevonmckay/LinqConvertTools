@@ -24,9 +24,8 @@ namespace LinqConvertTools.Parser
 
         private static readonly string[] BooleanFunctions = new[] { "substringof", "contains", "endswith", "startswith" };
         private static readonly Regex CollectionFunctionRx = new(@"^[0-9a-zA-Z_]+/(all|any)\((.+)\)$", RegexOptions.Compiled, ParserRegex.MatchTimeout);
-        private static readonly Regex FunctionRegex = new(@"^([^()/]+)\(.+\)$", RegexOptions.None, ParserRegex.MatchTimeout);
-        private static readonly Regex StringStartRx = new("^[(]*'", RegexOptions.Compiled, ParserRegex.MatchTimeout);
-        private static readonly Regex StringEndRx = new("'[)]*$", RegexOptions.Compiled, ParserRegex.MatchTimeout);
+        private static readonly Regex FunctionRegex = new(@"^([A-Za-z_][A-Za-z0-9_]*)\(.*\)$", RegexOptions.Compiled | RegexOptions.Singleline, ParserRegex.MatchTimeout);
+        private static readonly Regex CallRegex = new(@"^[A-Za-z_][A-Za-z0-9_/]*\(.*\)$", RegexOptions.Compiled | RegexOptions.Singleline, ParserRegex.MatchTimeout);
 
         public static bool IsBinaryCombinationOperation(this string operation)
         {
@@ -63,16 +62,6 @@ namespace LinqConvertTools.Parser
             return CollectionFunctionRx.IsMatch(expression);
         }
 
-        public static bool IsStringStart(this string expression)
-        {
-            return !string.IsNullOrWhiteSpace(expression) && StringStartRx.IsMatch(expression);
-        }
-
-        public static bool IsStringEnd(this string expression)
-        {
-            return !string.IsNullOrWhiteSpace(expression) && StringEndRx.IsMatch(expression);
-        }
-
         public static string GetFunctionName(this string expression)
         {
             var functionMatch = FunctionRegex.Match(expression);
@@ -84,12 +73,13 @@ namespace LinqConvertTools.Parser
             return string.Empty;
         }
 
+        /// <summary>
+        /// Determines whether <paramref name="expression"/> starts with a call such as <c>length(</c> or
+        /// <c>Tags/any(</c> and ends with a closing parenthesis.
+        /// </summary>
         public static bool IsFunction(this string expression)
         {
-            var open = expression.IndexOf('(');
-            var close = expression.IndexOf(')');
-
-            return open > 0 && close > -1;
+            return CallRegex.IsMatch(expression);
         }
     }
 }

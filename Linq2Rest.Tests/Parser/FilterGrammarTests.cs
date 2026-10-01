@@ -1,3 +1,6 @@
+using System.Linq.Expressions;
+using LinqConvertTools.Parser.Readers;
+using LinqConvertTools.Provider.Writers;
 using NUnit.Framework;
 
 namespace LinqConvertTools.Tests.Parser
@@ -18,9 +21,9 @@ namespace LinqConvertTools.Tests.Parser
             _converter = new ODataExpressionConverter();
             _records = new[]
             {
-                new Record { Id = 1, Status = "a (b", Priority = 1, IsActive = true, Price = 1.4 },
+                new Record { Id = 1, Status = "a (b", Note = "n1", Priority = 1, IsActive = true, Price = 1.4 },
                 new Record { Id = 2, Status = ":)", Priority = 2, IsActive = false, IsFlagged = true },
-                new Record { Id = 3, Status = "x or y", Priority = 3, IsActive = true },
+                new Record { Id = 3, Status = "x or y", Note = "it's", Priority = 3, IsActive = true, IsFlagged = false },
                 new Record { Id = 4, Status = "it's (x)", Priority = 4, IsActive = false },
             };
         }
@@ -58,6 +61,9 @@ namespace LinqConvertTools.Tests.Parser
         [TestCase("Priority in ((1), 2)", "1,2")]
         [TestCase("Status in (('a (b'), ':)')", "1,2")]
         [TestCase("IsFlagged eq (true)", "2")]
+        [TestCase("Priority add (1) eq 2", "1")]
+        [TestCase("Priority mul (1 add 1) eq 4", "2")]
+        [TestCase("-(Priority) eq -1", "1")]
         public void ReadsParenthesizedValuesLikeBareOnes(string filter, string expectedIds)
         {
             AssertMatches(filter, expectedIds);
@@ -79,6 +85,8 @@ namespace LinqConvertTools.Tests.Parser
         }
 
         [TestCase("Status eq 'abc'def")]
+        [TestCase("Status in ('a (b', ':)'")]
+        [TestCase("Priority in (1, 2")]
         [TestCase("Status eq 'x or y' x")]
         [TestCase("Status in ('a'b, ':)')")]
         public void RejectsTextAfterStringLiteral(string filter)
@@ -126,6 +134,53 @@ namespace LinqConvertTools.Tests.Parser
             Assert.Catch(() => _converter.Convert<Record>(filter));
         }
 
+        [TestCase("()")]
+        [TestCase("( )")]
+        [TestCase("(())")]
+        [TestCase("Priority eq ()")]
+        [TestCase("not ()")]
+        [TestCase("() and IsActive")]
+        public void RejectsEmptyParentheses(string filter)
+        {
+            ArgumentNullException.ThrowIfNull(_converter);
+
+            Assert.Throws<InvalidOperationException>(() => _converter.Convert<Record>(filter));
+        }
+
+        [TestCase("Status in ()", "")]
+        [TestCase("Status in ('a,b', ':)')", "2")]
+        [TestCase("Status in (\"x or y\", 'it''s (x)')", "3,4")]
+        [TestCase("Status in ':)'", "2")]
+        [TestCase("Note in ('n1', null)", "1,2,4")]
+        [TestCase("startswith(Status, \"a,b\") or Priority eq 4", "4")]
+        [TestCase("startswith(Status, \"x or\")", "3")]
+        public void ReadsInListsAndFunctionArgumentsWithCommasAndQuotes(string filter, string expectedIds)
+        {
+            AssertMatches(filter, expectedIds);
+        }
+
+        [Test]
+        public void ComparesInListsIgnoringCase()
+        {
+            ArgumentNullException.ThrowIfNull(_converter);
+            ArgumentNullException.ThrowIfNull(_records);
+
+            var predicate = _converter.Convert<Record>("Status in ('A (B', 'X OR Y')", true);
+
+            CollectionAssert.AreEqual(new[] { 1, 3 }, _records.AsQueryable().Where(predicate).Select(r => r.Id).ToArray());
+        }
+
+        [Test]
+        public void ReadsNullableBooleanWithCustomFactory()
+        {
+            ArgumentNullException.ThrowIfNull(_records);
+            var converter = new ODataExpressionConverter(Array.Empty<IValueWriter>(), new[] { new UnknownAsNullFactory() });
+
+            var predicate = converter.Convert<Record>("IsFlagged eq unknown");
+
+            CollectionAssert.AreEqual(new[] { 1, 4 }, _records.AsQueryable().Where(predicate).Select(r => r.Id).ToArray());
+        }
+
         private void AssertMatches(string filter, string expectedIds)
         {
             ArgumentNullException.ThrowIfNull(_converter);
@@ -135,7 +190,8 @@ namespace LinqConvertTools.Tests.Parser
 
             var matches = _records.AsQueryable().Where(predicate).Select(r => r.Id).ToArray();
 
-            CollectionAssert.AreEqual(expectedIds.Split(',').Select(int.Parse).ToArray(), matches, "Failed for " + predicate);
+            var expected = expectedIds.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(int.Parse).ToArray();
+            CollectionAssert.AreEqual(expected, matches, "Failed for " + predicate);
         }
 
         public class Record
@@ -144,6 +200,8 @@ namespace LinqConvertTools.Tests.Parser
 
             public string Status { get; set; } = string.Empty;
 
+            public string? Note { get; set; }
+
             public int Priority { get; set; }
 
             public bool IsActive { get; set; }
@@ -151,6 +209,21 @@ namespace LinqConvertTools.Tests.Parser
             public bool? IsFlagged { get; set; }
 
             public double Price { get; set; }
+        }
+
+        private sealed class UnknownAsNullFactory : IValueExpressionFactory
+        {
+            public bool Handles(Type type)
+            {
+                return type == typeof(bool?);
+            }
+
+            public ConstantExpression Convert(string token)
+            {
+                return string.Equals(token, "unknown", StringComparison.OrdinalIgnoreCase)
+                    ? Expression.Constant(null, typeof(bool?))
+                    : Expression.Constant(bool.Parse(token), typeof(bool?));
+            }
         }
     }
 }

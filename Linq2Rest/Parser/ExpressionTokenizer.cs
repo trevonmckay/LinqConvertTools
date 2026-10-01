@@ -21,7 +21,6 @@ namespace LinqConvertTools.Parser
     internal static class ExpressionTokenizer
     {
         private static readonly Regex FunctionRx = new Regex(@"^([^\(\)]+)\((.+)\)$", RegexOptions.Compiled, ParserRegex.MatchTimeout);
-        private static readonly Regex FunctionContentRx = new Regex(@"^(.*\((?>[^()]+|\((?<Depth>.*)|\)(?<-Depth>.*))*(?(Depth)(?!))\)|.*?)\s*,\s*(((?<Open>').*(?<Close-Open>')(?(Open)(?!)))|[^,]*)$", RegexOptions.Compiled, ParserRegex.MatchTimeout);
         private static readonly Regex AnyAllFunctionRx = new Regex(@"^(([0-9a-zA-Z_]+/)+)(any|all)\((.*)\)$", RegexOptions.Compiled, ParserRegex.MatchTimeout);
 
         /// <summary>
@@ -106,19 +105,8 @@ namespace LinqConvertTools.Parser
             var start = 0;
             var end = expression.Length - 1;
             SkipWhiteSpace(expression, ref start, ref end);
-            if (start >= end || expression[start] != '(' || expression[end] != ')')
-            {
-                return expression;
-            }
-
-            var closeIndexes = GetCloseIndexes(expression);
-            if (closeIndexes is null)
-            {
-                return expression;
-            }
-
             var stripped = false;
-            while (start < end && expression[start] == '(' && closeIndexes[start] == end)
+            while (start < end && expression[start] == '(' && expression[end] == ')' && GetCloseIndex(expression, start) == end)
             {
                 start++;
                 end--;
@@ -183,8 +171,8 @@ namespace LinqConvertTools.Parser
 
             var functionName = functionMatch.Groups[1].Value;
             var functionContent = functionMatch.Groups[2].Value;
-            var functionContentMatch = FunctionContentRx.Match(functionContent);
-            if (!functionContentMatch.Success)
+            var separatorIndex = GetLastTopLevelIndex(functionContent, ',');
+            if (separatorIndex < 0)
             {
                 return new FunctionTokenSet
                 {
@@ -196,8 +184,8 @@ namespace LinqConvertTools.Parser
             return new FunctionTokenSet
             {
                 Operation = functionName,
-                Left = functionContentMatch.Groups[1].Value,
-                Right = functionContentMatch.Groups[2].Value
+                Left = functionContent.Substring(0, separatorIndex).Trim(),
+                Right = functionContent.Substring(separatorIndex + 1).Trim()
             };
         }
 
@@ -318,38 +306,105 @@ namespace LinqConvertTools.Parser
         }
 
         /// <summary>
-        /// Finds the index of the closing parenthesis that matches each opening one, ignoring parentheses inside quoted
-        /// string literals.
+        /// Finds the closing parenthesis that matches the opening one at <paramref name="openIndex"/>, ignoring
+        /// parentheses inside quoted string literals.
         /// </summary>
-        /// <returns>The closing index at each opening index, or <c>null</c> when the parentheses are unbalanced.</returns>
-        private static int[]? GetCloseIndexes(string expression)
+        /// <returns>The index of the closing parenthesis, or -1 when it is never closed.</returns>
+        private static int GetCloseIndex(string expression, int openIndex)
         {
-            var closeIndexes = new int[expression.Length];
-            var openIndexes = new Stack<int>();
+            var depth = 0;
             char? quote = null;
-            for (var i = 0; i < expression.Length; i++)
+            for (var i = openIndex; i < expression.Length; i++)
             {
                 if (TryAdvanceQuote(expression, ref i, ref quote))
                 {
                     continue;
                 }
 
-                if (expression[i] == '(')
+                depth += expression[i] == '(' ? 1 : expression[i] == ')' ? -1 : 0;
+                if (depth == 0)
                 {
-                    openIndexes.Push(i);
-                }
-                else if (expression[i] == ')')
-                {
-                    if (openIndexes.Count == 0)
-                    {
-                        return null;
-                    }
-
-                    closeIndexes[openIndexes.Pop()] = i;
+                    return i;
                 }
             }
 
-            return openIndexes.Count == 0 ? closeIndexes : null;
+            return -1;
+        }
+
+        /// <summary>
+        /// Finds the last <paramref name="separator"/> that is outside all parentheses and quoted string literals.
+        /// </summary>
+        /// <returns>The index of the separator, or -1 when there is none.</returns>
+        private static int GetLastTopLevelIndex(string text, char separator)
+        {
+            var index = -1;
+            var depth = 0;
+            char? quote = null;
+            for (var i = 0; i < text.Length; i++)
+            {
+                if (TryAdvanceQuote(text, ref i, ref quote))
+                {
+                    continue;
+                }
+
+                depth += text[i] == '(' ? 1 : text[i] == ')' ? -1 : 0;
+                if (depth == 0 && text[i] == separator)
+                {
+                    index = i;
+                }
+            }
+
+            return index;
+        }
+
+        /// <summary>
+        /// Splits <paramref name="list"/> at each comma that is outside all parentheses and quoted string literals.
+        /// </summary>
+        public static IEnumerable<string> SplitTopLevel(this string list)
+        {
+            var start = 0;
+            var depth = 0;
+            char? quote = null;
+            for (var i = 0; i < list.Length; i++)
+            {
+                if (TryAdvanceQuote(list, ref i, ref quote))
+                {
+                    continue;
+                }
+
+                depth += list[i] == '(' ? 1 : list[i] == ')' ? -1 : 0;
+                if (depth == 0 && list[i] == ',')
+                {
+                    yield return list.Substring(start, i - start);
+                    start = i + 1;
+                }
+            }
+
+            yield return list.Substring(start);
+        }
+
+        /// <summary>
+        /// Determines whether <paramref name="text"/> is one string literal, quoted with ' or ", with nothing after
+        /// its closing quote.
+        /// </summary>
+        public static bool IsWholeStringLiteral(this string text)
+        {
+            if (text.Length < 2 || (text[0] != '\'' && text[0] != '"'))
+            {
+                return false;
+            }
+
+            char? quote = null;
+            for (var i = 0; i < text.Length; i++)
+            {
+                TryAdvanceQuote(text, ref i, ref quote);
+                if (quote is null)
+                {
+                    return i == text.Length - 1;
+                }
+            }
+
+            return false;
         }
 
         private static void SkipWhiteSpace(string expression, ref int start, ref int end)
@@ -372,18 +427,16 @@ namespace LinqConvertTools.Parser
 
         private static int GetArithmeticOperationIndex(List<string> blocks)
         {
-            var operationIndex = -1;
-            var depth = 0;
-            for (var i = 0; i < blocks.Count; i++)
+            var topLevel = GetTopLevelFlags(blocks);
+            for (var i = blocks.Count - 1; i >= 0; i--)
             {
-                depth += GetNetParentheses(blocks[i]);
-                if (depth == 0 && blocks[i].IsArithmetic())
+                if (topLevel[i] && blocks[i].IsArithmetic())
                 {
-                    operationIndex = i;
+                    return i;
                 }
             }
 
-            return operationIndex;
+            return -1;
         }
 
         /// <summary>
