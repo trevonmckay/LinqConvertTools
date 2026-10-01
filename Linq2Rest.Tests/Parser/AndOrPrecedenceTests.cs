@@ -35,6 +35,10 @@ namespace LinqConvertTools.Tests.Parser
         [TestCase("not IsActive or Priority eq 1 and not (Status eq 'Published')", "2,4")]
         [TestCase("not (Priority eq 2) and not IsActive or Status eq 'Archived'", "3,4")]
         [TestCase("startswith(Status, 'Dra') or Priority eq 3 and IsActive", "2,3")]
+        [TestCase("startswith(Status, 'Dra') OR IsActive AND endswith(Status, 'd')", "1,2,3")]
+        [TestCase("startswith(Status, 'Dra') OR IsActive", "1,2,3")]
+        [TestCase("startswith(Status, 'Arc') Or endswith(Status, 'ft')", "2,3")]
+        [TestCase("startswith(Status, 'Pub') AND IsActive", "1")]
         [TestCase("Priority add 1 eq 3 or Priority mod 2 eq 1 and IsActive", "1,2,3")]
         [TestCase("3 eq Priority or 1 eq Priority and IsActive", "1,3")]
         [TestCase("(Status eq 'Draft' or Priority eq 3) and IsActive", "3")]
@@ -76,6 +80,9 @@ namespace LinqConvertTools.Tests.Parser
         [TestCase("not (Status eq 'Draft' and 3 eq Priority or IsActive)", "2,4")]
         [TestCase("Status eq 'Archived' or (Status eq 'Draft' and 2 eq Priority)", "2,3")]
         [TestCase("(Status eq 'Draft' and 2 eq Priority) or Status eq 'Archived' and IsActive", "2,3")]
+        [TestCase("(Status eq 'Draft' or 3 eq Priority) eq true", "2,3")]
+        [TestCase("(Status eq 'Published' and 4 eq Priority) eq true", "4")]
+        [TestCase("IsActive eq (3 eq Priority)", "2,3,4")]
         public void ReadsLiteralsInsideNegatedAndGroupedConditionsByTheirOwnComparison(string filter, string expectedIds)
         {
             ArgumentNullException.ThrowIfNull(_converter);

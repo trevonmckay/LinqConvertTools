@@ -66,8 +66,8 @@ namespace LinqConvertTools.Parser
             if (!string.IsNullOrWhiteSpace(expression) && !expression.IsEnclosed() && expression.IsFunction())
             {
                 var split = expression.Split(' ');
-                return !split.Intersect(Operations).Any()
-                && !split.Intersect(Combiners).Any()
+                return !split.Intersect(Operations, StringComparer.OrdinalIgnoreCase).Any()
+                && !split.Intersect(Combiners, StringComparer.OrdinalIgnoreCase).Any()
                 && (Array.Exists(BooleanFunctions, x => split[0].StartsWith(x, StringComparison.OrdinalIgnoreCase)) ||
                     CollectionFunctionRx.IsMatch(expression));
             }

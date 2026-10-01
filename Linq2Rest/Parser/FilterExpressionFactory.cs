@@ -627,7 +627,7 @@ namespace LinqConvertTools.Parser
 
             if (tokens.Any())
             {
-                return GetTokenExpression<T>(sourceParameter, lambdaParameters, type, formatProvider, tokens, ignoreCase, depth);
+                return GetTokenExpression<T>(sourceParameter, lambdaParameters, formatProvider, tokens, ignoreCase, depth);
             }
 
             if (string.Equals(filter, "null", StringComparison.OrdinalIgnoreCase))
@@ -669,7 +669,11 @@ namespace LinqConvertTools.Parser
             return expression ?? throw new InvalidOperationException("Could not create expression from: " + filter);
         }
 
-        private Expression? GetTokenExpression<T>(ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters, Type? type, IFormatProvider formatProvider, ICollection<TokenSet> tokens, bool ignoreCase, int depth)
+        /// <summary>
+        /// Builds the conditions in <paramref name="tokens"/>. A comparison reads its literals by the type of its own
+        /// members; a type from the enclosing expression does not apply to a condition.
+        /// </summary>
+        private Expression? GetTokenExpression<T>(ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters, IFormatProvider formatProvider, ICollection<TokenSet> tokens, bool ignoreCase, int depth)
         {
             string? combiner = null;
             Expression? existing = null;
@@ -699,7 +703,7 @@ namespace LinqConvertTools.Parser
 
                 Expression? operand = string.IsNullOrWhiteSpace(tokenSet.Left)
                     ? GetUnaryOperand<T>(tokenSet, parameter, lambdaParameters, formatProvider, ignoreCase, depth)
-                    : GetBinaryOperand<T>(tokenSet, parameter, lambdaParameters, type, formatProvider, ignoreCase, depth);
+                    : GetBinaryOperand<T>(tokenSet, parameter, lambdaParameters, formatProvider, ignoreCase, depth);
                 if (operand is null)
                 {
                     return null;
@@ -731,7 +735,7 @@ namespace LinqConvertTools.Parser
         /// Builds a token with a left side: a comparison or combination of left and right, or, when the token has no
         /// operation, the left side alone. A token with an operation whose right side does not parse is invalid.
         /// </summary>
-        private Expression? GetBinaryOperand<T>(TokenSet tokenSet, ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters, Type? type, IFormatProvider formatProvider, bool ignoreCase, int depth)
+        private Expression? GetBinaryOperand<T>(TokenSet tokenSet, ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters, IFormatProvider formatProvider, bool ignoreCase, int depth)
         {
             // A token with no operation is a whole condition between combiners, such as a group of and-combined
             // conditions, so like the operand of not it gets no type for its literals.
@@ -740,7 +744,7 @@ namespace LinqConvertTools.Parser
                                            tokenSet.Left,
                                            parameter,
                                            lambdaParameters,
-                                           isCondition ? null : type ?? GetExpressionType<T>(tokenSet, parameter, lambdaParameters),
+                                           isCondition ? null : GetExpressionType<T>(tokenSet, parameter, lambdaParameters),
                                            formatProvider,
                                            ignoreCase,
                                            depth + 1);
