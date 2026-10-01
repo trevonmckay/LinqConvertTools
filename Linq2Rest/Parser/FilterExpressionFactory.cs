@@ -154,6 +154,12 @@ namespace LinqConvertTools.Parser
 
         private Expression GetNullSafeLeftRightOperation(string token, Expression left, Expression right, bool ignoreCase)
         {
+            if (token.IsBinaryCombinationOperation())
+            {
+                left = GetNullSafeCondition(left);
+                right = GetNullSafeCondition(right);
+            }
+
             Expression binaryExpression = GetLeftRightOperation(token, left, right, ignoreCase);
             if (left is MemberExpression memberExpression && memberExpression.Expression?.NodeType == ExpressionType.MemberAccess && !memberExpression.Expression.Type.IsValueType)
             {
@@ -165,6 +171,17 @@ namespace LinqConvertTools.Parser
             }
 
             return binaryExpression;
+        }
+
+        /// <summary>
+        /// Guards a condition that reads a member of a nested object, such as <c>x.Child.Active</c>, so that it is
+        /// false when the nested object is null, instead of throwing or deciding the conditions combined with it.
+        /// </summary>
+        private static Expression GetNullSafeCondition(Expression condition)
+        {
+            return condition is MemberExpression memberExpression && memberExpression.Expression?.NodeType == ExpressionType.MemberAccess && !memberExpression.Expression.Type.IsValueType
+                ? Expression.AndAlso(Expression.NotEqual(_nullConstantExpression, memberExpression.Expression), condition)
+                : condition;
         }
 
         private Expression GetCaseAwareLeftRightOperation(BinaryExpression binaryExpression, bool ignoreCase)
@@ -321,7 +338,7 @@ namespace LinqConvertTools.Parser
             switch (token.ToUpperInvariant())
             {
                 case "NOT":
-                    result = right.Type == typeof(bool) ? Expression.Not(right) : null;
+                    result = right.Type == typeof(bool) ? Expression.Not(GetNullSafeCondition(right)) : null;
                     break;
             }
 
@@ -539,11 +556,6 @@ namespace LinqConvertTools.Parser
                 return null;
             }
 
-            if (Regex.IsMatch(set.Left, @"^\(.*\)$", RegexOptions.None, ParserRegex.MatchTimeout) && set.Operation.IsCombinationOperation())
-            {
-                return null;
-            }
-
             if (set.Left.IsFunction())
             {
                 var functionName = set.Left.GetFunctionName();
@@ -626,7 +638,7 @@ namespace LinqConvertTools.Parser
 
             if (tokens.Any())
             {
-                return GetTokenExpression<T>(sourceParameter, lambdaParameters, type, formatProvider, tokens, ignoreCase, depth);
+                return GetTokenExpression<T>(sourceParameter, lambdaParameters, formatProvider, tokens, ignoreCase, depth);
             }
 
             if (string.Equals(filter, "null", StringComparison.OrdinalIgnoreCase))
@@ -668,7 +680,11 @@ namespace LinqConvertTools.Parser
             return expression ?? throw new InvalidOperationException("Could not create expression from: " + filter);
         }
 
-        private Expression? GetTokenExpression<T>(ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters, Type? type, IFormatProvider formatProvider, ICollection<TokenSet> tokens, bool ignoreCase, int depth)
+        /// <summary>
+        /// Builds the conditions in <paramref name="tokens"/>. A comparison reads its literals by the type of its own
+        /// members; a type from the enclosing expression does not apply to a condition.
+        /// </summary>
+        private Expression? GetTokenExpression<T>(ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters, IFormatProvider formatProvider, ICollection<TokenSet> tokens, bool ignoreCase, int depth)
         {
             string? combiner = null;
             Expression? existing = null;
@@ -697,8 +713,8 @@ namespace LinqConvertTools.Parser
                 }
 
                 Expression? operand = string.IsNullOrWhiteSpace(tokenSet.Left)
-                    ? GetUnaryOperand<T>(tokenSet, parameter, lambdaParameters, type, formatProvider, ignoreCase, depth)
-                    : GetBinaryOperand<T>(tokenSet, parameter, lambdaParameters, type, formatProvider, ignoreCase, depth);
+                    ? GetUnaryOperand<T>(tokenSet, parameter, lambdaParameters, formatProvider, ignoreCase, depth)
+                    : GetBinaryOperand<T>(tokenSet, parameter, lambdaParameters, formatProvider, ignoreCase, depth);
                 if (operand is null)
                 {
                     return null;
@@ -711,13 +727,14 @@ namespace LinqConvertTools.Parser
             return awaitingOperand ? null : existing;
         }
 
-        private Expression? GetUnaryOperand<T>(TokenSet tokenSet, ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters, Type? type, IFormatProvider formatProvider, bool ignoreCase, int depth)
+        private Expression? GetUnaryOperand<T>(TokenSet tokenSet, ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters, IFormatProvider formatProvider, bool ignoreCase, int depth)
         {
+            // The operand of not is a condition, so no member inside it gives a type to read literals as.
             Expression? right = CreateExpression<T>(
                                             tokenSet.Right,
                                             parameter,
                                             lambdaParameters,
-                                            type ?? GetExpressionType<T>(tokenSet, parameter, lambdaParameters),
+                                            null,
                                             formatProvider,
                                             ignoreCase,
                                             depth + 1);
@@ -729,22 +746,27 @@ namespace LinqConvertTools.Parser
         /// Builds a token with a left side: a comparison or combination of left and right, or, when the token has no
         /// operation, the left side alone. A token with an operation whose right side does not parse is invalid.
         /// </summary>
-        private Expression? GetBinaryOperand<T>(TokenSet tokenSet, ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters, Type? type, IFormatProvider formatProvider, bool ignoreCase, int depth)
+        private Expression? GetBinaryOperand<T>(TokenSet tokenSet, ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters, IFormatProvider formatProvider, bool ignoreCase, int depth)
         {
+            // A token with no operation is a whole condition between combiners, such as a group of and-combined
+            // conditions, and the operands of and/or are conditions too, so like the operand of not they get no type
+            // for their literals.
+            bool isCondition = string.IsNullOrWhiteSpace(tokenSet.Operation);
+            bool combinesConditions = tokenSet.Operation.IsBinaryCombinationOperation();
             Expression? left = CreateExpression<T>(
                                            tokenSet.Left,
                                            parameter,
                                            lambdaParameters,
-                                           type ?? GetExpressionType<T>(tokenSet, parameter, lambdaParameters),
+                                           isCondition || combinesConditions ? null : GetExpressionType<T>(tokenSet, parameter, lambdaParameters),
                                            formatProvider,
                                            ignoreCase,
                                            depth + 1);
-            if (left is null || string.IsNullOrWhiteSpace(tokenSet.Operation))
+            if (left is null || isCondition)
             {
                 return left;
             }
 
-            Type? rightExpressionType = tokenSet.Operation == "and" ? null : left.Type;
+            Type? rightExpressionType = combinesConditions ? null : left.Type;
             var right = IsInOperation(tokenSet.Operation) && left.Type != typeof(string)
                 ? GetTypedInList(tokenSet.Right, left.Type, formatProvider)
                 : CreateExpression<T>(tokenSet.Right, parameter, lambdaParameters, rightExpressionType, formatProvider, ignoreCase, depth + 1);
@@ -811,12 +833,12 @@ namespace LinqConvertTools.Parser
             var lambdaParameter = Expression.Parameter(elementType, parameterName);
             lambdaParameters.Add(lambdaParameter);
             var lambdaFilter = functionTokens.Right.Substring(separatorIndex + 1).Trim();
-            var lambdaType = GetFunctionParameterType(functionTokens.Operation) ?? left.Type;
 
+            // The lambda body is a condition, so the collection's type gives no type to read its literals as.
             var isLambdaAnyAllFunction = lambdaFilter.GetAnyAllFunctionTokens() != null;
             var right = isLambdaAnyAllFunction
                 ? GetAnyAllFunctionExpression<T>(lambdaFilter, lambdaParameter, lambdaParameters, formatProvider, ignoreCase, depth + 1)
-                : CreateExpression<T>(lambdaFilter, sourceParameter, lambdaParameters, lambdaType, formatProvider, ignoreCase, depth + 1);
+                : CreateExpression<T>(lambdaFilter, sourceParameter, lambdaParameters, null, formatProvider, ignoreCase, depth + 1);
 
             return GetFunction(functionTokens.Operation, left, right, sourceParameter, lambdaParameters, ignoreCase);
         }
