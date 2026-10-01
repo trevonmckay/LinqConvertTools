@@ -221,14 +221,11 @@ namespace LinqConvertTools.Parser
             }
 
             // A collection member, such as x.Tags, is upper-cased element by element at query time, so the lookup is
-            // case-insensitive on both sides. A null element stays null instead of throwing when the filter runs in
-            // memory, matching how the single-value side is folded.
+            // case-insensitive on both sides. Each element is folded the same way as a single value.
             if (typeof(IEnumerable<string>).IsAssignableFrom(expression.Type))
             {
                 ParameterExpression element = Expression.Parameter(typeof(string), "x");
-                Expression nullString = Expression.Constant(null, typeof(string));
-                Expression body = Expression.Condition(Expression.Equal(element, nullString), nullString, Expression.Call(element, _toUpperMethod));
-                return Expression.Call(typeof(Enumerable), nameof(Enumerable.Select), new[] { typeof(string), typeof(string) }, expression, Expression.Lambda(body, element));
+                return Expression.Call(typeof(Enumerable), nameof(Enumerable.Select), new[] { typeof(string), typeof(string) }, expression, Expression.Lambda(FoldCase(element), element));
             }
 
             return expression;
