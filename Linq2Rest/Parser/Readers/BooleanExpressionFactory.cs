@@ -19,17 +19,16 @@ namespace LinqConvertTools.Parser.Readers
     {
         public override ConstantExpression Convert(string token)
         {
-            if (token == "1" || string.Equals(token, "true", StringComparison.OrdinalIgnoreCase))
-            {
-                return Expression.Constant(true);
-            }
+            return TryParse(token, out bool value) ? Expression.Constant(value) : Expression.Constant(null);
+        }
 
-            if (token == "0" || string.Equals(token, "false", StringComparison.OrdinalIgnoreCase))
-            {
-                return Expression.Constant(false);
-            }
-
-            return Expression.Constant(null);
+        /// <summary>
+        /// Reads <c>1</c>, <c>0</c>, <c>true</c> or <c>false</c>, in any case, and nothing else.
+        /// </summary>
+        public static bool TryParse(string token, out bool value)
+        {
+            value = token == "1" || string.Equals(token, "true", StringComparison.OrdinalIgnoreCase);
+            return value || token == "0" || string.Equals(token, "false", StringComparison.OrdinalIgnoreCase);
         }
     }
 }

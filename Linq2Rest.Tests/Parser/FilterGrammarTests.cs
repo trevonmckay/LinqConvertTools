@@ -22,7 +22,7 @@ namespace LinqConvertTools.Tests.Parser
             _records = new[]
             {
                 new Record { Id = 1, Status = "a (b", Note = "n1", Priority = 1, IsActive = true, Price = 1.4 },
-                new Record { Id = 2, Status = ":)", Priority = 2, IsActive = false, IsFlagged = true },
+                new Record { Id = 2, Status = ":)", Priority = 2, IsActive = false, IsFlagged = true, Aliases = { ":)", "smile" } },
                 new Record { Id = 3, Status = "x or y", Note = "it's", Priority = 3, IsActive = true, IsFlagged = false },
                 new Record { Id = 4, Status = "it's (x)", Priority = 4, IsActive = false },
             };
@@ -152,6 +152,10 @@ namespace LinqConvertTools.Tests.Parser
         [TestCase("Status in (\"x or y\", 'it''s (x)')", "3,4")]
         [TestCase("Status in ':)'", "2")]
         [TestCase("Note in ('n1', null)", "1,2,4")]
+        [TestCase("Status in (x or y, ':)')", "2,3")]
+        [TestCase("Status in (Status)", "")]
+        [TestCase("Note in (Note)", "")]
+        [TestCase("Status in Aliases", "2")]
         [TestCase("startswith(Status, \"a,b\") or Priority eq 4", "4")]
         [TestCase("startswith(Status, \"x or\")", "3")]
         public void ReadsInListsAndFunctionArgumentsWithCommasAndQuotes(string filter, string expectedIds)
@@ -168,6 +172,56 @@ namespace LinqConvertTools.Tests.Parser
             var predicate = _converter.Convert<Record>("Status in ('A (B', 'X OR Y')", true);
 
             CollectionAssert.AreEqual(new[] { 1, 3 }, _records.AsQueryable().Where(predicate).Select(r => r.Id).ToArray());
+        }
+
+        [TestCase("Priority in (1), (3)")]
+        [TestCase("Status in (a (b, ':)')")]
+        public void RejectsMalformedInList(string filter)
+        {
+            ArgumentNullException.ThrowIfNull(_converter);
+
+            Assert.Throws<FormatException>(() => _converter.Convert<Record>(filter));
+        }
+
+        [Test]
+        public void MatchesNullInListsIgnoringCase()
+        {
+            ArgumentNullException.ThrowIfNull(_converter);
+            ArgumentNullException.ThrowIfNull(_records);
+
+            var predicate = _converter.Convert<Record>("Note in ('N1', null)", true);
+
+            CollectionAssert.AreEqual(new[] { 1, 2, 4 }, _records.AsQueryable().Where(predicate).Select(r => r.Id).ToArray());
+        }
+
+        [TestCase(200, "1")]
+        [TestCase(300, null)]
+        [TestCase(40000, null)]
+        public void CountsEnclosingParenthesesTowardMaxDepth(int levels, string? expectedIds)
+        {
+            ArgumentNullException.ThrowIfNull(_converter);
+            var filter = new string('(', levels) + "Priority eq 1" + new string(')', levels);
+
+            if (expectedIds is null)
+            {
+                Assert.Throws<InvalidOperationException>(() => _converter.Convert<Record>(filter));
+            }
+            else
+            {
+                AssertMatches(filter, expectedIds);
+            }
+        }
+
+        [TestCase("IsActive eq yes", new[] { 1, 3 })]
+        [TestCase("IsFlagged eq yes", new[] { 2 })]
+        public void ReadsBooleanWithCustomFactory(string filter, int[] expectedIds)
+        {
+            ArgumentNullException.ThrowIfNull(_records);
+            var converter = new ODataExpressionConverter(Array.Empty<IValueWriter>(), new[] { new YesNoFactory() });
+
+            var predicate = converter.Convert<Record>(filter);
+
+            CollectionAssert.AreEqual(expectedIds, _records.AsQueryable().Where(predicate).Select(r => r.Id).ToArray());
         }
 
         [Test]
@@ -209,6 +263,21 @@ namespace LinqConvertTools.Tests.Parser
             public bool? IsFlagged { get; set; }
 
             public double Price { get; set; }
+
+            public List<string> Aliases { get; set; } = new();
+        }
+
+        private sealed class YesNoFactory : IValueExpressionFactory
+        {
+            public bool Handles(Type type)
+            {
+                return type == typeof(bool);
+            }
+
+            public ConstantExpression Convert(string token)
+            {
+                return Expression.Constant(string.Equals(token, "yes", StringComparison.OrdinalIgnoreCase));
+            }
         }
 
         private sealed class UnknownAsNullFactory : IValueExpressionFactory

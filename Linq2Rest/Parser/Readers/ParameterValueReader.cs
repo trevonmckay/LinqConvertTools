@@ -22,12 +22,14 @@ namespace LinqConvertTools.Parser.Readers
     internal class ParameterValueReader
     {
         private readonly IList<IValueExpressionFactory> _expressionFactories;
+        private readonly IValueExpressionFactory[] _customFactories;
 
         public ParameterValueReader(IEnumerable<IValueExpressionFactory> expressionFactories)
         {
 
 
-            _expressionFactories = expressionFactories.Concat(
+            _customFactories = expressionFactories.ToArray();
+            _expressionFactories = _customFactories.Concat(
                 new IValueExpressionFactory[]
                 {
                     new EnumExpressionFactory(),
@@ -50,6 +52,14 @@ namespace LinqConvertTools.Parser.Readers
                     new UnsignedShortExpressionFactory()
                 })
                 .ToList();
+        }
+
+        /// <summary>
+        /// Determines whether a factory passed to the constructor handles <paramref name="type"/>.
+        /// </summary>
+        public bool HasCustomFactory(Type type)
+        {
+            return Array.Exists(_customFactories, factory => factory.Handles(type));
         }
 
         public Expression? Read(Type type, string token, IFormatProvider formatProvider)

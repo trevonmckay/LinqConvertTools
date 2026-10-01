@@ -102,19 +102,80 @@ namespace LinqConvertTools.Parser
         /// </summary>
         public static string StripEnclosingParentheses(this string expression)
         {
+            return expression.StripEnclosingParentheses(out _);
+        }
+
+        /// <summary>
+        /// Removes parentheses that enclose the whole of <paramref name="expression"/>, at any depth, in one pass.
+        /// </summary>
+        /// <param name="expression">The expression to remove enclosing parentheses from.</param>
+        /// <param name="levels">The number of enclosing pairs that were removed.</param>
+        public static string StripEnclosingParentheses(this string expression, out int levels)
+        {
+            levels = 0;
             var start = 0;
             var end = expression.Length - 1;
             SkipWhiteSpace(expression, ref start, ref end);
-            var stripped = false;
-            while (start < end && expression[start] == '(' && expression[end] == ')' && GetCloseIndex(expression, start) == end)
+            if (start >= end || expression[start] != '(' || expression[end] != ')')
             {
-                start++;
-                end--;
-                SkipWhiteSpace(expression, ref start, ref end);
-                stripped = true;
+                return expression;
             }
 
-            return stripped ? expression.Substring(start, end - start + 1) : expression;
+            var interiorStart = start;
+            var leading = 0;
+            while (interiorStart <= end && (expression[interiorStart] == '(' || char.IsWhiteSpace(expression[interiorStart])))
+            {
+                leading += expression[interiorStart] == '(' ? 1 : 0;
+                interiorStart++;
+            }
+
+            var interiorEnd = end;
+            var trailing = 0;
+            while (interiorEnd >= start && (expression[interiorEnd] == ')' || char.IsWhiteSpace(expression[interiorEnd])))
+            {
+                trailing += expression[interiorEnd] == ')' ? 1 : 0;
+                interiorEnd--;
+            }
+
+            // The n-th leading parenthesis encloses the whole expression when the depth between the leading and
+            // trailing runs never falls below n.
+            var lowest = leading;
+            var depth = 0;
+            foreach (var (index, _, after) in ScanOutsideLiterals(expression))
+            {
+                if (after < 0)
+                {
+                    return expression;
+                }
+
+                if (index >= interiorStart && index <= interiorEnd)
+                {
+                    lowest = Math.Min(lowest, after);
+                }
+
+                depth = after;
+            }
+
+            levels = depth == 0 ? Math.Min(lowest, Math.Min(leading, trailing)) : 0;
+            if (levels == 0)
+            {
+                return expression;
+            }
+
+            var from = start;
+            for (var removed = 0; removed < levels; from++)
+            {
+                removed += expression[from] == '(' ? 1 : 0;
+            }
+
+            var to = end;
+            for (var removed = 0; removed < levels; to--)
+            {
+                removed += expression[to] == ')' ? 1 : 0;
+            }
+
+            SkipWhiteSpace(expression, ref from, ref to);
+            return from > to ? string.Empty : expression.Substring(from, to - from + 1);
         }
 
         /// <summary>
@@ -256,19 +317,34 @@ namespace LinqConvertTools.Parser
         /// </summary>
         private static int GetNetParentheses(string block)
         {
-            var net = 0;
-            char? quote = null;
-            for (var i = 0; i < block.Length; i++)
+            var depth = 0;
+            foreach (var (_, _, after) in ScanOutsideLiterals(block))
             {
-                if (TryAdvanceQuote(block, ref i, ref quote))
+                depth = after;
+            }
+
+            return depth;
+        }
+
+        /// <summary>
+        /// Walks the characters of <paramref name="text"/> that are outside quoted string literals, with the
+        /// parenthesis depth after each one.
+        /// </summary>
+        private static IEnumerable<(int Index, char Character, int Depth)> ScanOutsideLiterals(string text)
+        {
+            var depth = 0;
+            char? quote = null;
+            for (var i = 0; i < text.Length; i++)
+            {
+                if (TryAdvanceQuote(text, ref i, ref quote))
                 {
                     continue;
                 }
 
-                net += block[i] == '(' ? 1 : block[i] == ')' ? -1 : 0;
+                var character = text[i];
+                depth += character == '(' ? 1 : character == ')' ? -1 : 0;
+                yield return (i, character, depth);
             }
-
-            return net;
         }
 
         /// <summary>
@@ -306,23 +382,53 @@ namespace LinqConvertTools.Parser
         }
 
         /// <summary>
-        /// Finds the closing parenthesis that matches the opening one at <paramref name="openIndex"/>, ignoring
-        /// parentheses inside quoted string literals.
+        /// Finds the last <paramref name="separator"/> that is outside all parentheses and quoted string literals.
         /// </summary>
-        /// <returns>The index of the closing parenthesis, or -1 when it is never closed.</returns>
-        private static int GetCloseIndex(string expression, int openIndex)
+        /// <returns>The index of the separator, or -1 when there is none.</returns>
+        private static int GetLastTopLevelIndex(string text, char separator)
         {
-            var depth = 0;
-            char? quote = null;
-            for (var i = openIndex; i < expression.Length; i++)
+            var last = -1;
+            foreach (var (index, character, after) in ScanOutsideLiterals(text))
             {
-                if (TryAdvanceQuote(expression, ref i, ref quote))
+                if (after == 0 && character == separator)
                 {
-                    continue;
+                    last = index;
                 }
+            }
 
-                depth += expression[i] == '(' ? 1 : expression[i] == ')' ? -1 : 0;
-                if (depth == 0)
+            return last;
+        }
+
+        /// <summary>
+        /// Splits <paramref name="list"/> at each comma that is outside all parentheses and quoted string literals.
+        /// </summary>
+        public static IEnumerable<string> SplitTopLevel(this string list)
+        {
+            var start = 0;
+            foreach (var (index, character, after) in ScanOutsideLiterals(list))
+            {
+                if (after == 0 && character == ',')
+                {
+                    yield return list.Substring(start, index - start);
+                    start = index + 1;
+                }
+            }
+
+            yield return list.Substring(start);
+        }
+
+        /// <summary>
+        /// Finds the quote that closes the string literal <paramref name="text"/> starts with, where a doubled quote
+        /// inside the literal is an escaped quote.
+        /// </summary>
+        /// <returns>The index of the closing quote, or -1 when the literal is never closed.</returns>
+        public static int GetStringLiteralEnd(this string text)
+        {
+            char? quote = null;
+            for (var i = 0; i < text.Length; i++)
+            {
+                TryAdvanceQuote(text, ref i, ref quote);
+                if (quote is null)
                 {
                     return i;
                 }
@@ -332,79 +438,12 @@ namespace LinqConvertTools.Parser
         }
 
         /// <summary>
-        /// Finds the last <paramref name="separator"/> that is outside all parentheses and quoted string literals.
-        /// </summary>
-        /// <returns>The index of the separator, or -1 when there is none.</returns>
-        private static int GetLastTopLevelIndex(string text, char separator)
-        {
-            var index = -1;
-            var depth = 0;
-            char? quote = null;
-            for (var i = 0; i < text.Length; i++)
-            {
-                if (TryAdvanceQuote(text, ref i, ref quote))
-                {
-                    continue;
-                }
-
-                depth += text[i] == '(' ? 1 : text[i] == ')' ? -1 : 0;
-                if (depth == 0 && text[i] == separator)
-                {
-                    index = i;
-                }
-            }
-
-            return index;
-        }
-
-        /// <summary>
-        /// Splits <paramref name="list"/> at each comma that is outside all parentheses and quoted string literals.
-        /// </summary>
-        public static IEnumerable<string> SplitTopLevel(this string list)
-        {
-            var start = 0;
-            var depth = 0;
-            char? quote = null;
-            for (var i = 0; i < list.Length; i++)
-            {
-                if (TryAdvanceQuote(list, ref i, ref quote))
-                {
-                    continue;
-                }
-
-                depth += list[i] == '(' ? 1 : list[i] == ')' ? -1 : 0;
-                if (depth == 0 && list[i] == ',')
-                {
-                    yield return list.Substring(start, i - start);
-                    start = i + 1;
-                }
-            }
-
-            yield return list.Substring(start);
-        }
-
-        /// <summary>
         /// Determines whether <paramref name="text"/> is one string literal, quoted with ' or ", with nothing after
         /// its closing quote.
         /// </summary>
         public static bool IsWholeStringLiteral(this string text)
         {
-            if (text.Length < 2 || (text[0] != '\'' && text[0] != '"'))
-            {
-                return false;
-            }
-
-            char? quote = null;
-            for (var i = 0; i < text.Length; i++)
-            {
-                TryAdvanceQuote(text, ref i, ref quote);
-                if (quote is null)
-                {
-                    return i == text.Length - 1;
-                }
-            }
-
-            return false;
+            return text.Length >= 2 && (text[0] == '\'' || text[0] == '"') && text.GetStringLiteralEnd() == text.Length - 1;
         }
 
         private static void SkipWhiteSpace(string expression, ref int start, ref int end)
@@ -447,20 +486,19 @@ namespace LinqConvertTools.Parser
         {
             var blocks = new List<string>();
             var blockStart = 0;
-            char? quote = null;
-            for (var pos = 0; pos < str.Length; pos++)
+            foreach (var (index, character, _) in ScanOutsideLiterals(str))
             {
-                if (TryAdvanceQuote(str, ref pos, ref quote) || str[pos] != ' ')
+                if (character != ' ')
                 {
                     continue;
                 }
 
-                if (pos > blockStart)
+                if (index > blockStart)
                 {
-                    blocks.Add(str.Substring(blockStart, pos - blockStart));
+                    blocks.Add(str.Substring(blockStart, index - blockStart));
                 }
 
-                blockStart = pos + 1;
+                blockStart = index + 1;
             }
 
             if (blockStart < str.Length)

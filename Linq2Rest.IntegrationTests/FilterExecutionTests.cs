@@ -79,6 +79,8 @@ namespace LinqConvertTools.IntegrationTests
             new object[] { "status in ()", false, "" },
             new object[] { "startswith(title, \"Draft\") or title in ('O''Brien Memo', 'x,y')", false, "C,D" },
             new object[] { "title in ('annual review', 'x,y')", true, "B" },
+            new object[] { "status in ('OPEN', null)", true, "A,C,D" },
+            new object[] { "status in (Open, Closed)", false, "A,B,D" },
             new object[] { "priority eq 1 or priority eq 2 and status eq 'Closed' or priority eq 5 and not (status eq 'Open')", false, "A,B" },
             new object[] { "priority mod 2 eq 1", false, "A,C,D" },
             new object[] { "priority add 1 eq 3", false, "B" },
