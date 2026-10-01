@@ -34,6 +34,8 @@ namespace LinqConvertTools.Parser
         /// A filter with a single combiner whose first operand is a whole condition, such as <c>(a or b) and c</c>,
         /// instead yields one token that combines the two sides. A filter that is a single condition yields its
         /// negation or comparison, or no tokens when it is a member, function or literal.
+        /// Parentheses that enclose the whole filter are expected to be removed first, with
+        /// <see cref="StripEnclosingParentheses"/>.
         /// </remarks>
         public static ICollection<TokenSet> GetTokens(this string expression)
         {
@@ -43,14 +45,12 @@ namespace LinqConvertTools.Parser
                 return tokens;
             }
 
-            expression = expression.StripEnclosingParentheses();
-
-            if (expression.IsImpliedBoolean())
+            var blocks = GetBlocks(expression);
+            if (IsImpliedBoolean(expression, blocks))
             {
                 return tokens;
             }
 
-            var blocks = GetBlocks(expression);
             var topLevel = GetTopLevelFlags(blocks);
             var combinerIndexes = new List<int>();
             for (var i = 0; i < blocks.Count; i++)
@@ -103,7 +103,10 @@ namespace LinqConvertTools.Parser
         /// </summary>
         public static string StripEnclosingParentheses(this string expression)
         {
-            if (expression.Length < 2 || expression.IndexOf('(') < 0)
+            var start = 0;
+            var end = expression.Length - 1;
+            SkipWhiteSpace(expression, ref start, ref end);
+            if (start >= end || expression[start] != '(' || expression[end] != ')')
             {
                 return expression;
             }
@@ -114,9 +117,6 @@ namespace LinqConvertTools.Parser
                 return expression;
             }
 
-            var start = 0;
-            var end = expression.Length - 1;
-            SkipWhiteSpace(expression, ref start, ref end);
             var stripped = false;
             while (start < end && expression[start] == '(' && closeIndexes[start] == end)
             {
@@ -130,33 +130,20 @@ namespace LinqConvertTools.Parser
         }
 
         /// <summary>
-        /// Determines whether <paramref name="expression"/> is a call to a boolean string function or a collection
-        /// <c>any</c>/<c>all</c>, and nothing else, so it needs no splitting into conditions.
+        /// Splits an arithmetic expression at its last top-level arithmetic operator.
         /// </summary>
-        public static bool IsImpliedBoolean(this string expression)
-        {
-            if (string.IsNullOrWhiteSpace(expression) || !expression.IsFunction())
-            {
-                return false;
-            }
-
-            var blocks = GetBlocks(expression);
-            return !blocks.Exists(TokenOperatorExtensions.IsOperation)
-                && (TokenOperatorExtensions.IsBooleanFunctionName(blocks[0]) || expression.IsCollectionFunction());
-        }
-
+        /// <returns>The operands and operator, or <c>null</c> when no arithmetic operator is outside parentheses, such
+        /// as in <c>round(Price mul 2)</c>.</returns>
         public static TokenSet? GetArithmeticToken(this string expression)
         {
             expression = expression.StripEnclosingParentheses();
 
             var blocks = GetBlocks(expression);
-            var hasOperation = blocks.Exists(TokenOperatorExtensions.IsArithmetic);
-            if (!hasOperation)
+            var operationIndex = GetArithmeticOperationIndex(blocks);
+            if (operationIndex < 0)
             {
                 return null;
             }
-
-            var operationIndex = GetArithmeticOperationIndex(blocks);
 
             return new TokenSet
             {
@@ -212,6 +199,17 @@ namespace LinqConvertTools.Parser
                 Left = functionContentMatch.Groups[1].Value,
                 Right = functionContentMatch.Groups[2].Value
             };
+        }
+
+        /// <summary>
+        /// Determines whether <paramref name="expression"/> is a call to a boolean string function or a collection
+        /// <c>any</c>/<c>all</c>, and nothing else, so it needs no splitting into conditions.
+        /// </summary>
+        private static bool IsImpliedBoolean(string expression, List<string> blocks)
+        {
+            return expression.IsFunction()
+                && !blocks.Exists(TokenOperatorExtensions.IsOperation)
+                && (TokenOperatorExtensions.IsBooleanFunctionName(blocks[0]) || expression.IsCollectionFunction());
         }
 
         /// <summary>
@@ -374,11 +372,12 @@ namespace LinqConvertTools.Parser
 
         private static int GetArithmeticOperationIndex(List<string> blocks)
         {
-            var topLevel = GetTopLevelFlags(blocks);
             var operationIndex = -1;
+            var depth = 0;
             for (var i = 0; i < blocks.Count; i++)
             {
-                if (topLevel[i] && blocks[i].IsArithmetic())
+                depth += GetNetParentheses(blocks[i]);
+                if (depth == 0 && blocks[i].IsArithmetic())
                 {
                     operationIndex = i;
                 }

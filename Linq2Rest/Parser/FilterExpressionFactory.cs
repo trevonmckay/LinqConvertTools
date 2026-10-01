@@ -218,9 +218,9 @@ namespace LinqConvertTools.Parser
 
         private static IEnumerable<string> SplitInList(string list)
         {
-            return list.TrimStart('(').TrimEnd(')')
+            return list.StripEnclosingParentheses()
                 .Split(InListSeparators, StringSplitOptions.RemoveEmptyEntries)
-                .Select(value => value.Trim());
+                .Select(value => value.Trim().StripEnclosingParentheses());
         }
 
         /// <summary>
@@ -482,11 +482,8 @@ namespace LinqConvertTools.Parser
         /// <summary>
         /// Reads a quoted string literal.
         /// </summary>
-        /// <returns>
-        /// <c>true</c> when <paramref name="token"/> is a string literal; <c>false</c> when it does not start with a
-        /// quote, or is a literal followed by more, such as the operand <c>'a' add 1</c>.
-        /// </returns>
-        /// <exception cref="FormatException">The token starts with a quote that is never closed.</exception>
+        /// <returns><c>true</c> when <paramref name="token"/> is a string literal; <c>false</c> when it does not start with a quote.</returns>
+        /// <exception cref="FormatException">The token starts with a quote but does not end with the same quote.</exception>
         private static bool TryReadStringLiteral(string token, out string? value)
         {
             value = null;
@@ -498,35 +495,13 @@ namespace LinqConvertTools.Parser
             Match match = StringRx.Match(token);
             if (!match.Success)
             {
-                return HasClosingQuote(token) ? false : throw new FormatException("Unterminated string literal: " + token);
+                throw new FormatException("Unterminated string literal: " + token);
             }
 
             value = match.Groups[1].Success
                 ? match.Groups[1].Value.Replace("''", "'")
                 : match.Groups[2].Value.Replace("''", "'");
             return true;
-        }
-
-        private static bool HasClosingQuote(string token)
-        {
-            char quote = token[0];
-            for (int i = 1; i < token.Length; i++)
-            {
-                if (token[i] != quote)
-                {
-                    continue;
-                }
-
-                if (i + 1 < token.Length && token[i + 1] == quote)
-                {
-                    i++;
-                    continue;
-                }
-
-                return true;
-            }
-
-            return false;
         }
 
         private static Type GetNonNullableType(Type type)
@@ -567,9 +542,19 @@ namespace LinqConvertTools.Parser
 
         private Expression? GetParameterExpression(string filter, Type? type, IFormatProvider formatProvider)
         {
-            return type is not null
-                ? _valueReader.Read(type, filter, formatProvider)
-                : GetBooleanExpression(filter, formatProvider);
+            if (type is null)
+            {
+                return GetBooleanExpression(filter, formatProvider);
+            }
+
+            if (GetNonNullableType(type) == typeof(bool))
+            {
+                Expression boolean = GetBooleanExpression(filter, formatProvider)
+                    ?? throw new InvalidOperationException("Could not read " + filter + " as boolean.");
+                return type == typeof(bool) ? boolean : Expression.Convert(boolean, type);
+            }
+
+            return _valueReader.Read(type, filter, formatProvider);
         }
 
         private Type? GetExpressionType<T>(TokenSet? set, ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters)
@@ -612,13 +597,10 @@ namespace LinqConvertTools.Parser
 
             propertyToken = propertyToken.StripEnclosingParentheses();
 
-            if (!propertyToken.IsImpliedBoolean())
+            var token = propertyToken.GetTokens().FirstOrDefault();
+            if (token != null)
             {
-                var token = propertyToken.GetTokens().FirstOrDefault();
-                if (token != null)
-                {
-                    return GetPropertyExpression<T>(token.Left, parameter, lambdaParameters) ?? GetPropertyExpression<T>(token.Right, parameter, lambdaParameters);
-                }
+                return GetPropertyExpression<T>(token.Left, parameter, lambdaParameters) ?? GetPropertyExpression<T>(token.Right, parameter, lambdaParameters);
             }
 
             Type parentType = parameter.Type;
@@ -676,8 +658,16 @@ namespace LinqConvertTools.Parser
                 return Expression.Constant(null);
             }
 
-            if (TryReadStringLiteral(filter, out string? stringLiteral))
+            if (filter[0] == '\'' || filter[0] == '"')
             {
+                // An arithmetic expression can start with a literal operand, such as 'a' add 1.
+                Expression? literalArithmetic = GetArithmeticExpression<T>(filter, sourceParameter, lambdaParameters, type, formatProvider, ignoreCase, depth);
+                if (literalArithmetic is not null)
+                {
+                    return literalArithmetic;
+                }
+
+                TryReadStringLiteral(filter, out string? stringLiteral);
                 return Expression.Constant(stringLiteral, typeof(string));
             }
 

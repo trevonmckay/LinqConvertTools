@@ -75,7 +75,7 @@ namespace LinqConvertTools.Parser
 
         /// <summary>
         /// Gets a value indicating whether the token holds a whole condition with no operation of its own, such as
-        /// a group of and-combined conditions between ors, or a boolean member between and/or.
+        /// a group in parentheses or a boolean member between and/or.
         /// </summary>
         public bool IsWholeCondition => string.IsNullOrWhiteSpace(Operation) && !string.IsNullOrWhiteSpace(Left);
 

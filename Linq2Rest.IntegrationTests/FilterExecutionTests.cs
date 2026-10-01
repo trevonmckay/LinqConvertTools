@@ -72,6 +72,8 @@ namespace LinqConvertTools.IntegrationTests
             new object[] { "((priority add 1)) eq 3", false, "B" },
             new object[] { "indexof(title, 'a ( b )') add 1 eq 0", false, "A,B,C,D" },
             new object[] { "status in ('Open', 'a (b')", false, "A,D" },
+            new object[] { "priority in ((1), 2)", false, "A,B" },
+            new object[] { "substring(title, priority sub 1) eq 'nnual Review'", false, "B" },
             new object[] { "priority eq 1 or priority eq 2 and status eq 'Closed' or priority eq 5 and not (status eq 'Open')", false, "A,B" },
             new object[] { "priority mod 2 eq 1", false, "A,C,D" },
             new object[] { "priority add 1 eq 3", false, "B" },

@@ -13,7 +13,6 @@
 namespace LinqConvertTools.Parser
 {
     using System;
-    using System.Linq;
     using System.Text.RegularExpressions;
 
     internal static class TokenOperatorExtensions
@@ -21,7 +20,6 @@ namespace LinqConvertTools.Parser
         private static readonly string[] Operations = new[] { "eq", "ne", "gt", "ge", "lt", "le", "and", "or", "not", "in" };
         private const string UnaryOperator = "not";
         private static readonly string[] BinaryCombiners = new[] { "and", "or" };
-        private static readonly string[] Combiners = BinaryCombiners.Append(UnaryOperator).ToArray();
         private static readonly string[] Arithmetic = new[] { "add", "sub", "mul", "div", "mod" };
 
         private static readonly string[] BooleanFunctions = new[] { "substringof", "contains", "endswith", "startswith" };
@@ -30,19 +28,9 @@ namespace LinqConvertTools.Parser
         private static readonly Regex StringStartRx = new("^[(]*'", RegexOptions.Compiled, ParserRegex.MatchTimeout);
         private static readonly Regex StringEndRx = new("'[)]*$", RegexOptions.Compiled, ParserRegex.MatchTimeout);
 
-        public static bool IsCombinationOperation(this string operation)
-        {
-            return Array.Exists(Combiners, x => string.Equals(x, operation, StringComparison.OrdinalIgnoreCase));
-        }
-
         public static bool IsBinaryCombinationOperation(this string operation)
         {
             return Array.Exists(BinaryCombiners, x => string.Equals(x, operation, StringComparison.OrdinalIgnoreCase));
-        }
-
-        public static bool IsAndOperation(this string operation)
-        {
-            return string.Equals(operation, "and", StringComparison.OrdinalIgnoreCase);
         }
 
         public static bool IsOrOperation(this string operation)

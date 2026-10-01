@@ -18,8 +18,8 @@ namespace LinqConvertTools.Tests.Parser
             _converter = new ODataExpressionConverter();
             _records = new[]
             {
-                new Record { Id = 1, Status = "a (b", Priority = 1, IsActive = true },
-                new Record { Id = 2, Status = ":)", Priority = 2, IsActive = false },
+                new Record { Id = 1, Status = "a (b", Priority = 1, IsActive = true, Price = 1.4 },
+                new Record { Id = 2, Status = ":)", Priority = 2, IsActive = false, IsFlagged = true },
                 new Record { Id = 3, Status = "x or y", Priority = 3, IsActive = true },
                 new Record { Id = 4, Status = "it's (x)", Priority = 4, IsActive = false },
             };
@@ -55,6 +55,9 @@ namespace LinqConvertTools.Tests.Parser
         [TestCase("((Priority add 1)) eq 3", "2")]
         [TestCase("(Priority) add 1 eq 3", "2")]
         [TestCase("Status in ('a (b', ':)')", "1,2")]
+        [TestCase("Priority in ((1), 2)", "1,2")]
+        [TestCase("Status in (('a (b'), ':)')", "1,2")]
+        [TestCase("IsFlagged eq (true)", "2")]
         public void ReadsParenthesizedValuesLikeBareOnes(string filter, string expectedIds)
         {
             AssertMatches(filter, expectedIds);
@@ -66,6 +69,34 @@ namespace LinqConvertTools.Tests.Parser
         public void KeepsStringLiteralsWholeInArithmetic(string filter, string expectedIds)
         {
             AssertMatches(filter, expectedIds);
+        }
+
+        [TestCase("substring(Status, Priority sub 1) eq 'or y'", "3")]
+        [TestCase("round(Price mul 2) eq 3", "1")]
+        public void ReadsArithmeticInsideFunctionArguments(string filter, string expectedIds)
+        {
+            AssertMatches(filter, expectedIds);
+        }
+
+        [TestCase("Status eq 'abc'def")]
+        [TestCase("Status eq 'x or y' x")]
+        [TestCase("Status in ('a'b, ':)')")]
+        public void RejectsTextAfterStringLiteral(string filter)
+        {
+            ArgumentNullException.ThrowIfNull(_converter);
+
+            Assert.Throws<FormatException>(() => _converter.Convert<Record>(filter));
+        }
+
+        [TestCase("IsActive eq 12")]
+        [TestCase("IsActive eq untrue")]
+        [TestCase("IsFlagged eq untrue")]
+        public void RejectsValueThatIsNotBoolean(string filter)
+        {
+            ArgumentNullException.ThrowIfNull(_converter);
+
+            var exception = Assert.Throws<InvalidOperationException>(() => _converter.Convert<Record>(filter));
+            StringAssert.Contains("as boolean", exception!.Message);
         }
 
         [TestCase("startswith(Status, 'x or')", "3")]
@@ -116,6 +147,10 @@ namespace LinqConvertTools.Tests.Parser
             public int Priority { get; set; }
 
             public bool IsActive { get; set; }
+
+            public bool? IsFlagged { get; set; }
+
+            public double Price { get; set; }
         }
     }
 }
