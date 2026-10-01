@@ -348,8 +348,9 @@ namespace LinqConvertTools.Parser
         }
 
         /// <summary>
-        /// Tracks whether <paramref name="index"/> is inside a string literal quoted with ' or ". A doubled quote
-        /// inside a literal is an escaped quote and is skipped over.
+        /// Tracks whether <paramref name="index"/> is inside a string literal quoted with ' or ". A quote closes the
+        /// literal only where <see cref="ClosesLiteral"/> says it does; any other quote, including one that is part of a
+        /// doubled <c>''</c> escape, is text. The reader turns <c>''</c> into a single quote once it has the content.
         /// </summary>
         /// <returns><c>true</c> when the character at <paramref name="index"/> is part of a string literal.</returns>
         private static bool TryAdvanceQuote(string text, ref int index, ref char? quote)
@@ -366,19 +367,53 @@ namespace LinqConvertTools.Parser
                 return true;
             }
 
-            if (c == quote)
+            if (c == quote && ClosesLiteral(text, index))
             {
-                if (index + 1 < text.Length && text[index + 1] == quote)
-                {
-                    index++;
-                }
-                else
-                {
-                    quote = null;
-                }
+                quote = null;
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Decides whether the quote at <paramref name="quoteIndex"/> closes the literal, or is an unescaped quote in
+        /// its text such as the apostrophe in <c>'O'Brien'</c>. A quote closes the literal when the end of the text, a
+        /// <c>)</c> or <c>,</c>, or whitespace and then an operator, combiner or <c>)</c>/<c>,</c> follows it; anything
+        /// else, such as a letter, is part of the text. This is the one rule the literal reader (through
+        /// <see cref="GetStringLiteralEnd"/>) and every structural scan share, so they never disagree on where a
+        /// literal ends.
+        /// </summary>
+        private static bool ClosesLiteral(string text, int quoteIndex)
+        {
+            var i = quoteIndex + 1;
+            if (i >= text.Length || text[i] == ')' || text[i] == ',')
+            {
+                return true;
+            }
+
+            if (!char.IsWhiteSpace(text[i]))
+            {
+                return false;
+            }
+
+            while (i < text.Length && char.IsWhiteSpace(text[i]))
+            {
+                i++;
+            }
+
+            if (i >= text.Length || text[i] == ')' || text[i] == ',')
+            {
+                return true;
+            }
+
+            var wordStart = i;
+            while (i < text.Length && !char.IsWhiteSpace(text[i]) && text[i] != '(' && text[i] != ')' && text[i] != ',')
+            {
+                i++;
+            }
+
+            var word = text.Substring(wordStart, i - wordStart);
+            return word.IsOperation() || word.IsArithmetic();
         }
 
         /// <summary>

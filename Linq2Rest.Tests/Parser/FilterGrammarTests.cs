@@ -88,7 +88,6 @@ namespace LinqConvertTools.Tests.Parser
         [TestCase("Status in ('a (b', ':)'")]
         [TestCase("Priority in (1, 2")]
         [TestCase("Status eq 'x or y' x")]
-        [TestCase("Status in ('a'b, ':)')")]
         public void RejectsTextAfterStringLiteral(string filter)
         {
             ArgumentNullException.ThrowIfNull(_converter);
@@ -105,6 +104,32 @@ namespace LinqConvertTools.Tests.Parser
 
             var exception = Assert.Throws<InvalidOperationException>(() => _converter.Convert<Record>(filter));
             StringAssert.Contains("as boolean", exception!.Message);
+        }
+
+        [TestCase("Note eq 'it's'", "3")]
+        [TestCase("(Note eq 'it's')", "3")]
+        [TestCase("(Priority eq 1) or (Note eq 'it's')", "1,3")]
+        [TestCase("Note eq 'it's' or Priority eq 2", "2,3")]
+        [TestCase("Note in ('it's', 'n1')", "1,3")]
+        [TestCase("Status eq 'it's (x)'", "4")]
+        public void ReadsUnescapedApostrophesInLiterals(string filter, string expectedIds)
+        {
+            AssertMatches(filter, expectedIds);
+        }
+
+        [Test]
+        public void ReadsLiteralContainingArithmeticWord()
+        {
+            ArgumentNullException.ThrowIfNull(_converter);
+            var rows = new[]
+            {
+                new Record { Id = 1, Note = "Don't add sugar" },
+                new Record { Id = 2, Note = "sugar" },
+            };
+
+            var predicate = _converter.Convert<Record>("Note eq 'Don't add sugar'");
+
+            CollectionAssert.AreEqual(new[] { 1 }, rows.AsQueryable().Where(predicate).Select(r => r.Id).ToArray());
         }
 
         [TestCase("startswith(Status, 'x or')", "3")]
@@ -210,6 +235,15 @@ namespace LinqConvertTools.Tests.Parser
             {
                 AssertMatches(filter, expectedIds);
             }
+        }
+
+        [Test, Timeout(10000)]
+        public void RejectsDeeplyNestedArithmeticWithoutRescanningEachLevel()
+        {
+            ArgumentNullException.ThrowIfNull(_converter);
+            var filter = string.Concat(Enumerable.Repeat("1 add ", 4000)) + "1 eq 5";
+
+            Assert.Throws<InvalidOperationException>(() => _converter.Convert<Record>(filter));
         }
 
         [TestCase("IsActive eq yes", new[] { 1, 3 })]
