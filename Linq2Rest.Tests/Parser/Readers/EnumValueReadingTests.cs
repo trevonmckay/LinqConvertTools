@@ -90,6 +90,17 @@ namespace LinqConvertTools.Tests.Parser.Readers
         }
 
         [Test]
+        public void NotAMemberMessageListsMembersByShortTypeName()
+        {
+            var ex = Assert.Throws<FormatException>(() => Read("'Nope'"));
+
+            Assert.That(ex!.Message, Does.Contain("Nope"));
+            Assert.That(ex.Message, Does.Contain("Choice"));
+            Assert.That(ex.Message, Does.Contain("This").And.Contain("That").And.Contain("Either"));
+            Assert.That(ex.Message, Does.Not.Contain("LinqConvertTools"));
+        }
+
+        [Test]
         public void RejectsCommaCombinationOnNonFlagsEnumWhenNamesOnlyIsOn()
         {
             // DayOfWeek is not a [Flags] enum, so combining its members is meaningless; without this guard

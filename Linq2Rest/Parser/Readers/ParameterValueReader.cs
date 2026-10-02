@@ -160,13 +160,13 @@ namespace LinqConvertTools.Parser.Readers
                 int lastQuote = token.Length - 1;
                 if (lastQuote <= firstQuote)
                 {
-                    throw new FormatException("Could not read " + token + " as " + enumType.FullName + ".");
+                    throw new FormatException("Could not read " + token + " as " + enumType.Name + ".");
                 }
 
                 string qualifier = token.Substring(0, firstQuote);
                 if (qualifier.Length > 0 && !QualifierMatchesType(qualifier, enumType))
                 {
-                    throw new FormatException("The enum type '" + qualifier + "' in " + token + " is not " + enumType.FullName + ".");
+                    throw new FormatException("The enum type '" + qualifier + "' in " + token + " is not " + enumType.Name + ".");
                 }
 
                 member = token.Substring(firstQuote + 1, lastQuote - firstQuote - 1);
@@ -181,7 +181,7 @@ namespace LinqConvertTools.Parser.Readers
                 // still OR the members together and silently yield a value equal to some unrelated member.
                 if (parts.Length > 1 && !enumType.IsDefined(typeof(FlagsAttribute), false))
                 {
-                    throw new FormatException("'" + member + "' combines members, but " + enumType.FullName + " is not a [Flags] enum.");
+                    throw new FormatException("'" + member + "' combines members, but " + enumType.Name + " is not a [Flags] enum.");
                 }
 
                 foreach (string part in parts)
@@ -189,7 +189,7 @@ namespace LinqConvertTools.Parser.Readers
                     string name = part.Trim();
                     if (name.Length == 0 || long.TryParse(name, out _) || !Array.Exists(names, n => string.Equals(n, name, StringComparison.OrdinalIgnoreCase)))
                     {
-                        throw new FormatException("'" + name + "' is not a named member of " + enumType.FullName + ".");
+                        throw new FormatException(NotAMemberMessage(name, enumType));
                     }
                 }
             }
@@ -200,8 +200,18 @@ namespace LinqConvertTools.Parser.Readers
             }
             catch (ArgumentException)
             {
-                throw new FormatException("'" + member + "' is not a member of " + enumType.FullName + ".");
+                throw new FormatException(NotAMemberMessage(member, enumType));
             }
+        }
+
+        /// <summary>
+        /// Builds the message for a value that is not a member of <paramref name="enumType"/>. It names the type by its
+        /// short name and lists the defined members, so a caller that surfaces the message (for example as an HTTP 400)
+        /// shows the allowed values without the type's namespace.
+        /// </summary>
+        private static string NotAMemberMessage(string value, Type enumType)
+        {
+            return "'" + value + "' is not a member of " + enumType.Name + ". Members: " + string.Join(", ", Enum.GetNames(enumType)) + ".";
         }
 
         /// <summary>
