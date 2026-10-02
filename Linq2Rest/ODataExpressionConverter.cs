@@ -68,12 +68,25 @@ namespace LinqConvertTools
         /// <param name="memberNameResolver">The custom <see cref="IMemberNameResolver"/> to use.</param>
         /// <param name="caseFolding">The string methods used for case-insensitive comparisons and the <c>toupper()</c> and <c>tolower()</c> functions.</param>
         public ODataExpressionConverter(IEnumerable<IValueWriter> valueWriters, IEnumerable<IValueExpressionFactory> valueExpressionFactories, IMemberNameResolver? memberNameResolver, StringCaseFolding caseFolding)
+            : this(valueWriters, valueExpressionFactories, memberNameResolver, caseFolding, false)
+        {
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ODataExpressionConverter"/> class.
+        /// </summary>
+        /// <param name="valueWriters">The custom value writers to use.</param>
+        /// <param name="valueExpressionFactories">The custom expression writers to use.</param>
+        /// <param name="memberNameResolver">The custom <see cref="IMemberNameResolver"/> to use.</param>
+        /// <param name="caseFolding">The string methods used for case-insensitive comparisons and the <c>toupper()</c> and <c>tolower()</c> functions.</param>
+        /// <param name="enumNamesOnly">When <c>true</c>, an enum literal in a filter is read only as a defined member name; a numeric value or an undefined name is rejected.</param>
+        public ODataExpressionConverter(IEnumerable<IValueWriter> valueWriters, IEnumerable<IValueExpressionFactory> valueExpressionFactories, IMemberNameResolver? memberNameResolver, StringCaseFolding caseFolding, bool enumNamesOnly)
         {
             var writers = (valueWriters ?? Enumerable.Empty<IValueWriter>()).ToArray();
             var expressionFactories = (valueExpressionFactories ?? Enumerable.Empty<IValueExpressionFactory>()).ToArray();
             var nameResolver = memberNameResolver ?? new MemberNameResolver();
             _writer = new ExpressionWriter(nameResolver, writers);
-            _parser = new FilterExpressionFactory(nameResolver, expressionFactories, caseFolding);
+            _parser = new FilterExpressionFactory(nameResolver, expressionFactories, caseFolding, enumNamesOnly);
         }
 
         /// <summary>
@@ -112,6 +125,7 @@ namespace LinqConvertTools
         /// sources should cap their length before calling this method.
         /// </remarks>
         /// <exception cref="InvalidOperationException">The filter is not valid, or it nests deeper than <see cref="MaxDepth"/>.</exception>
+        /// <exception cref="FormatException">A literal in the filter cannot be read as the type of the member it is compared with, such as an undefined enum member name.</exception>
         /// <exception cref="InsufficientExecutionStackException">The filter is nested too deeply to parse on the current thread's stack.</exception>
         /// <exception cref="System.Text.RegularExpressions.RegexMatchTimeoutException">Tokenizing part of the filter took longer than the parser allows.</exception>
         public Expression<Func<T, bool>> Convert<T>(string filter, bool ignoreCase = false)
