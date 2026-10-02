@@ -117,6 +117,10 @@ namespace LinqConvertTools.IntegrationTests
             new object[] { "status eq null", true, "C" },
             new object[] { "status ne null", true, "A,B,D" },
             new object[] { "status in keywords", true, "A,B" },
+            new object[] { "kind eq 'Review'", false, "B" },
+            new object[] { "kind eq 'review'", false, "B" },
+            new object[] { "kind ne 'Report'", false, "B,C" },
+            new object[] { "kind in ('Report', 'Memo')", false, "A,C,D" },
             new object[] { "author/name eq 'ada'", true, "A,C" },
             new object[] { "tags/any(t: t/value eq 'EMAIL')", true, "A,B" },
         };
@@ -191,6 +195,7 @@ namespace LinqConvertTools.IntegrationTests
                 Author = new Author { Name = "Ada" },
                 Tags = { new Tag { Value = "email" }, new Tag { Value = "finance" } },
                 Keywords = { "open", "priority" },
+                Kind = DocumentKind.Report,
             };
             yield return new Document
             {
@@ -203,6 +208,7 @@ namespace LinqConvertTools.IntegrationTests
                 Author = new Author { Name = "Grace" },
                 Tags = { new Tag { Value = "email" } },
                 Keywords = { "CLOSED" },
+                Kind = DocumentKind.Review,
             };
             yield return new Document
             {
@@ -213,6 +219,7 @@ namespace LinqConvertTools.IntegrationTests
                 CreatedAt = new DateTimeOffset(2025, 2, 10, 23, 59, 59, TimeSpan.Zero),
                 Author = new Author { Name = "Ada" },
                 Keywords = { "draft" },
+                Kind = DocumentKind.Memo,
             };
             yield return new Document
             {
@@ -225,6 +232,7 @@ namespace LinqConvertTools.IntegrationTests
                 Author = new Author { Name = "Linus" },
                 Tags = { new Tag { Value = "legal" } },
                 Keywords = { "archived" },
+                Kind = DocumentKind.Report,
             };
         }
     }

@@ -60,14 +60,15 @@ namespace LinqConvertTools.Parser
         /// <param name="memberNameResolver">An <see cref="IMemberNameResolver"/> for name resolution.</param>
         /// <param name="expressionFactories">The custom <see cref="IValueExpressionFactory"/> to use for value conversion.</param>
         /// <param name="caseFolding">The string methods used for case-insensitive comparisons and the <c>toupper()</c> and <c>tolower()</c> functions.</param>
-        public FilterExpressionFactory(IMemberNameResolver memberNameResolver, IEnumerable<IValueExpressionFactory> expressionFactories, StringCaseFolding caseFolding)
+        /// <param name="enumNamesOnly">When <c>true</c>, an enum literal is read only as a defined member name; a numeric value or an undefined name is rejected.</param>
+        public FilterExpressionFactory(IMemberNameResolver memberNameResolver, IEnumerable<IValueExpressionFactory> expressionFactories, StringCaseFolding caseFolding, bool enumNamesOnly = false)
         {
             if (!Enum.IsDefined(typeof(StringCaseFolding), caseFolding))
             {
                 throw new ArgumentOutOfRangeException(nameof(caseFolding), caseFolding, "Unknown string case folding.");
             }
 
-            _valueReader = new ParameterValueReader(expressionFactories);
+            _valueReader = new ParameterValueReader(expressionFactories, enumNamesOnly);
             _memberNameResolver = memberNameResolver;
             _caseFolding = caseFolding;
             _toUpperMethod = MethodProvider.GetToUpperMethod(caseFolding);
@@ -761,6 +762,14 @@ namespace LinqConvertTools.Parser
                 if (literalArithmetic is not null)
                 {
                     return literalArithmetic;
+                }
+
+                // A quoted literal compared with an enum member is read as that enum (by member name), not as text.
+                // The value reader still lets a custom factory for the type win, and reads the member against the
+                // known enum type so no enum type is resolved from the literal's own text.
+                if (type is not null && filter.IsWholeStringLiteral() && GetNonNullableType(type).IsEnum)
+                {
+                    return _valueReader.Read(type, filter, formatProvider);
                 }
 
                 TryReadStringLiteral(filter, out string? stringLiteral);

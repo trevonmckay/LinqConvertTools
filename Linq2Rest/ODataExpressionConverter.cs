@@ -67,13 +67,14 @@ namespace LinqConvertTools
         /// <param name="valueExpressionFactories">The custom expression writers to use.</param>
         /// <param name="memberNameResolver">The custom <see cref="IMemberNameResolver"/> to use.</param>
         /// <param name="caseFolding">The string methods used for case-insensitive comparisons and the <c>toupper()</c> and <c>tolower()</c> functions.</param>
-        public ODataExpressionConverter(IEnumerable<IValueWriter> valueWriters, IEnumerable<IValueExpressionFactory> valueExpressionFactories, IMemberNameResolver? memberNameResolver, StringCaseFolding caseFolding)
+        /// <param name="enumNamesOnly">When <c>true</c>, an enum literal in a filter is read only as a defined member name; a numeric value or an undefined name is rejected.</param>
+        public ODataExpressionConverter(IEnumerable<IValueWriter> valueWriters, IEnumerable<IValueExpressionFactory> valueExpressionFactories, IMemberNameResolver? memberNameResolver, StringCaseFolding caseFolding, bool enumNamesOnly = false)
         {
             var writers = (valueWriters ?? Enumerable.Empty<IValueWriter>()).ToArray();
             var expressionFactories = (valueExpressionFactories ?? Enumerable.Empty<IValueExpressionFactory>()).ToArray();
             var nameResolver = memberNameResolver ?? new MemberNameResolver();
             _writer = new ExpressionWriter(nameResolver, writers);
-            _parser = new FilterExpressionFactory(nameResolver, expressionFactories, caseFolding);
+            _parser = new FilterExpressionFactory(nameResolver, expressionFactories, caseFolding, enumNamesOnly);
         }
 
         /// <summary>

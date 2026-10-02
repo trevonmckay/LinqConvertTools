@@ -23,16 +23,18 @@ namespace LinqConvertTools.Parser.Readers
     {
         private readonly IList<IValueExpressionFactory> _expressionFactories;
         private readonly IValueExpressionFactory[] _customFactories;
+        private readonly bool _enumNamesOnly;
 
-        public ParameterValueReader(IEnumerable<IValueExpressionFactory> expressionFactories)
+        public ParameterValueReader(IEnumerable<IValueExpressionFactory> expressionFactories, bool enumNamesOnly = false)
         {
+            _enumNamesOnly = enumNamesOnly;
 
-
+            // Enum literals are read against the type of the member they are compared with (see GetKnownConstant),
+            // so no factory scans assemblies to resolve an enum type from a client-supplied name.
             _customFactories = expressionFactories.ToArray();
             _expressionFactories = _customFactories.Concat(
                 new IValueExpressionFactory[]
                 {
-                    new EnumExpressionFactory(),
                     new BooleanExpressionFactory(),
                     new ByteExpressionFactory(),
                     new GuidExpressionFactory(),
@@ -111,8 +113,7 @@ namespace LinqConvertTools.Parser.Readers
         {
             if (type.IsEnum)
             {
-                var enumValue = Enum.Parse(type, token.Replace("'", string.Empty), true);
-                return Expression.Constant(enumValue);
+                return Expression.Constant(ReadEnum(type, token));
             }
 
             if (typeof(IConvertible).IsAssignableFrom(type))
@@ -136,6 +137,60 @@ namespace LinqConvertTools.Parser.Readers
             }
 
             return GetParseExpression(token, formatProvider, type);
+        }
+
+        /// <summary>
+        /// Reads an enum literal against the type of the member it is compared with. The literal may be an unqualified
+        /// member name (<c>Received</c> or <c>'Received'</c>) or a qualified one (<c>Ns.Type'Received'</c>); a qualifier
+        /// is checked against the member's enum type rather than used to look a type up. When the reader is in
+        /// names-only mode, a numeric value or a name that is not defined on the type is rejected.
+        /// </summary>
+        /// <exception cref="FormatException">The qualifier names a different type, or the value is not a member of the enum.</exception>
+        private object ReadEnum(Type enumType, string token)
+        {
+            string member = token;
+            char quote = token.IndexOf('\'') >= 0 ? '\'' : '"';
+            int firstQuote = token.IndexOf(quote);
+            if (firstQuote >= 0)
+            {
+                int lastQuote = token.LastIndexOf(quote);
+                if (lastQuote <= firstQuote)
+                {
+                    throw new FormatException("Could not read " + token + " as " + enumType.FullName + ".");
+                }
+
+                string qualifier = token.Substring(0, firstQuote);
+                if (qualifier.Length > 0
+                    && !string.Equals(qualifier, enumType.FullName, StringComparison.Ordinal)
+                    && !string.Equals(qualifier, enumType.Name, StringComparison.Ordinal))
+                {
+                    throw new FormatException("The enum type '" + qualifier + "' in " + token + " is not " + enumType.FullName + ".");
+                }
+
+                member = token.Substring(firstQuote + 1, lastQuote - firstQuote - 1);
+            }
+
+            if (_enumNamesOnly)
+            {
+                string[] names = Enum.GetNames(enumType);
+                foreach (string part in member.Split(','))
+                {
+                    string name = part.Trim();
+                    if (name.Length == 0 || long.TryParse(name, out _) || !Array.Exists(names, n => string.Equals(n, name, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        throw new FormatException("'" + name + "' is not a named member of " + enumType.FullName + ".");
+                    }
+                }
+            }
+
+            try
+            {
+                return Enum.Parse(enumType, member, true);
+            }
+            catch (ArgumentException)
+            {
+                throw new FormatException("'" + member + "' is not a member of " + enumType.FullName + ".");
+            }
         }
 
         [ContractInvariantMethod]
