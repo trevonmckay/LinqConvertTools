@@ -755,8 +755,10 @@ namespace LinqConvertTools.Parser
 
             if (filter[0] == '\'' || filter[0] == '"')
             {
+                bool isWholeStringLiteral = filter.IsWholeStringLiteral();
+
                 // An arithmetic expression can start with a literal operand, such as 'a' add 1.
-                Expression? literalArithmetic = filter.IsWholeStringLiteral()
+                Expression? literalArithmetic = isWholeStringLiteral
                     ? null
                     : GetArithmeticExpression<T>(filter, sourceParameter, lambdaParameters, type, formatProvider, ignoreCase, depth);
                 if (literalArithmetic is not null)
@@ -767,7 +769,7 @@ namespace LinqConvertTools.Parser
                 // A quoted literal compared with an enum member is read as that enum (by member name), not as text.
                 // The value reader still lets a custom factory for the type win, and reads the member against the
                 // known enum type so no enum type is resolved from the literal's own text.
-                if (type is not null && filter.IsWholeStringLiteral() && GetNonNullableType(type).IsEnum)
+                if (type is not null && isWholeStringLiteral && GetNonNullableType(type).IsEnum)
                 {
                     return _valueReader.Read(type, filter, formatProvider);
                 }

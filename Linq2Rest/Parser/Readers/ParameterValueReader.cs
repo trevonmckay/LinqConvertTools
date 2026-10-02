@@ -1,6 +1,6 @@
 // --------------------------------------------------------------------------------------------------------------------
 // <copyright file="ParameterValueReader.cs" company="Reimers.dk">
-//   Copyright © Reimers.dk 2014
+//   Copyright ï¿½ Reimers.dk 2014
 //   This source is subject to the Microsoft Public License (Ms-PL).
 //   Please see http://go.microsoft.com/fwlink/?LinkID=131993 for details.
 //   All other rights reserved.
@@ -160,9 +160,7 @@ namespace LinqConvertTools.Parser.Readers
                 }
 
                 string qualifier = token.Substring(0, firstQuote);
-                if (qualifier.Length > 0
-                    && !string.Equals(qualifier, enumType.FullName, StringComparison.Ordinal)
-                    && !string.Equals(qualifier, enumType.Name, StringComparison.Ordinal))
+                if (qualifier.Length > 0 && !QualifierMatchesType(qualifier, enumType))
                 {
                     throw new FormatException("The enum type '" + qualifier + "' in " + token + " is not " + enumType.FullName + ".");
                 }
@@ -191,6 +189,18 @@ namespace LinqConvertTools.Parser.Readers
             {
                 throw new FormatException("'" + member + "' is not a member of " + enumType.FullName + ".");
             }
+        }
+
+        /// <summary>
+        /// Matches a qualifier in a qualified enum literal against the enum type, case-insensitively like the member
+        /// name. A nested type's <see cref="Type.FullName"/> joins the nesting with <c>+</c> while a filter usually
+        /// writes it with <c>.</c>, so the full name is compared with the separators normalized; the short name is
+        /// also accepted.
+        /// </summary>
+        private static bool QualifierMatchesType(string qualifier, Type enumType)
+        {
+            return string.Equals(qualifier, enumType.Name, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(qualifier.Replace('+', '.'), (enumType.FullName ?? string.Empty).Replace('+', '.'), StringComparison.OrdinalIgnoreCase);
         }
 
         [ContractInvariantMethod]

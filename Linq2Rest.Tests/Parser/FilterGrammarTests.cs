@@ -296,6 +296,34 @@ namespace LinqConvertTools.Tests.Parser
             AssertMatches("Kind eq '1'", "1,4");
         }
 
+        [Test]
+        public void ReadsQualifiedEnumLiterals()
+        {
+            ArgumentNullException.ThrowIfNull(_converter);
+            ArgumentNullException.ThrowIfNull(_records);
+
+            string full = typeof(Kind).FullName!;
+            foreach (var filter in new[]
+            {
+                "Kind eq " + full + "'Beta'",                      // exact FullName (a nested type uses '+')
+                "Kind eq " + full.Replace('+', '.') + "'Beta'",    // the dotted form a client would write
+                "Kind eq Kind'Beta'",                              // short type name
+                "Kind eq kind'Beta'",                              // qualifier matched case-insensitively
+            })
+            {
+                var predicate = _converter.Convert<Record>(filter);
+                CollectionAssert.AreEqual(new[] { 2 }, _records.AsQueryable().Where(predicate).Select(r => r.Id).ToArray(), "Failed for " + filter);
+            }
+        }
+
+        [Test]
+        public void RejectsQualifiedEnumLiteralWithWrongType()
+        {
+            ArgumentNullException.ThrowIfNull(_converter);
+
+            Assert.Throws<FormatException>(() => _converter.Convert<Record>("Kind eq System.DayOfWeek'Beta'"));
+        }
+
         [TestCase(200, "1")]
         [TestCase(300, null)]
         [TestCase(40000, null)]
