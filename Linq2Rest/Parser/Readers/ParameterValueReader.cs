@@ -149,11 +149,15 @@ namespace LinqConvertTools.Parser.Readers
         private object ReadEnum(Type enumType, string token)
         {
             string member = token;
-            char quote = token.IndexOf('\'') >= 0 ? '\'' : '"';
-            int firstQuote = token.IndexOf(quote);
-            if (firstQuote >= 0)
+
+            // A quoted enum literal ends with its closing quote and the matching open quote is the first occurrence
+            // of that same character, so the delimiter is chosen by position rather than by which quote character
+            // happens to appear first in the token.
+            if (token.Length > 0 && (token[token.Length - 1] == '\'' || token[token.Length - 1] == '"'))
             {
-                int lastQuote = token.LastIndexOf(quote);
+                char quote = token[token.Length - 1];
+                int firstQuote = token.IndexOf(quote);
+                int lastQuote = token.Length - 1;
                 if (lastQuote <= firstQuote)
                 {
                     throw new FormatException("Could not read " + token + " as " + enumType.FullName + ".");

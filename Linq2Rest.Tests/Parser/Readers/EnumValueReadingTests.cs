@@ -34,6 +34,7 @@ namespace LinqConvertTools.Tests.Parser.Readers
         }
 
         [TestCase("'That'")]
+        [TestCase("\"That\"")]
         [TestCase("That")]
         [TestCase("'that'")]
         [TestCase("LinqConvertTools.Tests.Choice'That'")]
