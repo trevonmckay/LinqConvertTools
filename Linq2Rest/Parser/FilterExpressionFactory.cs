@@ -60,8 +60,19 @@ namespace LinqConvertTools.Parser
         /// <param name="memberNameResolver">An <see cref="IMemberNameResolver"/> for name resolution.</param>
         /// <param name="expressionFactories">The custom <see cref="IValueExpressionFactory"/> to use for value conversion.</param>
         /// <param name="caseFolding">The string methods used for case-insensitive comparisons and the <c>toupper()</c> and <c>tolower()</c> functions.</param>
+        public FilterExpressionFactory(IMemberNameResolver memberNameResolver, IEnumerable<IValueExpressionFactory> expressionFactories, StringCaseFolding caseFolding)
+            : this(memberNameResolver, expressionFactories, caseFolding, false)
+        {
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="FilterExpressionFactory"/> class.
+        /// </summary>
+        /// <param name="memberNameResolver">An <see cref="IMemberNameResolver"/> for name resolution.</param>
+        /// <param name="expressionFactories">The custom <see cref="IValueExpressionFactory"/> to use for value conversion.</param>
+        /// <param name="caseFolding">The string methods used for case-insensitive comparisons and the <c>toupper()</c> and <c>tolower()</c> functions.</param>
         /// <param name="enumNamesOnly">When <c>true</c>, an enum literal is read only as a defined member name; a numeric value or an undefined name is rejected.</param>
-        public FilterExpressionFactory(IMemberNameResolver memberNameResolver, IEnumerable<IValueExpressionFactory> expressionFactories, StringCaseFolding caseFolding, bool enumNamesOnly = false)
+        public FilterExpressionFactory(IMemberNameResolver memberNameResolver, IEnumerable<IValueExpressionFactory> expressionFactories, StringCaseFolding caseFolding, bool enumNamesOnly)
         {
             if (!Enum.IsDefined(typeof(StringCaseFolding), caseFolding))
             {

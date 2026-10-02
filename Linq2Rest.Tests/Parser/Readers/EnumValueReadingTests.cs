@@ -81,5 +81,20 @@ namespace LinqConvertTools.Tests.Parser.Readers
         {
             Assert.AreEqual(Choice.That, Read("'That'", enumNamesOnly: true));
         }
+
+        [Test]
+        public void ReadsFlagsCombinationWhenNamesOnlyIsOn()
+        {
+            Assert.AreEqual(Choice.Either, Read("'This, That'", enumNamesOnly: true));
+        }
+
+        [Test]
+        public void RejectsCommaCombinationOnNonFlagsEnumWhenNamesOnlyIsOn()
+        {
+            // DayOfWeek is not a [Flags] enum, so combining its members is meaningless; without this guard
+            // Enum.Parse would still OR them into a value equal to some unrelated member.
+            var reader = new ParameterValueReader(Enumerable.Empty<IValueExpressionFactory>(), enumNamesOnly: true);
+            Assert.Throws<FormatException>(() => reader.Read(typeof(DayOfWeek), "'Monday,Tuesday'", CultureInfo.InvariantCulture));
+        }
     }
 }

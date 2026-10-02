@@ -171,7 +171,16 @@ namespace LinqConvertTools.Parser.Readers
             if (_enumNamesOnly)
             {
                 string[] names = Enum.GetNames(enumType);
-                foreach (string part in member.Split(','))
+                string[] parts = member.Split(',');
+
+                // A comma-combined value only makes sense for a [Flags] enum; on any other enum Enum.Parse would
+                // still OR the members together and silently yield a value equal to some unrelated member.
+                if (parts.Length > 1 && !enumType.IsDefined(typeof(FlagsAttribute), false))
+                {
+                    throw new FormatException("'" + member + "' combines members, but " + enumType.FullName + " is not a [Flags] enum.");
+                }
+
+                foreach (string part in parts)
                 {
                     string name = part.Trim();
                     if (name.Length == 0 || long.TryParse(name, out _) || !Array.Exists(names, n => string.Equals(n, name, StringComparison.OrdinalIgnoreCase)))

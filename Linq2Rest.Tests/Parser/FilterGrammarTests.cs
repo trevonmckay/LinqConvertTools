@@ -287,6 +287,7 @@ namespace LinqConvertTools.Tests.Parser
 
             Assert.Throws<FormatException>(() => converter.Convert<Record>("Kind eq '1'"));
             Assert.Throws<FormatException>(() => converter.Convert<Record>("Kind eq 'Nope'"));
+            Assert.Throws<FormatException>(() => converter.Convert<Record>("Kind eq 'Alpha,Beta'"));
             Assert.DoesNotThrow(() => converter.Convert<Record>("Kind eq 'Alpha'"));
         }
 
