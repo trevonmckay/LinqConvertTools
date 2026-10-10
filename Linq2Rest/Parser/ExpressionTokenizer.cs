@@ -179,7 +179,8 @@ namespace LinqConvertTools.Parser
         }
 
         /// <summary>
-        /// Splits an arithmetic expression at its last top-level arithmetic operator.
+        /// Splits an arithmetic expression at its lowest-precedence top-level operator, so that mul/div/mod bind
+        /// tighter than add/sub and each precedence level is left-associative.
         /// </summary>
         /// <returns>The operands and operator, or <c>null</c> when no arithmetic operator is outside parentheses, such
         /// as in <c>round(Price mul 2)</c>.</returns>
@@ -502,9 +503,20 @@ namespace LinqConvertTools.Parser
         private static int GetArithmeticOperationIndex(List<string> blocks)
         {
             var topLevel = GetTopLevelFlags(blocks);
+
+            // mul/div/mod bind tighter than add/sub, so the tree's root is the lowest-precedence operator present:
+            // the rightmost top-level add/sub when any is present, otherwise the rightmost top-level mul/div/mod.
+            // Taking the rightmost of a precedence level keeps that level left-associative, since the left operand
+            // (everything before the split) is parsed recursively.
+            var additive = LastTopLevelArithmeticIndex(blocks, topLevel, additiveOnly: true);
+            return additive >= 0 ? additive : LastTopLevelArithmeticIndex(blocks, topLevel, additiveOnly: false);
+        }
+
+        private static int LastTopLevelArithmeticIndex(List<string> blocks, bool[] topLevel, bool additiveOnly)
+        {
             for (var i = blocks.Count - 1; i >= 0; i--)
             {
-                if (topLevel[i] && blocks[i].IsArithmetic())
+                if (topLevel[i] && blocks[i].IsArithmetic() && blocks[i].IsAdditiveArithmetic() == additiveOnly)
                 {
                     return i;
                 }
