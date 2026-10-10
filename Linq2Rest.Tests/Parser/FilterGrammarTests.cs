@@ -84,6 +84,19 @@ namespace LinqConvertTools.Tests.Parser
             AssertMatches(filter, expectedIds);
         }
 
+        // Priority is 1,2,3,4. Each case resolves to a different row under correct precedence than under the old
+        // left-to-right evaluation, so a regression would change the matched ids rather than merely still pass.
+        [TestCase("Priority add 1 mul 2 eq 5", "3")]   // P + (1*2) = 5; left-to-right (P+1)*2 has no integer match
+        [TestCase("Priority add 4 div 2 eq 3", "1")]   // P + (4/2) = 3; left-to-right (P+4)/2 = 3 would match P=2
+        [TestCase("Priority sub 1 mul 2 eq 2", "4")]   // P - (1*2) = 2; left-to-right (P-1)*2 = 2 would match P=2
+        [TestCase("Priority mul 2 add 1 eq 5", "2")]   // (P*2) + 1 = 5
+        [TestCase("Priority sub 1 add 2 eq 3", "2")]   // ((P-1)+2) = 3: add/sub stay left-associative
+        [TestCase("Priority mul 4 div 2 eq 4", "2")]   // ((P*4)/2) = 4: mul/div stay left-associative
+        public void AppliesArithmeticOperatorPrecedence(string filter, string expectedIds)
+        {
+            AssertMatches(filter, expectedIds);
+        }
+
         [TestCase("Status eq 'abc'def")]
         [TestCase("Status in ('a (b', ':)'")]
         [TestCase("Priority in (1, 2")]
