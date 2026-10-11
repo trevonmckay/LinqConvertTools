@@ -45,5 +45,14 @@ namespace LinqConvertTools.Tests.Parser
             // The null-member row matches none of the three branches, and evaluating substringof against it must not throw.
             Assert.AreEqual("AE,GB,SA", Match("countryCode eq 'AE' or substringof('G', countryCode) or countryCode eq 'SA'"));
         }
+
+        [Test]
+        [TestCase("substringof('A', countryCode) ne true")]
+        [TestCase("substringof('A', countryCode) eq false")]
+        public void NegatedSubstringof_IncludesNullMemberRow(string filter)
+        {
+            // A null member contains nothing, so "does not contain 'A'" is true for it, consistent with contains/startswith/endswith.
+            Assert.AreEqual("GB,none", Match(filter));
+        }
     }
 }
