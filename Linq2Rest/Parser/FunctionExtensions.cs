@@ -17,32 +17,41 @@ namespace LinqConvertTools.Parser
 
     internal static class FunctionExtensions
     {
-        private static readonly Dictionary<string, Type> KnownFunctions = new Dictionary<string, Type>
+        private static readonly Dictionary<string, (Type Type, int Arguments)> KnownFunctions = new(StringComparer.OrdinalIgnoreCase)
                                                                               {
-                                                                                  { "length", typeof(int) },
-                                                                                  { "substring", typeof(string) },
-                                                                                  { "substringof", typeof(bool) },
-                                                                                  { "contains", typeof(bool) },
-                                                                                  { "endswith", typeof(bool) },
-                                                                                  { "startswith", typeof(bool) },
-                                                                                  { "indexof", typeof(int) },
-                                                                                  { "tolower", typeof(string) },
-                                                                                  { "toupper", typeof(string) },
-                                                                                  { "trim", typeof(string) },
-                                                                                  { "year", typeof(int) },
-                                                                                  { "month", typeof(int) },
-                                                                                  { "day", typeof(int) },
-                                                                                  { "hour", typeof(int) },
-                                                                                  { "minute", typeof(int) },
-                                                                                  { "second", typeof(int) },
-                                                                                  { "floor", typeof(int) },
-                                                                                  { "ceiling", typeof(int) },
-                                                                                  { "round", typeof(double) }
+                                                                                  { "length", (typeof(int), 1) },
+                                                                                  { "substring", (typeof(string), 2) },
+                                                                                  { "substringof", (typeof(bool), 2) },
+                                                                                  { "contains", (typeof(bool), 2) },
+                                                                                  { "endswith", (typeof(bool), 2) },
+                                                                                  { "startswith", (typeof(bool), 2) },
+                                                                                  { "indexof", (typeof(int), 2) },
+                                                                                  { "tolower", (typeof(string), 1) },
+                                                                                  { "toupper", (typeof(string), 1) },
+                                                                                  { "trim", (typeof(string), 1) },
+                                                                                  { "year", (typeof(int), 1) },
+                                                                                  { "month", (typeof(int), 1) },
+                                                                                  { "day", (typeof(int), 1) },
+                                                                                  { "hour", (typeof(int), 1) },
+                                                                                  { "minute", (typeof(int), 1) },
+                                                                                  { "second", (typeof(int), 1) },
+                                                                                  { "floor", (typeof(int), 1) },
+                                                                                  { "ceiling", (typeof(int), 1) },
+                                                                                  { "round", (typeof(double), 1) }
                                                                               };
 
         public static Type? GetFunctionType(this string functionName)
         {
-            return KnownFunctions.TryGetValue(functionName, out Type? type) ? type : null;
+            return KnownFunctions.TryGetValue(functionName, out var function) ? function.Type : null;
+        }
+
+        /// <summary>
+        /// Gets the number of arguments a known function takes.
+        /// </summary>
+        /// <returns>The number of arguments, or <c>null</c> when <paramref name="functionName"/> is not a known function.</returns>
+        public static int? GetFunctionArgumentCount(this string functionName)
+        {
+            return KnownFunctions.TryGetValue(functionName, out var function) ? function.Arguments : null;
         }
     }
 }

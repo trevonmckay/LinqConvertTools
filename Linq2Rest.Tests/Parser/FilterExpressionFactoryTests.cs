@@ -195,12 +195,12 @@ namespace LinqConvertTools.Tests.Parser
             [TestCase("indexof(StringValue, 'text') ge 1", "x => ((null != x.StringValue) AndAlso (x.StringValue.IndexOf(\"text\") >= 1))")]
             [TestCase("indexof(StringValue, 'text') lt 1", "x => ((null != x.StringValue) AndAlso (x.StringValue.IndexOf(\"text\") < 1))")]
             [TestCase("indexof(StringValue, 'text') le 1", "x => ((null != x.StringValue) AndAlso (x.StringValue.IndexOf(\"text\") <= 1))")]
-            [TestCase("indexof('text', StringValue) eq 1", "x => (\"text\".IndexOf(x.StringValue) == 1)")]
-            [TestCase("indexof('text', StringValue) ne 1", "x => (\"text\".IndexOf(x.StringValue) != 1)")]
-            [TestCase("indexof('text', StringValue) gt 1", "x => (\"text\".IndexOf(x.StringValue) > 1)")]
-            [TestCase("indexof('text', StringValue) ge 1", "x => (\"text\".IndexOf(x.StringValue) >= 1)")]
-            [TestCase("indexof('text', StringValue) lt 1", "x => (\"text\".IndexOf(x.StringValue) < 1)")]
-            [TestCase("indexof('text', StringValue) le 1", "x => (\"text\".IndexOf(x.StringValue) <= 1)")]
+            [TestCase("indexof('text', StringValue) eq 1", "x => ((null != x.StringValue) AndAlso (\"text\".IndexOf(x.StringValue) == 1))")]
+            [TestCase("indexof('text', StringValue) ne 1", "x => ((null != x.StringValue) AndAlso (\"text\".IndexOf(x.StringValue) != 1))")]
+            [TestCase("indexof('text', StringValue) gt 1", "x => ((null != x.StringValue) AndAlso (\"text\".IndexOf(x.StringValue) > 1))")]
+            [TestCase("indexof('text', StringValue) ge 1", "x => ((null != x.StringValue) AndAlso (\"text\".IndexOf(x.StringValue) >= 1))")]
+            [TestCase("indexof('text', StringValue) lt 1", "x => ((null != x.StringValue) AndAlso (\"text\".IndexOf(x.StringValue) < 1))")]
+            [TestCase("indexof('text', StringValue) le 1", "x => ((null != x.StringValue) AndAlso (\"text\".IndexOf(x.StringValue) <= 1))")]
             [TestCase("substring(StringValue, 1) eq 'text'", "x => ((null != x.StringValue) AndAlso (x.StringValue.Substring(1) == \"text\"))")]
             [TestCase("substring(StringValue, 1) ne 'text'", "x => ((null != x.StringValue) AndAlso (x.StringValue.Substring(1) != \"text\"))")]
             [TestCase("substring(StringValue, 1) ne 'text' and IntValue eq 25", "x => (((null != x.StringValue) AndAlso (x.StringValue.Substring(1) != \"text\")) AndAlso (x.IntValue == 25))")]
@@ -229,11 +229,11 @@ namespace LinqConvertTools.Tests.Parser
             [TestCase("ceiling(DecimalValue) gt 1", "x => (Ceiling(x.DecimalValue) > 1)")]
             [TestCase("(StringValue ne 'text') or IntValue gt 2", "x => ((x.StringValue != \"text\") OrElse (x.IntValue > 2))")]
             [TestCase("(startswith(tolower(StringValue),'foo') eq true and endswith(tolower(StringValue),'1') eq true) and (tolower(StringValue) eq 'bar03')",
-                "x => (((((x.StringValue.ToLower() != null) AndAlso x.StringValue.ToLower().StartsWith(\"foo\")) == True) AndAlso (((x.StringValue.ToLower() != null) AndAlso x.StringValue.ToLower().EndsWith(\"1\")) == True)) AndAlso ((null != x.StringValue) AndAlso (x.StringValue.ToLower() == \"bar03\")))")]
+                "x => (((((x.StringValue != null) AndAlso x.StringValue.ToLower().StartsWith(\"foo\")) == True) AndAlso (((x.StringValue != null) AndAlso x.StringValue.ToLower().EndsWith(\"1\")) == True)) AndAlso ((null != x.StringValue) AndAlso (x.StringValue.ToLower() == \"bar03\")))")]
             [TestCase("(startswith(tolower(StringValue),'foo') and endswith(tolower(StringValue),'1')) and (tolower(StringValue) eq 'bar03')",
-                "x => ((((x.StringValue.ToLower() != null) AndAlso x.StringValue.ToLower().StartsWith(\"foo\")) AndAlso ((x.StringValue.ToLower() != null) AndAlso x.StringValue.ToLower().EndsWith(\"1\"))) AndAlso ((null != x.StringValue) AndAlso (x.StringValue.ToLower() == \"bar03\")))")]
-            [TestCase("startswith(tolower(StringValue),'foo')", "x => ((x.StringValue.ToLower() != null) AndAlso x.StringValue.ToLower().StartsWith(\"foo\"))")]
-            [TestCase("startswith(tolower(StringValue),'foo,bar')", "x => ((x.StringValue.ToLower() != null) AndAlso x.StringValue.ToLower().StartsWith(\"foo,bar\"))")]
+                "x => ((((x.StringValue != null) AndAlso x.StringValue.ToLower().StartsWith(\"foo\")) AndAlso ((x.StringValue != null) AndAlso x.StringValue.ToLower().EndsWith(\"1\"))) AndAlso ((null != x.StringValue) AndAlso (x.StringValue.ToLower() == \"bar03\")))")]
+            [TestCase("startswith(tolower(StringValue),'foo')", "x => ((x.StringValue != null) AndAlso x.StringValue.ToLower().StartsWith(\"foo\"))")]
+            [TestCase("startswith(tolower(StringValue),'foo,bar')", "x => ((x.StringValue != null) AndAlso x.StringValue.ToLower().StartsWith(\"foo,bar\"))")]
             [TestCase("StringValue/Length eq 5 and Children/any(a: a/ChildStringValue eq 'foo')",
                 "x => (((null != x.StringValue) AndAlso (x.StringValue.Length == 5)) AndAlso x.Children.Any(a => (a.ChildStringValue == \"foo\")))")]
             [TestCase("substringof('endIsSpaceX ', StringValue) or substringof('endIsSpaceY ', StringValue)",
@@ -249,15 +249,15 @@ namespace LinqConvertTools.Tests.Parser
             [TestCase("Children/any(y: y/Children/all(z: z/GrandChildStringValue eq 'foo'))",
                 "x => x.Children.Any(y => y.Children.All(z => (z.GrandChildStringValue == \"foo\")))")]
             [TestCase("Children/any(a: startswith(tolower(a/ChildStringValue), 'foo'))",
-                "x => x.Children.Any(a => ((a.ChildStringValue.ToLower() != null) AndAlso a.ChildStringValue.ToLower().StartsWith(\"foo\")))")]
+                "x => x.Children.Any(a => ((a.ChildStringValue != null) AndAlso a.ChildStringValue.ToLower().StartsWith(\"foo\")))")]
             [TestCase("Children/all(a: startswith(tolower(a/ChildStringValue), 'foo'))",
-                "x => x.Children.All(a => ((a.ChildStringValue.ToLower() != null) AndAlso a.ChildStringValue.ToLower().StartsWith(\"foo\")))")]
+                "x => x.Children.All(a => ((a.ChildStringValue != null) AndAlso a.ChildStringValue.ToLower().StartsWith(\"foo\")))")]
             [TestCase("Children/all(a: startswith(tolower(a/ChildStringValue), 'foo') and endswith(tolower(a/ChildStringValue), 'foo'))",
-                "x => x.Children.All(a => (((a.ChildStringValue.ToLower() != null) AndAlso a.ChildStringValue.ToLower().StartsWith(\"foo\")) AndAlso ((a.ChildStringValue.ToLower() != null) AndAlso a.ChildStringValue.ToLower().EndsWith(\"foo\"))))")]
+                "x => x.Children.All(a => (((a.ChildStringValue != null) AndAlso a.ChildStringValue.ToLower().StartsWith(\"foo\")) AndAlso ((a.ChildStringValue != null) AndAlso a.ChildStringValue.ToLower().EndsWith(\"foo\"))))")]
             [TestCase("Children/any(a: a/Children/any(b: startswith(tolower(b/GrandChildStringValue), 'foo')))",
-                "x => x.Children.Any(a => a.Children.Any(b => ((b.GrandChildStringValue.ToLower() != null) AndAlso b.GrandChildStringValue.ToLower().StartsWith(\"foo\"))))")]
+                "x => x.Children.Any(a => a.Children.Any(b => ((b.GrandChildStringValue != null) AndAlso b.GrandChildStringValue.ToLower().StartsWith(\"foo\"))))")]
             [TestCase("Children/any(a: startswith(tolower(a/ChildStringValue), StringValue))",
-                "x => x.Children.Any(a => ((a.ChildStringValue.ToLower() != null) AndAlso a.ChildStringValue.ToLower().StartsWith(x.StringValue)))")]
+                "x => x.Children.Any(a => (((a.ChildStringValue != null) AndAlso (x.StringValue != null)) AndAlso a.ChildStringValue.ToLower().StartsWith(x.StringValue)))")]
             [TestCase("Children/any(a: true)", "x => x.Children.Any(a => True)")]
             [TestCase("Children/all(y: y/ID eq 2 add ID)", "x => x.Children.All(y => (y.ID == (2 + x.ID)))")]
             [TestCase("Child/Attributes/all(y: y eq 'blah')", "x => x.Child.Attributes.All(y => (y == \"blah\"))")]
@@ -436,12 +436,12 @@ namespace LinqConvertTools.Tests.Parser
             [TestCase("indexof(Text, 'text') ge 1", "x => ((null != x.StringValue) AndAlso (x.StringValue.IndexOf(\"text\") >= 1))")]
             [TestCase("indexof(Text, 'text') lt 1", "x => ((null != x.StringValue) AndAlso (x.StringValue.IndexOf(\"text\") < 1))")]
             [TestCase("indexof(Text, 'text') le 1", "x => ((null != x.StringValue) AndAlso (x.StringValue.IndexOf(\"text\") <= 1))")]
-            [TestCase("indexof('text', Text) eq 1", "x => (\"text\".IndexOf(x.StringValue) == 1)")]
-            [TestCase("indexof('text', Text) ne 1", "x => (\"text\".IndexOf(x.StringValue) != 1)")]
-            [TestCase("indexof('text', Text) gt 1", "x => (\"text\".IndexOf(x.StringValue) > 1)")]
-            [TestCase("indexof('text', Text) ge 1", "x => (\"text\".IndexOf(x.StringValue) >= 1)")]
-            [TestCase("indexof('text', Text) lt 1", "x => (\"text\".IndexOf(x.StringValue) < 1)")]
-            [TestCase("indexof('text', Text) le 1", "x => (\"text\".IndexOf(x.StringValue) <= 1)")]
+            [TestCase("indexof('text', Text) eq 1", "x => ((null != x.StringValue) AndAlso (\"text\".IndexOf(x.StringValue) == 1))")]
+            [TestCase("indexof('text', Text) ne 1", "x => ((null != x.StringValue) AndAlso (\"text\".IndexOf(x.StringValue) != 1))")]
+            [TestCase("indexof('text', Text) gt 1", "x => ((null != x.StringValue) AndAlso (\"text\".IndexOf(x.StringValue) > 1))")]
+            [TestCase("indexof('text', Text) ge 1", "x => ((null != x.StringValue) AndAlso (\"text\".IndexOf(x.StringValue) >= 1))")]
+            [TestCase("indexof('text', Text) lt 1", "x => ((null != x.StringValue) AndAlso (\"text\".IndexOf(x.StringValue) < 1))")]
+            [TestCase("indexof('text', Text) le 1", "x => ((null != x.StringValue) AndAlso (\"text\".IndexOf(x.StringValue) <= 1))")]
             [TestCase("substring(Text, 1) eq 'text'", "x => ((null != x.StringValue) AndAlso (x.StringValue.Substring(1) == \"text\"))")]
             [TestCase("substring(Text, 1) ne 'text'", "x => ((null != x.StringValue) AndAlso (x.StringValue.Substring(1) != \"text\"))")]
             [TestCase("substring(Text, 1) ne 'text' and IntValue eq 25", "x => (((null != x.StringValue) AndAlso (x.StringValue.Substring(1) != \"text\")) AndAlso (x.AliasIntValue == 25))")]
@@ -470,11 +470,11 @@ namespace LinqConvertTools.Tests.Parser
             [TestCase("ceiling(DecimalValue) gt 1", "x => (Ceiling(x.AliasDecimalValue) > 1)")]
             [TestCase("(Text ne 'text') or IntValue gt 2", "x => ((x.StringValue != \"text\") OrElse (x.AliasIntValue > 2))")]
             [TestCase("(startswith(tolower(Text),'foo') eq true and endswith(tolower(Text),'1') eq true) and (tolower(Text) eq 'bar03')",
-                "x => (((((x.StringValue.ToLower() != null) AndAlso x.StringValue.ToLower().StartsWith(\"foo\")) == True) AndAlso (((x.StringValue.ToLower() != null) AndAlso x.StringValue.ToLower().EndsWith(\"1\")) == True)) AndAlso ((null != x.StringValue) AndAlso (x.StringValue.ToLower() == \"bar03\")))")]
+                "x => (((((x.StringValue != null) AndAlso x.StringValue.ToLower().StartsWith(\"foo\")) == True) AndAlso (((x.StringValue != null) AndAlso x.StringValue.ToLower().EndsWith(\"1\")) == True)) AndAlso ((null != x.StringValue) AndAlso (x.StringValue.ToLower() == \"bar03\")))")]
             [TestCase("(startswith(tolower(Text),'foo') and endswith(tolower(Text),'1')) and (tolower(Text) eq 'bar03')",
-                "x => ((((x.StringValue.ToLower() != null) AndAlso x.StringValue.ToLower().StartsWith(\"foo\")) AndAlso ((x.StringValue.ToLower() != null) AndAlso x.StringValue.ToLower().EndsWith(\"1\"))) AndAlso ((null != x.StringValue) AndAlso (x.StringValue.ToLower() == \"bar03\")))")]
-            [TestCase("startswith(tolower(Text),'foo')", "x => ((x.StringValue.ToLower() != null) AndAlso x.StringValue.ToLower().StartsWith(\"foo\"))")]
-            [TestCase("startswith(tolower(Text),'foo,bar')", "x => ((x.StringValue.ToLower() != null) AndAlso x.StringValue.ToLower().StartsWith(\"foo,bar\"))")]
+                "x => ((((x.StringValue != null) AndAlso x.StringValue.ToLower().StartsWith(\"foo\")) AndAlso ((x.StringValue != null) AndAlso x.StringValue.ToLower().EndsWith(\"1\"))) AndAlso ((null != x.StringValue) AndAlso (x.StringValue.ToLower() == \"bar03\")))")]
+            [TestCase("startswith(tolower(Text),'foo')", "x => ((x.StringValue != null) AndAlso x.StringValue.ToLower().StartsWith(\"foo\"))")]
+            [TestCase("startswith(tolower(Text),'foo,bar')", "x => ((x.StringValue != null) AndAlso x.StringValue.ToLower().StartsWith(\"foo,bar\"))")]
             [TestCase("Text/Length eq 5 and Children/any(a: a/ChildStringValue eq 'foo')",
                 "x => (((null != x.StringValue) AndAlso (x.StringValue.Length == 5)) AndAlso x.AliasChildren.Any(a => (a.ChildStringValue == \"foo\")))")]
             [TestCase("substringof('endIsSpaceX ', Text) or substringof('endIsSpaceY ', Text)",
@@ -490,15 +490,15 @@ namespace LinqConvertTools.Tests.Parser
             [TestCase("Children/any(y: y/Children/all(z: z/GrandChildStringValue eq 'foo'))",
                 "x => x.AliasChildren.Any(y => y.Children.All(z => (z.GrandChildStringValue == \"foo\")))")]
             [TestCase("Children/any(a: startswith(tolower(a/ChildStringValue), 'foo'))",
-                "x => x.AliasChildren.Any(a => ((a.ChildStringValue.ToLower() != null) AndAlso a.ChildStringValue.ToLower().StartsWith(\"foo\")))")]
+                "x => x.AliasChildren.Any(a => ((a.ChildStringValue != null) AndAlso a.ChildStringValue.ToLower().StartsWith(\"foo\")))")]
             [TestCase("Children/all(a: startswith(tolower(a/ChildStringValue), 'foo'))",
-                "x => x.AliasChildren.All(a => ((a.ChildStringValue.ToLower() != null) AndAlso a.ChildStringValue.ToLower().StartsWith(\"foo\")))")]
+                "x => x.AliasChildren.All(a => ((a.ChildStringValue != null) AndAlso a.ChildStringValue.ToLower().StartsWith(\"foo\")))")]
             [TestCase("Children/all(a: startswith(tolower(a/ChildStringValue), 'foo') and endswith(tolower(a/ChildStringValue), 'foo'))",
-                "x => x.AliasChildren.All(a => (((a.ChildStringValue.ToLower() != null) AndAlso a.ChildStringValue.ToLower().StartsWith(\"foo\")) AndAlso ((a.ChildStringValue.ToLower() != null) AndAlso a.ChildStringValue.ToLower().EndsWith(\"foo\"))))")]
+                "x => x.AliasChildren.All(a => (((a.ChildStringValue != null) AndAlso a.ChildStringValue.ToLower().StartsWith(\"foo\")) AndAlso ((a.ChildStringValue != null) AndAlso a.ChildStringValue.ToLower().EndsWith(\"foo\"))))")]
             [TestCase("Children/any(a: a/Children/any(b: startswith(tolower(b/GrandChildStringValue), 'foo')))",
-                "x => x.AliasChildren.Any(a => a.Children.Any(b => ((b.GrandChildStringValue.ToLower() != null) AndAlso b.GrandChildStringValue.ToLower().StartsWith(\"foo\"))))")]
+                "x => x.AliasChildren.Any(a => a.Children.Any(b => ((b.GrandChildStringValue != null) AndAlso b.GrandChildStringValue.ToLower().StartsWith(\"foo\"))))")]
             [TestCase("Children/any(a: startswith(tolower(a/ChildStringValue), StringValue))",
-                "x => x.AliasChildren.Any(a => ((a.ChildStringValue.ToLower() != null) AndAlso a.ChildStringValue.ToLower().StartsWith(x.StringValue)))")]
+                "x => x.AliasChildren.Any(a => (((a.ChildStringValue != null) AndAlso (x.StringValue != null)) AndAlso a.ChildStringValue.ToLower().StartsWith(x.StringValue)))")]
             [TestCase("Children/any(a: true)", "x => x.AliasChildren.Any(a => True)")]
             [TestCase("Children/all(y: y/ID eq 2 add ID)", "x => x.AliasChildren.All(y => (y.ID == (2 + x.AliasID)))")]
             [TestCase("Child/Attributes/all(y: y eq 'blah')", "x => x.AliasChild.Attributes.All(y => (y == \"blah\"))")]

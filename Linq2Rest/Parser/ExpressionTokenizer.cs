@@ -22,13 +22,16 @@ namespace LinqConvertTools.Parser
     {
         private static readonly Regex FunctionRx = new Regex(@"^([^\(\)]+)\((.+)\)$", RegexOptions.Compiled, ParserRegex.MatchTimeout);
         private static readonly Regex AnyAllFunctionRx = new Regex(@"^(([0-9a-zA-Z_]+/)+)(any|all)\((.*)\)$", RegexOptions.Compiled, ParserRegex.MatchTimeout);
+        private static readonly Regex FunctionCallRx = new Regex(@"^\s*([A-Za-z_][A-Za-z0-9_]*)\((.*)\)\s*$", RegexOptions.Compiled | RegexOptions.Singleline, ParserRegex.MatchTimeout);
 
         /// <summary>
         /// Splits a filter into its conditions and the and/or combiners between them.
         /// </summary>
         /// <remarks>
         /// The conditions and combiners are returned in order and are combined by OData precedence when parsed:
-        /// <c>not</c> binds tightest, then <c>and</c>, then <c>or</c>, and parentheses override it. Each condition is a
+        /// <c>not</c> binds tightest, then <c>and</c>, then <c>or</c>, and parentheses override it. Within a condition,
+        /// <c>in</c> binds tighter than a comparison, so <c>Name in ('a') eq false</c> compares the result of the
+        /// <c>in</c>. Each condition is a
         /// negation (<c>not</c> and its operand), a comparison, or a whole condition such as a group in parentheses.
         /// A filter with a single combiner whose first operand is a whole condition, such as <c>(a or b) and c</c>,
         /// instead yields one token that combines the two sides. A filter that is a single condition yields its
@@ -252,6 +255,31 @@ namespace LinqConvertTools.Parser
         }
 
         /// <summary>
+        /// Reads <paramref name="filter"/> as a call such as <c>substring(Name, 1)</c>: the function name and each
+        /// argument, split at commas outside parentheses and string literals. A call with empty parentheses has one
+        /// empty argument.
+        /// </summary>
+        /// <returns>The name and arguments, or <c>null</c> when <paramref name="filter"/> is not a single call.</returns>
+        public static (string Name, IReadOnlyList<string> Arguments)? GetFunctionArguments(this string filter)
+        {
+            var callMatch = FunctionCallRx.Match(filter);
+            if (!callMatch.Success)
+            {
+                return null;
+            }
+
+            // The parentheses must enclose all the arguments, which rules out text such as f(a) eq g(b).
+            var content = callMatch.Groups[2].Value;
+            ("(" + content + ")").StripEnclosingParentheses(out int levels);
+            if (levels == 0)
+            {
+                return null;
+            }
+
+            return (callMatch.Groups[1].Value, content.SplitTopLevel().Select(argument => argument.Trim()).ToList());
+        }
+
+        /// <summary>
         /// Determines whether <paramref name="expression"/> is a call to a boolean string function or a collection
         /// <c>any</c>/<c>all</c>, and nothing else, so it needs no splitting into conditions.
         /// </summary>
@@ -283,6 +311,18 @@ namespace LinqConvertTools.Parser
             {
                 if (topLevel[i] && blocks[i].IsOperation())
                 {
+                    // in binds tighter than any comparison, so Name in ('a') eq false compares the result of the in.
+                    var inListEnd = GetInListEnd(blocks, topLevel, i, end);
+                    if (inListEnd >= 0 && inListEnd + 1 < end && blocks[inListEnd + 1].IsOperation())
+                    {
+                        return new TokenSet
+                        {
+                            Left = "(" + JoinBlocks(blocks, start, inListEnd + 1) + ")",
+                            Operation = blocks[inListEnd + 1],
+                            Right = JoinBlocks(blocks, inListEnd + 2, end)
+                        };
+                    }
+
                     if (IsNotIn(blocks, i, end))
                     {
                         return new TokenSet { Operation = blocks[i], Right = "(" + JoinBlocks(blocks, start, i) + " " + JoinBlocks(blocks, i + 1, end) + ")" };
@@ -511,6 +551,28 @@ namespace LinqConvertTools.Parser
             return index + 2 < end
                 && blocks[index].IsUnaryOperation()
                 && string.Equals(blocks[index + 1], "in", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Finds the end of the right operand of an <c>in</c> or <c>not in</c> at <paramref name="index"/>: the first
+        /// block after it that ends outside all parentheses, such as the last block of <c>('a', 'b')</c>.
+        /// </summary>
+        /// <returns>The index of that block, or -1 when the operator at <paramref name="index"/> is not <c>in</c> or
+        /// <c>not in</c>, or has no right operand.</returns>
+        private static int GetInListEnd(List<string> blocks, bool[] topLevel, int index, int end)
+        {
+            var listStart = IsNotIn(blocks, index, end)
+                ? index + 2
+                : string.Equals(blocks[index], "in", StringComparison.OrdinalIgnoreCase) ? index + 1 : end;
+            for (var j = listStart; j < end; j++)
+            {
+                if (topLevel[j])
+                {
+                    return j;
+                }
+            }
+
+            return -1;
         }
 
         private static string JoinBlocks(List<string> blocks, int start, int end)
