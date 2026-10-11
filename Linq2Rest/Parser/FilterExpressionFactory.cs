@@ -144,6 +144,8 @@ namespace LinqConvertTools.Parser
                 throw new InvalidOperationException("Could not create valid expression from: " + filter);
             }
 
+            expression = NullSemantics.Reduce(expression);
+
             // A chain of conditions is built in a loop rather than by recursion, so the parser's own depth
             // check does not bound it. The finished tree is measured instead.
             if (ExpressionDepth.Exceeds(expression, _maxDepth))
@@ -171,90 +173,32 @@ namespace LinqConvertTools.Parser
         }
 
         /// <summary>
-        /// Builds a comparison or combination. A comparison is guarded so that it is false, rather than throwing, when
-        /// the nested object its left side reads a member of is null, or when a value either side passes to a function
-        /// is null, such as <c>x.Name</c> in <c>length(trim(Name)) eq 5</c>. A query provider evaluates a function of
-        /// null to null and a comparison with it to no match, so the rows are the same.
+        /// Builds a comparison or combination with OData's null semantics (see <see cref="NullSemantics"/>), so a
+        /// function of null, such as <c>trim(Name)</c> when <c>Name</c> is null, is null rather than throwing. A
+        /// comparison is also false, rather than throwing, when the nested object its left side reads a member of is
+        /// null.
         /// </summary>
         private Expression GetNullSafeLeftRightOperation(string token, Expression left, Expression right, bool ignoreCase)
         {
             if (token.IsBinaryCombinationOperation())
             {
-                return GetLeftRightOperation(token, GetNullSafeCondition(left), GetNullSafeCondition(right), ignoreCase);
+                left = GetNullSafeCondition(left);
+                right = GetNullSafeCondition(right);
+                return NullSemantics.Combine(left, right, !token.IsOrOperation()) ?? GetLeftRightOperation(token, left, right, ignoreCase);
             }
 
-            var required = new List<Expression>();
-            if (left is MemberExpression memberExpression && memberExpression.Expression?.NodeType == ExpressionType.MemberAccess && !memberExpression.Expression.Type.IsValueType)
+            string operation = token.ToUpperInvariant();
+            Expression operationExpression = operation switch
             {
-                required.Add(memberExpression.Expression);
-            }
+                "IN" => NullSemantics.In(left, right, () => GetLeftRightOperation(token, left, right, ignoreCase)),
+                "EQ" or "NE" => NullSemantics.Equal(left, right, operation == "EQ")
+                    ?? NullSemantics.Compare(operation, left, right, () => GetLeftRightOperation(token, left, right, ignoreCase)),
+                _ => NullSemantics.Compare(operation, left, right, () => GetLeftRightOperation(token, left, right, ignoreCase)),
+            } ?? GetLeftRightOperation(token, left, right, ignoreCase);
 
-            CollectRequiredValues(left, required);
-            CollectRequiredValues(right, required);
-
-            Expression binaryExpression = GetLeftRightOperation(token, left, right, ignoreCase);
-            return required.Count == 0
-                ? binaryExpression
-                : Expression.AndAlso(required.Select(value => Expression.NotEqual(_nullConstantExpression, value)).Aggregate(Expression.AndAlso), binaryExpression);
-        }
-
-        /// <summary>
-        /// Adds to <paramref name="required"/> each value <paramref name="operand"/> passes to a function that
-        /// throws on null: the instance a method or <see cref="string.Length"/> is read from, and a string argument
-        /// of a string method, such as the search text of <see cref="string.Contains(string)"/>. Arithmetic and
-        /// conversions are searched through, as is a string function whose result is passed on, since a string
-        /// function returns a string whenever its own inputs are present.
-        /// </summary>
-        private static void CollectRequiredValues(Expression operand, List<Expression> required)
-        {
-            switch (operand)
-            {
-                case MethodCallExpression { Object: not null } call:
-                    Require(call.Object, required);
-                    if (call.Method.DeclaringType == typeof(string))
-                    {
-                        foreach (Expression argument in call.Arguments.Where(argument => argument.Type == typeof(string)))
-                        {
-                            Require(argument, required);
-                        }
-                    }
-
-                    break;
-                case MemberExpression { Expression: { Type: var instanceType } instance } when instanceType == typeof(string):
-                    Require(instance, required);
-                    break;
-                case BinaryExpression binary when IsArithmetic(binary.NodeType):
-                    CollectRequiredValues(binary.Left, required);
-                    CollectRequiredValues(binary.Right, required);
-                    break;
-                case UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.Negate } unary:
-                    CollectRequiredValues(unary.Operand, required);
-                    break;
-            }
-        }
-
-        private static void Require(Expression value, List<Expression> required)
-        {
-            if (value.Type.IsValueType || value is ConstantExpression { Value: not null })
-            {
-                return;
-            }
-
-            if (value is MethodCallExpression { Object: not null } call && call.Method.DeclaringType == typeof(string) && call.Type == typeof(string))
-            {
-                CollectRequiredValues(call, required);
-                return;
-            }
-
-            if (!required.Contains(value))
-            {
-                required.Add(value);
-            }
-        }
-
-        private static bool IsArithmetic(ExpressionType nodeType)
-        {
-            return nodeType is ExpressionType.Add or ExpressionType.Subtract or ExpressionType.Multiply or ExpressionType.Divide or ExpressionType.Modulo;
+            return GetNestedObject(left) is Expression nestedObject
+                ? Expression.AndAlso(Expression.NotEqual(_nullConstantExpression, nestedObject), operationExpression)
+                : operationExpression;
         }
 
         /// <summary>
@@ -263,9 +207,21 @@ namespace LinqConvertTools.Parser
         /// </summary>
         private static Expression GetNullSafeCondition(Expression condition)
         {
-            return condition is MemberExpression memberExpression && memberExpression.Expression?.NodeType == ExpressionType.MemberAccess && !memberExpression.Expression.Type.IsValueType
-                ? Expression.AndAlso(Expression.NotEqual(_nullConstantExpression, memberExpression.Expression), condition)
+            return GetNestedObject(condition) is Expression nestedObject
+                ? Expression.AndAlso(Expression.NotEqual(_nullConstantExpression, nestedObject), condition)
                 : condition;
+        }
+
+        /// <summary>
+        /// Gets the nested object that <paramref name="operand"/> reads a member of, such as <c>x.Child</c> in
+        /// <c>x.Child.Name</c>. The length of a string is not a member of a nested object; it is a function, which
+        /// <see cref="NullSemantics"/> makes null when the string is.
+        /// </summary>
+        private static Expression? GetNestedObject(Expression operand)
+        {
+            return operand is MemberExpression { Expression: { NodeType: ExpressionType.MemberAccess } instance } && !instance.Type.IsValueType && instance.Type != typeof(string)
+                ? instance
+                : null;
         }
 
         private Expression GetCaseAwareLeftRightOperation(BinaryExpression binaryExpression, bool ignoreCase)
@@ -484,7 +440,7 @@ namespace LinqConvertTools.Parser
             switch (token.ToUpperInvariant())
             {
                 case "NOT":
-                    result = right.Type == typeof(bool) ? Expression.Not(GetNullSafeCondition(right)) : null;
+                    result = right.Type == typeof(bool) ? NullSemantics.Not(right) ?? Expression.Not(GetNullSafeCondition(right)) : null;
                     break;
             }
 
@@ -506,30 +462,21 @@ namespace LinqConvertTools.Parser
 
         /// <summary>
         /// Builds a boolean string predicate (<c>contains</c>, <c>endswith</c>, <c>startswith</c>, <c>substringof</c>)
-        /// guarded so that it is false, rather than throwing, when <paramref name="member"/> or
-        /// <paramref name="argument"/> is null, at any depth, as SQL's <c>LIKE</c> is for null. A null
-        /// <paramref name="member"/> or <paramref name="argument"/> means an argument did not parse, so <c>null</c> is
-        /// returned, which the caller reports as an invalid expression.
+        /// that is unknown, rather than throwing, when <paramref name="member"/> or <paramref name="argument"/> is null
+        /// at any depth. A null <paramref name="member"/> or <paramref name="argument"/> means an argument did not
+        /// parse, so <c>null</c> is returned, which the caller reports as an invalid expression.
         /// </summary>
         /// <exception cref="InvalidOperationException"><paramref name="member"/> or <paramref name="argument"/> is not a string.</exception>
         private Expression? GuardedStringPredicate(string function, Expression? member, MethodInfo method, Expression? argument, bool ignoreCase)
         {
-            if (member is null || argument is null)
-            {
-                return null;
-            }
-
-            Expression predicate = GetCaseAwareFunction(StringOperand(function, member), method, new[] { StringOperand(function, argument) }, ignoreCase);
-            var required = new List<Expression>();
-            CollectRequiredValues(predicate, required);
-            return required.Count == 0
-                ? predicate
-                : Expression.AndAlso(required.Select(value => Expression.NotEqual(value, _nullConstantExpression)).Aggregate(Expression.AndAlso), predicate);
+            return member is null || argument is null
+                ? null
+                : NullSemantics.Predicate(GetCaseAwareFunction(StringOperand(function, member), method, new[] { StringOperand(function, argument) }, ignoreCase));
         }
 
         /// <summary>
         /// Checks that a string function's operand is a string. A <c>null</c> literal is typed as a string, so the
-        /// function is built and its guard makes it false.
+        /// function is built and is null.
         /// </summary>
         /// <exception cref="InvalidOperationException"><paramref name="operand"/> is not a string.</exception>
         private static Expression StringOperand(string function, Expression operand)
@@ -775,6 +722,13 @@ namespace LinqConvertTools.Parser
                 return null;
             }
 
+            // A literal compared with a condition, such as true in true eq Name in ('a'), is read as a Boolean, not as
+            // the type of a member inside the condition.
+            if (IsCondition(set.Left) || IsCondition(set.Right))
+            {
+                return typeof(bool);
+            }
+
             if (set.Left.IsFunction())
             {
                 var functionName = set.Left.GetFunctionName();
@@ -793,6 +747,16 @@ namespace LinqConvertTools.Parser
             var type = GetExpressionType<T>(set.Left.GetArithmeticToken(), parameter, lambdaParameters, depth + 1);
 
             return type ?? GetExpressionType<T>(set.Right.GetArithmeticToken(), parameter, lambdaParameters, depth + 1);
+        }
+
+        /// <summary>
+        /// Determines whether <paramref name="operand"/> is a condition built from operators, such as
+        /// <c>Name in ('a')</c> or <c>(Age gt 1)</c>, rather than a member, function, literal or arithmetic.
+        /// </summary>
+        private static bool IsCondition(string operand)
+        {
+            return !string.IsNullOrWhiteSpace(operand)
+                && operand.StripEnclosingParentheses().GetTokens().Any(token => !string.IsNullOrWhiteSpace(token.Operation));
         }
 
         private Expression? GetPropertyExpression<T>(string propertyToken, ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters, int depth)
@@ -1125,25 +1089,29 @@ namespace LinqConvertTools.Parser
             return GetFunction(functionTokens.Operation, left, right, sourceParameter, lambdaParameters, ignoreCase);
         }
 
+        /// <summary>
+        /// Reads <paramref name="filter"/> as a call to a function: a known function by its arguments, which must
+        /// match its arity, or else any other call by its last top-level comma.
+        /// </summary>
         /// <exception cref="InvalidOperationException">A known function is called with the wrong number of arguments or an empty one.</exception>
-        private static void RequireArgumentCount(string filter)
+        private static TokenSet? GetFunctionTokens(string filter)
         {
             if (filter.GetFunctionArguments() is not var (name, arguments) || name.GetFunctionArgumentCount() is not int count)
             {
-                return;
+                return filter.GetFunctionTokens();
             }
 
             if (arguments.Count != count || arguments.Any(string.IsNullOrWhiteSpace))
             {
                 throw new InvalidOperationException(name + "() requires " + count.ToString(CultureInfo.InvariantCulture) + (count == 1 ? " argument." : " arguments."));
             }
+
+            return new FunctionTokenSet { Operation = name, Left = arguments[0], Right = count > 1 ? arguments[1] : string.Empty };
         }
 
         private Expression? GetFunctionExpression<T>(string filter, ParameterExpression sourceParameter, ICollection<ParameterExpression> lambdaParameters, Type? type, IFormatProvider formatProvider, bool ignoreCase, int depth)
         {
-            RequireArgumentCount(filter);
-
-            var functionTokens = filter.GetFunctionTokens();
+            var functionTokens = GetFunctionTokens(filter);
             if (functionTokens is null)
             {
                 return null;
