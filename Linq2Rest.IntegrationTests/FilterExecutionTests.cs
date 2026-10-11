@@ -30,6 +30,9 @@ namespace LinqConvertTools.IntegrationTests
             new object[] { "title in ('Annual Review', 'Draft Proposal')", false, "B,C" },
             new object[] { "contains(title, 'view')", false, "B" },
             new object[] { "substringof('view', title)", false, "B" },
+            new object[] { "substringof('pen', status) or status eq null", false, "A,C,D" },
+            new object[] { "status eq 'Closed' or substringof('pen', status) or status eq 'Archived'", false, "A,B,D" },
+            new object[] { "substringof('pen', status) eq false", false, "B,C" },
             new object[] { "startswith(title, 'Draft')", false, "C" },
             new object[] { "endswith(title, 'Memo')", false, "D" },
             new object[] { "not startswith(title, 'Draft')", false, "A,B,D" },
@@ -75,6 +78,7 @@ namespace LinqConvertTools.IntegrationTests
             new object[] { "priority in ((1), 2)", false, "A,B" },
             new object[] { "substring(title, priority sub 1) eq 'nnual Review'", false, "B" },
             new object[] { "priority add (1) eq 3", false, "B" },
+            new object[] { "priority add 2 mul 2 eq 7", false, "C" },
             new object[] { "status in ('Open', null)", false, "A,C,D" },
             new object[] { "status in ()", false, "" },
             new object[] { "startswith(title, \"Draft\") or title in ('O''Brien Memo', 'x,y')", false, "C,D" },
@@ -104,6 +108,11 @@ namespace LinqConvertTools.IntegrationTests
             new object[] { "tags/any()", false, "A,B,D" },
             new object[] { "not tags/any()", false, "C" },
             new object[] { "tags/all(t: t/value eq 'email')", false, "B,C" },
+            new object[] { "status not in ('Open')", false, "B,C" },
+            new object[] { "status not in ('Open', 'Closed') or priority eq 1", false, "A,C" },
+            new object[] { "status not in ('OPEN')", true, "B,C" },
+            new object[] { "tags/any(t: t/value not in ('email'))", false, "A,D" },
+            new object[] { "tags/all(t: t/value not in ('legal'))", false, "A,B,C" },
             new object[] { "title eq 'annual review'", true, "B" },
             new object[] { "title ne 'annual review'", true, "A,C,D" },
             new object[] { "title in ('annual review', 'DRAFT PROPOSAL')", true, "B,C" },
@@ -114,6 +123,13 @@ namespace LinqConvertTools.IntegrationTests
             new object[] { "indexof(title, 'REVIEW') eq 7", true, "B" },
             new object[] { "status eq 'open'", true, "A,D" },
             new object[] { "status ne 'open'", true, "B,C" },
+            new object[] { "status eq null", true, "C" },
+            new object[] { "status ne null", true, "A,B,D" },
+            new object[] { "status in keywords", true, "A,B" },
+            new object[] { "kind eq 'Review'", false, "B" },
+            new object[] { "kind eq 'review'", false, "B" },
+            new object[] { "kind ne 'Report'", false, "B,C" },
+            new object[] { "kind in ('Report', 'Memo')", false, "A,C,D" },
             new object[] { "author/name eq 'ada'", true, "A,C" },
             new object[] { "tags/any(t: t/value eq 'EMAIL')", true, "A,B" },
         };
@@ -187,6 +203,8 @@ namespace LinqConvertTools.IntegrationTests
                 CreatedAt = new DateTimeOffset(2024, 1, 15, 8, 30, 15, TimeSpan.Zero),
                 Author = new Author { Name = "Ada" },
                 Tags = { new Tag { Value = "email" }, new Tag { Value = "finance" } },
+                Keywords = { "open", "priority" },
+                Kind = DocumentKind.Report,
             };
             yield return new Document
             {
@@ -198,6 +216,8 @@ namespace LinqConvertTools.IntegrationTests
                 ClosedAt = new DateTimeOffset(2024, 7, 1, 9, 0, 0, TimeSpan.Zero),
                 Author = new Author { Name = "Grace" },
                 Tags = { new Tag { Value = "email" } },
+                Keywords = { "CLOSED" },
+                Kind = DocumentKind.Review,
             };
             yield return new Document
             {
@@ -207,6 +227,8 @@ namespace LinqConvertTools.IntegrationTests
                 Priority = 3,
                 CreatedAt = new DateTimeOffset(2025, 2, 10, 23, 59, 59, TimeSpan.Zero),
                 Author = new Author { Name = "Ada" },
+                Keywords = { "draft" },
+                Kind = DocumentKind.Memo,
             };
             yield return new Document
             {
@@ -218,6 +240,8 @@ namespace LinqConvertTools.IntegrationTests
                 ClosedAt = new DateTimeOffset(2025, 10, 1, 9, 0, 0, TimeSpan.Zero),
                 Author = new Author { Name = "Linus" },
                 Tags = { new Tag { Value = "legal" } },
+                Keywords = { "archived" },
+                Kind = DocumentKind.Report,
             };
         }
     }

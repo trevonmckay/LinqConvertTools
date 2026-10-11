@@ -21,10 +21,10 @@ namespace LinqConvertTools.Tests.Parser
             _converter = new ODataExpressionConverter();
             _records = new[]
             {
-                new Record { Id = 1, Status = "a (b", Note = "n1", Priority = 1, IsActive = true, Price = 1.4 },
-                new Record { Id = 2, Status = ":)", Priority = 2, IsActive = false, IsFlagged = true, Aliases = { ":)", "smile" } },
-                new Record { Id = 3, Status = "x or y", Note = "it's", Priority = 3, IsActive = true, IsFlagged = false },
-                new Record { Id = 4, Status = "it's (x)", Priority = 4, IsActive = false },
+                new Record { Id = 1, Status = "a (b", Note = "n1", Priority = 1, IsActive = true, Price = 1.4, Kind = Kind.Alpha },
+                new Record { Id = 2, Status = ":)", Priority = 2, IsActive = false, IsFlagged = true, Aliases = { ":)", "smile" }, Kind = Kind.Beta, Stage = Kind.Beta },
+                new Record { Id = 3, Status = "x or y", Note = "it's", Priority = 3, IsActive = true, IsFlagged = false, Kind = Kind.Gamma },
+                new Record { Id = 4, Status = "it's (x)", Priority = 4, IsActive = false, Kind = Kind.Alpha, Stage = Kind.Gamma },
             };
         }
 
@@ -80,6 +80,19 @@ namespace LinqConvertTools.Tests.Parser
         [TestCase("substring(Status, Priority sub 1) eq 'or y'", "3")]
         [TestCase("round(Price mul 2) eq 3", "1")]
         public void ReadsArithmeticInsideFunctionArguments(string filter, string expectedIds)
+        {
+            AssertMatches(filter, expectedIds);
+        }
+
+        // Priority is 1,2,3,4. Each case resolves to a different row under correct precedence than under the old
+        // left-to-right evaluation, so a regression would change the matched ids rather than merely still pass.
+        [TestCase("Priority add 1 mul 2 eq 5", "3")]   // P + (1*2) = 5; left-to-right (P+1)*2 has no integer match
+        [TestCase("Priority add 4 div 2 eq 3", "1")]   // P + (4/2) = 3; left-to-right (P+4)/2 = 3 would match P=2
+        [TestCase("Priority sub 1 mul 2 eq 2", "4")]   // P - (1*2) = 2; left-to-right (P-1)*2 = 2 would match P=2
+        [TestCase("Priority mul 2 add 1 eq 5", "2")]   // (P*2) + 1 = 5
+        [TestCase("Priority sub 1 add 2 eq 3", "2")]   // ((P-1)+2) = 3: add/sub stay left-associative
+        [TestCase("Priority mul 4 div 2 eq 4", "2")]   // ((P*4)/2) = 4: mul/div stay left-associative
+        public void AppliesArithmeticOperatorPrecedence(string filter, string expectedIds)
         {
             AssertMatches(filter, expectedIds);
         }
@@ -219,6 +232,112 @@ namespace LinqConvertTools.Tests.Parser
             CollectionAssert.AreEqual(new[] { 1, 2, 4 }, _records.AsQueryable().Where(predicate).Select(r => r.Id).ToArray());
         }
 
+        [TestCase("Note eq 'N1'", "1")]
+        [TestCase("Note ne 'N1'", "2,3,4")]
+        [TestCase("Note eq null", "2,4")]
+        [TestCase("Note ne null", "1,3")]
+        public void ComparesNullableMemberIgnoringCase(string filter, string expectedIds)
+        {
+            ArgumentNullException.ThrowIfNull(_converter);
+            ArgumentNullException.ThrowIfNull(_records);
+
+            var predicate = _converter.Convert<Record>(filter, true);
+
+            var matches = _records.AsQueryable().Where(predicate).Select(r => r.Id).ToArray();
+            var expected = expectedIds.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(int.Parse).ToArray();
+            CollectionAssert.AreEqual(expected, matches, "Failed for " + predicate);
+        }
+
+        [Test]
+        public void ComparesInCollectionMemberIgnoringCase()
+        {
+            ArgumentNullException.ThrowIfNull(_converter);
+            var records = new[]
+            {
+                new Record { Id = 1, Status = "EMAIL", Aliases = { "email", "finance" } },
+                new Record { Id = 2, Status = "legal", Aliases = { "LEGAL" } },
+                new Record { Id = 3, Status = "memo", Aliases = { "draft", null! } },
+                new Record { Id = 4, Status = "none", Aliases = { } },
+            };
+
+            var predicate = _converter.Convert<Record>("Status in Aliases", true);
+
+            CollectionAssert.AreEqual(new[] { 1, 2 }, records.AsQueryable().Where(predicate).Select(r => r.Id).ToArray());
+        }
+
+        [TestCase("Kind eq 'Alpha'", "1,4")]
+        [TestCase("Kind eq 'alpha'", "1,4")]
+        [TestCase("Kind eq \"Beta\"", "2")]
+        [TestCase("Kind eq Gamma", "3")]
+        [TestCase("Kind ne 'Alpha'", "2,3")]
+        [TestCase("Kind in ('Beta','Gamma')", "2,3")]
+        public void ReadsFriendlyEnumLiterals(string filter, string expectedIds)
+        {
+            AssertMatches(filter, expectedIds);
+        }
+
+        [TestCase("Stage eq 'Gamma'", "4")]
+        [TestCase("Stage eq null", "1,3")]
+        [TestCase("Stage ne null", "2,4")]
+        public void ReadsFriendlyNullableEnumLiterals(string filter, string expectedIds)
+        {
+            AssertMatches(filter, expectedIds);
+        }
+
+        [TestCase("Note eq 'it''s' and Kind eq 'Gamma'", "3")]
+        [TestCase("Status eq \"x or y\" and Kind eq 'Gamma'", "3")]
+        [TestCase("not (Kind eq 'Alpha') and Priority gt 1", "2,3")]
+        public void ReadsEnumClauseAlongsideStringAndPrecedence(string filter, string expectedIds)
+        {
+            AssertMatches(filter, expectedIds);
+        }
+
+        [Test]
+        public void RejectsNumericAndUndefinedEnumWhenNamesOnly()
+        {
+            ArgumentNullException.ThrowIfNull(_records);
+            var converter = new ODataExpressionConverter(Array.Empty<IValueWriter>(), Array.Empty<IValueExpressionFactory>(), null, StringCaseFolding.CurrentCulture, enumNamesOnly: true);
+
+            Assert.Throws<FormatException>(() => converter.Convert<Record>("Kind eq '1'"));
+            Assert.Throws<FormatException>(() => converter.Convert<Record>("Kind eq 'Nope'"));
+            Assert.Throws<FormatException>(() => converter.Convert<Record>("Kind eq 'Alpha,Beta'"));
+            Assert.DoesNotThrow(() => converter.Convert<Record>("Kind eq 'Alpha'"));
+        }
+
+        [Test]
+        public void ReadsNumericEnumWhenNamesOnlyIsOff()
+        {
+            AssertMatches("Kind eq '1'", "1,4");
+        }
+
+        [Test]
+        public void ReadsQualifiedEnumLiterals()
+        {
+            ArgumentNullException.ThrowIfNull(_converter);
+            ArgumentNullException.ThrowIfNull(_records);
+
+            string full = typeof(Kind).FullName!;
+            foreach (var filter in new[]
+            {
+                "Kind eq " + full + "'Beta'",                      // exact FullName (a nested type uses '+')
+                "Kind eq " + full.Replace('+', '.') + "'Beta'",    // the dotted form a client would write
+                "Kind eq Kind'Beta'",                              // short type name
+                "Kind eq kind'Beta'",                              // qualifier matched case-insensitively
+            })
+            {
+                var predicate = _converter.Convert<Record>(filter);
+                CollectionAssert.AreEqual(new[] { 2 }, _records.AsQueryable().Where(predicate).Select(r => r.Id).ToArray(), "Failed for " + filter);
+            }
+        }
+
+        [Test]
+        public void RejectsQualifiedEnumLiteralWithWrongType()
+        {
+            ArgumentNullException.ThrowIfNull(_converter);
+
+            Assert.Throws<FormatException>(() => _converter.Convert<Record>("Kind eq System.DayOfWeek'Beta'"));
+        }
+
         [TestCase(200, "1")]
         [TestCase(300, null)]
         [TestCase(40000, null)]
@@ -299,6 +418,18 @@ namespace LinqConvertTools.Tests.Parser
             public double Price { get; set; }
 
             public List<string> Aliases { get; set; } = new();
+
+            public Kind Kind { get; set; }
+
+            public Kind? Stage { get; set; }
+        }
+
+        public enum Kind
+        {
+            Unknown,
+            Alpha,
+            Beta,
+            Gamma,
         }
 
         private sealed class YesNoFactory : IValueExpressionFactory

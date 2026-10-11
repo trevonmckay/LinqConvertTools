@@ -1,6 +1,6 @@
 // --------------------------------------------------------------------------------------------------------------------
 // <copyright file="ParameterValueReader.cs" company="Reimers.dk">
-//   Copyright © Reimers.dk 2014
+//   Copyright ï¿½ Reimers.dk 2014
 //   This source is subject to the Microsoft Public License (Ms-PL).
 //   Please see http://go.microsoft.com/fwlink/?LinkID=131993 for details.
 //   All other rights reserved.
@@ -23,16 +23,18 @@ namespace LinqConvertTools.Parser.Readers
     {
         private readonly IList<IValueExpressionFactory> _expressionFactories;
         private readonly IValueExpressionFactory[] _customFactories;
+        private readonly bool _enumNamesOnly;
 
-        public ParameterValueReader(IEnumerable<IValueExpressionFactory> expressionFactories)
+        public ParameterValueReader(IEnumerable<IValueExpressionFactory> expressionFactories, bool enumNamesOnly = false)
         {
+            _enumNamesOnly = enumNamesOnly;
 
-
+            // Enum literals are read against the type of the member they are compared with (see GetKnownConstant),
+            // so no factory scans assemblies to resolve an enum type from a client-supplied name.
             _customFactories = expressionFactories.ToArray();
             _expressionFactories = _customFactories.Concat(
                 new IValueExpressionFactory[]
                 {
-                    new EnumExpressionFactory(),
                     new BooleanExpressionFactory(),
                     new ByteExpressionFactory(),
                     new GuidExpressionFactory(),
@@ -111,8 +113,7 @@ namespace LinqConvertTools.Parser.Readers
         {
             if (type.IsEnum)
             {
-                var enumValue = Enum.Parse(type, token.Replace("'", string.Empty), true);
-                return Expression.Constant(enumValue);
+                return Expression.Constant(ReadEnum(type, token));
             }
 
             if (typeof(IConvertible).IsAssignableFrom(type))
@@ -136,6 +137,93 @@ namespace LinqConvertTools.Parser.Readers
             }
 
             return GetParseExpression(token, formatProvider, type);
+        }
+
+        /// <summary>
+        /// Reads an enum literal against the type of the member it is compared with. The literal may be an unqualified
+        /// member name (<c>Received</c> or <c>'Received'</c>) or a qualified one (<c>Ns.Type'Received'</c>); a qualifier
+        /// is checked against the member's enum type rather than used to look a type up. When the reader is in
+        /// names-only mode, a numeric value or a name that is not defined on the type is rejected.
+        /// </summary>
+        /// <exception cref="FormatException">The qualifier names a different type, or the value is not a member of the enum.</exception>
+        private object ReadEnum(Type enumType, string token)
+        {
+            string member = token;
+
+            // A quoted enum literal ends with its closing quote and the matching open quote is the first occurrence
+            // of that same character, so the delimiter is chosen by position rather than by which quote character
+            // happens to appear first in the token.
+            if (token.Length > 0 && (token[token.Length - 1] == '\'' || token[token.Length - 1] == '"'))
+            {
+                char quote = token[token.Length - 1];
+                int firstQuote = token.IndexOf(quote);
+                int lastQuote = token.Length - 1;
+                if (lastQuote <= firstQuote)
+                {
+                    throw new FormatException("Could not read " + token + " as " + enumType.Name + ".");
+                }
+
+                string qualifier = token.Substring(0, firstQuote);
+                if (qualifier.Length > 0 && !QualifierMatchesType(qualifier, enumType))
+                {
+                    throw new FormatException("The enum type '" + qualifier + "' in " + token + " is not " + enumType.Name + ".");
+                }
+
+                member = token.Substring(firstQuote + 1, lastQuote - firstQuote - 1);
+            }
+
+            if (_enumNamesOnly)
+            {
+                string[] names = Enum.GetNames(enumType);
+                string[] parts = member.Split(',');
+
+                // A comma-combined value only makes sense for a [Flags] enum; on any other enum Enum.Parse would
+                // still OR the members together and silently yield a value equal to some unrelated member.
+                if (parts.Length > 1 && !enumType.IsDefined(typeof(FlagsAttribute), false))
+                {
+                    throw new FormatException("'" + member + "' combines members, but " + enumType.Name + " is not a [Flags] enum.");
+                }
+
+                foreach (string part in parts)
+                {
+                    string name = part.Trim();
+                    if (name.Length == 0 || long.TryParse(name, out _) || !Array.Exists(names, n => string.Equals(n, name, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        throw new FormatException(NotAMemberMessage(name, enumType));
+                    }
+                }
+            }
+
+            try
+            {
+                return Enum.Parse(enumType, member, true);
+            }
+            catch (ArgumentException)
+            {
+                throw new FormatException(NotAMemberMessage(member, enumType));
+            }
+        }
+
+        /// <summary>
+        /// Builds the message for a value that is not a member of <paramref name="enumType"/>. It names the type by its
+        /// short name and lists the defined members, so a caller that surfaces the message (for example as an HTTP 400)
+        /// shows the allowed values without the type's namespace.
+        /// </summary>
+        private static string NotAMemberMessage(string value, Type enumType)
+        {
+            return "'" + value + "' is not a member of " + enumType.Name + ". Members: " + string.Join(", ", Enum.GetNames(enumType)) + ".";
+        }
+
+        /// <summary>
+        /// Matches a qualifier in a qualified enum literal against the enum type, case-insensitively like the member
+        /// name. A nested type's <see cref="Type.FullName"/> joins the nesting with <c>+</c> while a filter usually
+        /// writes it with <c>.</c>, so the full name is compared with the separators normalized; the short name is
+        /// also accepted.
+        /// </summary>
+        private static bool QualifierMatchesType(string qualifier, Type enumType)
+        {
+            return string.Equals(qualifier, enumType.Name, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(qualifier.Replace('+', '.'), (enumType.FullName ?? string.Empty).Replace('+', '.'), StringComparison.OrdinalIgnoreCase);
         }
 
         [ContractInvariantMethod]

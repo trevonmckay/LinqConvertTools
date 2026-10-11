@@ -22,6 +22,9 @@ namespace LinqConvertTools.Parser
         private static readonly string[] BinaryCombiners = new[] { "and", "or" };
         private static readonly string[] Arithmetic = new[] { "add", "sub", "mul", "div", "mod" };
 
+        // OData binds mul/div/mod tighter than add/sub, so add/sub are the lower-precedence (additive) operators.
+        private static readonly string[] AdditiveArithmetic = new[] { "add", "sub" };
+
         private static readonly string[] BooleanFunctions = new[] { "substringof", "contains", "endswith", "startswith" };
         private static readonly Regex CollectionFunctionRx = new(@"^[0-9a-zA-Z_]+/(all|any)\((.+)\)$", RegexOptions.Compiled, ParserRegex.MatchTimeout);
         private static readonly Regex FunctionRegex = new(@"^([A-Za-z_][A-Za-z0-9_]*)\(.*\)$", RegexOptions.Compiled | RegexOptions.Singleline, ParserRegex.MatchTimeout);
@@ -50,6 +53,11 @@ namespace LinqConvertTools.Parser
         public static bool IsArithmetic(this string operation)
         {
             return Array.Exists(Arithmetic, x => string.Equals(x, operation, StringComparison.OrdinalIgnoreCase));
+        }
+
+        public static bool IsAdditiveArithmetic(this string operation)
+        {
+            return Array.Exists(AdditiveArithmetic, x => string.Equals(x, operation, StringComparison.OrdinalIgnoreCase));
         }
 
         public static bool IsBooleanFunctionName(string block)

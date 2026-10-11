@@ -179,7 +179,8 @@ namespace LinqConvertTools.Parser
         }
 
         /// <summary>
-        /// Splits an arithmetic expression at its last top-level arithmetic operator.
+        /// Splits an arithmetic expression at its lowest-precedence top-level operator, so that mul/div/mod bind
+        /// tighter than add/sub and each precedence level is left-associative.
         /// </summary>
         /// <returns>The operands and operator, or <c>null</c> when no arithmetic operator is outside parentheses, such
         /// as in <c>round(Price mul 2)</c>.</returns>
@@ -282,6 +283,11 @@ namespace LinqConvertTools.Parser
             {
                 if (topLevel[i] && blocks[i].IsOperation())
                 {
+                    if (IsNotIn(blocks, i, end))
+                    {
+                        return new TokenSet { Operation = blocks[i], Right = "(" + JoinBlocks(blocks, start, i) + " " + JoinBlocks(blocks, i + 1, end) + ")" };
+                    }
+
                     return new TokenSet
                     {
                         Left = JoinBlocks(blocks, start, i),
@@ -494,6 +500,19 @@ namespace LinqConvertTools.Parser
             }
         }
 
+        /// <summary>
+        /// Determines whether the top-level operator at <paramref name="index"/> begins <c>member not in (list)</c>, a
+        /// shorthand for the standard <c>not (member in (list))</c>: a <c>not</c> immediately followed by <c>in</c> and a
+        /// right operand. <see cref="GetOperand"/> handles an operand that starts with <c>not</c> before searching for an
+        /// operator, so a <c>not</c> found here always has a left operand.
+        /// </summary>
+        private static bool IsNotIn(List<string> blocks, int index, int end)
+        {
+            return index + 2 < end
+                && blocks[index].IsUnaryOperation()
+                && string.Equals(blocks[index + 1], "in", StringComparison.OrdinalIgnoreCase);
+        }
+
         private static string JoinBlocks(List<string> blocks, int start, int end)
         {
             return string.Join(" ", blocks.Skip(start).Take(end - start));
@@ -502,9 +521,20 @@ namespace LinqConvertTools.Parser
         private static int GetArithmeticOperationIndex(List<string> blocks)
         {
             var topLevel = GetTopLevelFlags(blocks);
+
+            // mul/div/mod bind tighter than add/sub, so the tree's root is the lowest-precedence operator present:
+            // the rightmost top-level add/sub when any is present, otherwise the rightmost top-level mul/div/mod.
+            // Taking the rightmost of a precedence level keeps that level left-associative, since the left operand
+            // (everything before the split) is parsed recursively.
+            var additive = LastTopLevelArithmeticIndex(blocks, topLevel, additiveOnly: true);
+            return additive >= 0 ? additive : LastTopLevelArithmeticIndex(blocks, topLevel, additiveOnly: false);
+        }
+
+        private static int LastTopLevelArithmeticIndex(List<string> blocks, bool[] topLevel, bool additiveOnly)
+        {
             for (var i = blocks.Count - 1; i >= 0; i--)
             {
-                if (topLevel[i] && blocks[i].IsArithmetic())
+                if (topLevel[i] && blocks[i].IsArithmetic() && blocks[i].IsAdditiveArithmetic() == additiveOnly)
                 {
                     return i;
                 }

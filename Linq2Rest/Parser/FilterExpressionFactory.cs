@@ -61,13 +61,25 @@ namespace LinqConvertTools.Parser
         /// <param name="expressionFactories">The custom <see cref="IValueExpressionFactory"/> to use for value conversion.</param>
         /// <param name="caseFolding">The string methods used for case-insensitive comparisons and the <c>toupper()</c> and <c>tolower()</c> functions.</param>
         public FilterExpressionFactory(IMemberNameResolver memberNameResolver, IEnumerable<IValueExpressionFactory> expressionFactories, StringCaseFolding caseFolding)
+            : this(memberNameResolver, expressionFactories, caseFolding, false)
+        {
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="FilterExpressionFactory"/> class.
+        /// </summary>
+        /// <param name="memberNameResolver">An <see cref="IMemberNameResolver"/> for name resolution.</param>
+        /// <param name="expressionFactories">The custom <see cref="IValueExpressionFactory"/> to use for value conversion.</param>
+        /// <param name="caseFolding">The string methods used for case-insensitive comparisons and the <c>toupper()</c> and <c>tolower()</c> functions.</param>
+        /// <param name="enumNamesOnly">When <c>true</c>, an enum literal is read only as a defined member name; a numeric value or an undefined name is rejected.</param>
+        public FilterExpressionFactory(IMemberNameResolver memberNameResolver, IEnumerable<IValueExpressionFactory> expressionFactories, StringCaseFolding caseFolding, bool enumNamesOnly)
         {
             if (!Enum.IsDefined(typeof(StringCaseFolding), caseFolding))
             {
                 throw new ArgumentOutOfRangeException(nameof(caseFolding), caseFolding, "Unknown string case folding.");
             }
 
-            _valueReader = new ParameterValueReader(expressionFactories);
+            _valueReader = new ParameterValueReader(expressionFactories, enumNamesOnly);
             _memberNameResolver = memberNameResolver;
             _caseFolding = caseFolding;
             _toUpperMethod = MethodProvider.GetToUpperMethod(caseFolding);
@@ -96,6 +108,10 @@ namespace LinqConvertTools.Parser
         /// <param name="ignoreCase">When true the returned expression ensures string case is ignored.</param>
         /// <typeparam name="T">The <see cref="Type"/> of item to filter.</typeparam>
         /// <returns>An <see cref="Expression{TDelegate}"/> if the passed filter is valid, otherwise null.</returns>
+        /// <remarks>
+        /// Besides the OData grammar, <c>member not in (list)</c> is accepted as shorthand for
+        /// <c>not (member in (list))</c>, including inside <c>any</c> and <c>all</c> lambdas.
+        /// </remarks>
         public Expression<Func<T, bool>> Create<T>(string filter, bool ignoreCase = false)
         {
             return Create<T>(filter, CultureInfo.InvariantCulture, ignoreCase);
@@ -109,6 +125,10 @@ namespace LinqConvertTools.Parser
         /// <param name="ignoreCase">When true the returned expression ensures string case is ignored.</param>
         /// <typeparam name="T">The <see cref="Type"/> of item to filter.</typeparam>
         /// <returns>An <see cref="Expression{TDelegate}"/> if the passed filter is valid, otherwise null.</returns>
+        /// <remarks>
+        /// Besides the OData grammar, <c>member not in (list)</c> is accepted as shorthand for
+        /// <c>not (member in (list))</c>, including inside <c>any</c> and <c>all</c> lambdas.
+        /// </remarks>
         public Expression<Func<T, bool>> Create<T>(string filter, IFormatProvider formatProvider, bool ignoreCase = false)
         {
             if (string.IsNullOrWhiteSpace(filter))
@@ -189,16 +209,46 @@ namespace LinqConvertTools.Parser
                 return binaryExpression;
             }
 
-            Expression left = Expression.Call(binaryExpression.Left, _toUpperMethod);
-            Expression right = Expression.Call(binaryExpression.Right, _toUpperMethod);
+            Expression left = FoldCase(binaryExpression.Left);
+            Expression right = FoldCase(binaryExpression.Right);
             return binaryExpression.Update(left, binaryExpression.Conversion, right);
+        }
+
+        /// <summary>
+        /// Upper-cases a string operand for a case-insensitive comparison. A null constant has no case and is compared
+        /// as-is, so a comparison with <c>null</c> does not try to upper-case it. A value read at query time is kept
+        /// null when it is null, instead of throwing when the filter runs in memory; a query provider translates
+        /// <c>UPPER(null)</c> to null too, so the rows are the same.
+        /// </summary>
+        private Expression FoldCase(Expression operand)
+        {
+            if (operand is ConstantExpression constant)
+            {
+                return constant.Value is string value
+                    ? Expression.Constant(ToUpper(value), typeof(string))
+                    : operand;
+            }
+
+            Expression nullString = Expression.Constant(null, typeof(string));
+            return Expression.Condition(Expression.Equal(operand, nullString), nullString, Expression.Call(operand, _toUpperMethod));
         }
 
         private Expression GetUpperCaseList(Expression expression)
         {
-            return expression is ConstantExpression { Value: string?[] values }
-                ? Expression.Constant(values.Select(value => value is null ? null : ToUpper(value)).ToArray())
-                : expression;
+            if (expression is ConstantExpression { Value: string?[] values })
+            {
+                return Expression.Constant(values.Select(value => value is null ? null : ToUpper(value)).ToArray());
+            }
+
+            // A collection member, such as x.Tags, is upper-cased element by element at query time, so the lookup is
+            // case-insensitive on both sides. Each element is folded the same way as a single value.
+            if (typeof(IEnumerable<string>).IsAssignableFrom(expression.Type))
+            {
+                ParameterExpression element = Expression.Parameter(typeof(string), "x");
+                return Expression.Call(typeof(Enumerable), nameof(Enumerable.Select), new[] { typeof(string), typeof(string) }, expression, Expression.Lambda(FoldCase(element), element));
+            }
+
+            return expression;
         }
 
         private static bool IsInOperation(string operation)
@@ -392,18 +442,34 @@ namespace LinqConvertTools.Parser
             return Expression.Call(innerInstance, method, innerParameters);
         }
 
+        /// <summary>
+        /// Builds a boolean string predicate (<c>contains</c>, <c>endswith</c>, <c>startswith</c>, <c>substringof</c>)
+        /// guarded so that it is false, rather than throwing, when <paramref name="member"/> is null. A null
+        /// <paramref name="member"/> or <paramref name="argument"/> means the filter omitted a required argument, so the
+        /// function cannot be built and <c>null</c> is returned, which the caller reports as an invalid expression.
+        /// </summary>
+        private Expression? GuardedStringPredicate(Expression? member, MethodInfo method, Expression? argument, bool ignoreCase)
+        {
+            if (member is null || argument is null)
+            {
+                return null;
+            }
+
+            return Expression.AndAlso(Expression.NotEqual(member, _nullConstantExpression), GetCaseAwareFunction(member, method, new[] { argument }, ignoreCase));
+        }
+
         private Expression? GetFunction(string function, Expression left, Expression? right, ParameterExpression sourceParameter, ICollection<ParameterExpression> lambdaParameters, bool ignoreCase)
         {
             switch (function.ToUpperInvariant())
             {
                 case "SUBSTRINGOF":
-                    return GetCaseAwareFunction(right, MethodProvider.ContainsMethod, new[] { left }, ignoreCase);
+                    return GuardedStringPredicate(right, MethodProvider.ContainsMethod, left, ignoreCase);
                 case "CONTAINS":
-                    return Expression.AndAlso(Expression.NotEqual(left, _nullConstantExpression), GetCaseAwareFunction(left, MethodProvider.ContainsMethod, new[] { right }, ignoreCase));
+                    return GuardedStringPredicate(left, MethodProvider.ContainsMethod, right, ignoreCase);
                 case "ENDSWITH":
-                    return Expression.AndAlso(Expression.NotEqual(left, _nullConstantExpression), GetCaseAwareFunction(left, MethodProvider.EndsWithMethod, new[] { right }, ignoreCase));
+                    return GuardedStringPredicate(left, MethodProvider.EndsWithMethod, right, ignoreCase);
                 case "STARTSWITH":
-                    return Expression.AndAlso(Expression.NotEqual(left, _nullConstantExpression), GetCaseAwareFunction(left, MethodProvider.StartsWithMethod, new[] { right }, ignoreCase));
+                    return GuardedStringPredicate(left, MethodProvider.StartsWithMethod, right, ignoreCase);
                 case "LENGTH":
                     return Expression.Property(left, MethodProvider.LengthProperty);
                 case "INDEXOF":
@@ -724,13 +790,23 @@ namespace LinqConvertTools.Parser
 
             if (filter[0] == '\'' || filter[0] == '"')
             {
+                bool isWholeStringLiteral = filter.IsWholeStringLiteral();
+
                 // An arithmetic expression can start with a literal operand, such as 'a' add 1.
-                Expression? literalArithmetic = filter.IsWholeStringLiteral()
+                Expression? literalArithmetic = isWholeStringLiteral
                     ? null
                     : GetArithmeticExpression<T>(filter, sourceParameter, lambdaParameters, type, formatProvider, ignoreCase, depth);
                 if (literalArithmetic is not null)
                 {
                     return literalArithmetic;
+                }
+
+                // A quoted literal compared with an enum member is read as that enum (by member name), not as text.
+                // The value reader still lets a custom factory for the type win, and reads the member against the
+                // known enum type so no enum type is resolved from the literal's own text.
+                if (type is not null && isWholeStringLiteral && GetNonNullableType(type).IsEnum)
+                {
+                    return _valueReader.Read(type, filter, formatProvider);
                 }
 
                 TryReadStringLiteral(filter, out string? stringLiteral);

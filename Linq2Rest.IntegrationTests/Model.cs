@@ -25,6 +25,18 @@ namespace LinqConvertTools.IntegrationTests
         public Author Author { get; set; } = new();
 
         public List<Tag> Tags { get; set; } = new();
+
+        public List<string> Keywords { get; set; } = new();
+
+        public DocumentKind Kind { get; set; }
+    }
+
+    public enum DocumentKind
+    {
+        Unknown,
+        Report,
+        Review,
+        Memo,
     }
 
     public class Author
