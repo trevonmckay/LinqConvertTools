@@ -283,7 +283,7 @@ namespace LinqConvertTools.Parser
             {
                 if (topLevel[i] && blocks[i].IsOperation())
                 {
-                    if (IsNotIn(blocks, topLevel, i, start, end))
+                    if (IsNotIn(blocks, i, end))
                     {
                         return new TokenSet { Operation = blocks[i], Right = "(" + JoinBlocks(blocks, start, i) + " " + JoinBlocks(blocks, i + 1, end) + ")" };
                     }
@@ -501,16 +501,15 @@ namespace LinqConvertTools.Parser
         }
 
         /// <summary>
-        /// Determines whether the operator at <paramref name="index"/> begins <c>member not in (list)</c>, a shorthand
-        /// for the standard <c>not (member in (list))</c>: a top-level <c>not</c> with a left operand, immediately
-        /// followed by a top-level <c>in</c> with a right operand.
+        /// Determines whether the top-level operator at <paramref name="index"/> begins <c>member not in (list)</c>, a
+        /// shorthand for the standard <c>not (member in (list))</c>: a <c>not</c> immediately followed by <c>in</c> and a
+        /// right operand. <see cref="GetOperand"/> handles an operand that starts with <c>not</c> before searching for an
+        /// operator, so a <c>not</c> found here always has a left operand.
         /// </summary>
-        private static bool IsNotIn(List<string> blocks, bool[] topLevel, int index, int start, int end)
+        private static bool IsNotIn(List<string> blocks, int index, int end)
         {
-            return index > start
-                && index + 2 < end
+            return index + 2 < end
                 && blocks[index].IsUnaryOperation()
-                && topLevel[index + 1]
                 && string.Equals(blocks[index + 1], "in", StringComparison.OrdinalIgnoreCase);
         }
 
