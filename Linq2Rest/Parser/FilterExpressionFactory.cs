@@ -434,18 +434,34 @@ namespace LinqConvertTools.Parser
             return Expression.Call(innerInstance, method, innerParameters);
         }
 
+        /// <summary>
+        /// Builds a boolean string predicate (<c>contains</c>, <c>endswith</c>, <c>startswith</c>, <c>substringof</c>)
+        /// guarded so that it is false, rather than throwing, when <paramref name="member"/> is null. A null
+        /// <paramref name="member"/> or <paramref name="argument"/> means the filter omitted a required argument, so the
+        /// function cannot be built and <c>null</c> is returned, which the caller reports as an invalid expression.
+        /// </summary>
+        private Expression? GuardedStringPredicate(Expression? member, MethodInfo method, Expression? argument, bool ignoreCase)
+        {
+            if (member is null || argument is null)
+            {
+                return null;
+            }
+
+            return Expression.AndAlso(Expression.NotEqual(member, _nullConstantExpression), GetCaseAwareFunction(member, method, new[] { argument }, ignoreCase));
+        }
+
         private Expression? GetFunction(string function, Expression left, Expression? right, ParameterExpression sourceParameter, ICollection<ParameterExpression> lambdaParameters, bool ignoreCase)
         {
             switch (function.ToUpperInvariant())
             {
                 case "SUBSTRINGOF":
-                    return Expression.AndAlso(Expression.NotEqual(right, _nullConstantExpression), GetCaseAwareFunction(right, MethodProvider.ContainsMethod, new[] { left }, ignoreCase));
+                    return GuardedStringPredicate(right, MethodProvider.ContainsMethod, left, ignoreCase);
                 case "CONTAINS":
-                    return Expression.AndAlso(Expression.NotEqual(left, _nullConstantExpression), GetCaseAwareFunction(left, MethodProvider.ContainsMethod, new[] { right }, ignoreCase));
+                    return GuardedStringPredicate(left, MethodProvider.ContainsMethod, right, ignoreCase);
                 case "ENDSWITH":
-                    return Expression.AndAlso(Expression.NotEqual(left, _nullConstantExpression), GetCaseAwareFunction(left, MethodProvider.EndsWithMethod, new[] { right }, ignoreCase));
+                    return GuardedStringPredicate(left, MethodProvider.EndsWithMethod, right, ignoreCase);
                 case "STARTSWITH":
-                    return Expression.AndAlso(Expression.NotEqual(left, _nullConstantExpression), GetCaseAwareFunction(left, MethodProvider.StartsWithMethod, new[] { right }, ignoreCase));
+                    return GuardedStringPredicate(left, MethodProvider.StartsWithMethod, right, ignoreCase);
                 case "LENGTH":
                     return Expression.Property(left, MethodProvider.LengthProperty);
                 case "INDEXOF":

@@ -59,6 +59,9 @@ namespace LinqConvertTools.Tests.Parser
             [TestCase("Not DoubleValue", typeof(InvalidOperationException))]
             [TestCase("Duration eq time'PT2H15M' and Not DoubleValue", typeof(InvalidOperationException))]
             [TestCase("\0\0", typeof(InvalidOperationException))]
+            [TestCase("substringof('x')", typeof(InvalidOperationException))]
+            [TestCase("contains(StringValue)", typeof(InvalidOperationException))]
+            [TestCase("startswith(StringValue)", typeof(InvalidOperationException))]
             public void WhenParsingInvalidExpressionThenThrows(string filter, Type exceptionType)
             {
                 ArgumentNullException.ThrowIfNull(_factory);
