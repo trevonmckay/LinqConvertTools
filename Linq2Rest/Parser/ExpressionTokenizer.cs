@@ -283,6 +283,11 @@ namespace LinqConvertTools.Parser
             {
                 if (topLevel[i] && blocks[i].IsOperation())
                 {
+                    if (IsNotIn(blocks, i, end))
+                    {
+                        return new TokenSet { Operation = blocks[i], Right = "(" + JoinBlocks(blocks, start, i) + " " + JoinBlocks(blocks, i + 1, end) + ")" };
+                    }
+
                     return new TokenSet
                     {
                         Left = JoinBlocks(blocks, start, i),
@@ -493,6 +498,19 @@ namespace LinqConvertTools.Parser
             {
                 end--;
             }
+        }
+
+        /// <summary>
+        /// Determines whether the top-level operator at <paramref name="index"/> begins <c>member not in (list)</c>, a
+        /// shorthand for the standard <c>not (member in (list))</c>: a <c>not</c> immediately followed by <c>in</c> and a
+        /// right operand. <see cref="GetOperand"/> handles an operand that starts with <c>not</c> before searching for an
+        /// operator, so a <c>not</c> found here always has a left operand.
+        /// </summary>
+        private static bool IsNotIn(List<string> blocks, int index, int end)
+        {
+            return index + 2 < end
+                && blocks[index].IsUnaryOperation()
+                && string.Equals(blocks[index + 1], "in", StringComparison.OrdinalIgnoreCase);
         }
 
         private static string JoinBlocks(List<string> blocks, int start, int end)

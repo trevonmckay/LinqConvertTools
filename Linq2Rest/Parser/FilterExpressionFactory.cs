@@ -108,6 +108,10 @@ namespace LinqConvertTools.Parser
         /// <param name="ignoreCase">When true the returned expression ensures string case is ignored.</param>
         /// <typeparam name="T">The <see cref="Type"/> of item to filter.</typeparam>
         /// <returns>An <see cref="Expression{TDelegate}"/> if the passed filter is valid, otherwise null.</returns>
+        /// <remarks>
+        /// Besides the OData grammar, <c>member not in (list)</c> is accepted as shorthand for
+        /// <c>not (member in (list))</c>, including inside <c>any</c> and <c>all</c> lambdas.
+        /// </remarks>
         public Expression<Func<T, bool>> Create<T>(string filter, bool ignoreCase = false)
         {
             return Create<T>(filter, CultureInfo.InvariantCulture, ignoreCase);
@@ -121,6 +125,10 @@ namespace LinqConvertTools.Parser
         /// <param name="ignoreCase">When true the returned expression ensures string case is ignored.</param>
         /// <typeparam name="T">The <see cref="Type"/> of item to filter.</typeparam>
         /// <returns>An <see cref="Expression{TDelegate}"/> if the passed filter is valid, otherwise null.</returns>
+        /// <remarks>
+        /// Besides the OData grammar, <c>member not in (list)</c> is accepted as shorthand for
+        /// <c>not (member in (list))</c>, including inside <c>any</c> and <c>all</c> lambdas.
+        /// </remarks>
         public Expression<Func<T, bool>> Create<T>(string filter, IFormatProvider formatProvider, bool ignoreCase = false)
         {
             if (string.IsNullOrWhiteSpace(filter))

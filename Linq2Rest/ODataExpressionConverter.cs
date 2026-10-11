@@ -120,9 +120,15 @@ namespace LinqConvertTools
         /// <typeparam name="T">The parameter type.</typeparam>
         /// <returns>An expression tree for the passed query.</returns>
         /// <remarks>
+        /// <para>
         /// Parsing time grows faster than the length of <paramref name="filter"/>, and each regular expression match
         /// is limited separately rather than the parse as a whole, so callers that accept filters from untrusted
         /// sources should cap their length before calling this method.
+        /// </para>
+        /// <para>
+        /// Besides the OData grammar, <c>member not in (list)</c> is accepted as shorthand for
+        /// <c>not (member in (list))</c>, including inside <c>any</c> and <c>all</c> lambdas.
+        /// </para>
         /// </remarks>
         /// <exception cref="InvalidOperationException">The filter is not valid, or it nests deeper than <see cref="MaxDepth"/>.</exception>
         /// <exception cref="FormatException">A literal in the filter cannot be read as the type of the member it is compared with, such as an undefined enum member name.</exception>
