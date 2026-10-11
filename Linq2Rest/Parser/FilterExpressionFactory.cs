@@ -439,7 +439,7 @@ namespace LinqConvertTools.Parser
             switch (function.ToUpperInvariant())
             {
                 case "SUBSTRINGOF":
-                    return GetCaseAwareFunction(right, MethodProvider.ContainsMethod, new[] { left }, ignoreCase);
+                    return Expression.AndAlso(Expression.NotEqual(right, _nullConstantExpression), GetCaseAwareFunction(right, MethodProvider.ContainsMethod, new[] { left }, ignoreCase));
                 case "CONTAINS":
                     return Expression.AndAlso(Expression.NotEqual(left, _nullConstantExpression), GetCaseAwareFunction(left, MethodProvider.ContainsMethod, new[] { right }, ignoreCase));
                 case "ENDSWITH":

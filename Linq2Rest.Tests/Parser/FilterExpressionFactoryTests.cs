@@ -1,6 +1,6 @@
 // --------------------------------------------------------------------------------------------------------------------
 // <copyright file="FilterExpressionFactoryTests.cs" company="Reimers.dk">
-//   Copyright © Reimers.dk 2014
+//   Copyright ï¿½ Reimers.dk 2014
 //   This source is subject to the Microsoft Public License (Ms-PL).
 //   Please see http://go.microsoft.com/fwlink/?LinkID=131993 for details.
 //   All other rights reserved.
@@ -110,8 +110,8 @@ namespace LinqConvertTools.Tests.Parser
             }
 
             [Test]
-            [TestCase("substringof('My Name,', StringValue)", "x => x.StringValue.Contains(\"My Name,\")")]
-            [TestCase("substringof('123456789(ext:1234))', StringValue)", "x => x.StringValue.Contains(\"123456789(ext:1234))\")")]
+            [TestCase("substringof('My Name,', StringValue)", "x => ((x.StringValue != null) AndAlso x.StringValue.Contains(\"My Name,\"))")]
+            [TestCase("substringof('123456789(ext:1234))', StringValue)", "x => ((x.StringValue != null) AndAlso x.StringValue.Contains(\"123456789(ext:1234))\"))")]
             [TestCase("StringValue eq 'a \"quote\"'", "x => (x.StringValue == \"a \"quote\"\")")]
             [TestCase("StringValue eq 'a \"quote\" within the text'", "x => (x.StringValue == \"a \"quote\" within the text\")")]
             [TestCase("StringValue eq 'a 'single quote' within the text'", "x => (x.StringValue == \"a 'single quote' within the text\")")]
@@ -163,10 +163,10 @@ namespace LinqConvertTools.Tests.Parser
             [TestCase("StringValue ne 1", "x => (x.StringValue != \"1\")")]
             [TestCase("StringValue/Length eq 1", "x => ((null != x.StringValue) AndAlso (x.StringValue.Length == 1))")]
             [TestCase("StringValue/Length ne 1", "x => ((null != x.StringValue) AndAlso (x.StringValue.Length != 1))")]
-            [TestCase("substringof('text', StringValue) eq true", "x => ((null != x.StringValue) AndAlso (x.StringValue.Contains(\"text\") == True))")]
-            [TestCase("substringof('text', StringValue) ne true", "x => ((null != x.StringValue) AndAlso (x.StringValue.Contains(\"text\") != True))")]
-            [TestCase("substringof('text', StringValue) eq false", "x => ((null != x.StringValue) AndAlso (x.StringValue.Contains(\"text\") == False))")]
-            [TestCase("substringof('text', StringValue) ne false", "x => ((null != x.StringValue) AndAlso (x.StringValue.Contains(\"text\") != False))")]
+            [TestCase("substringof('text', StringValue) eq true", "x => (((x.StringValue != null) AndAlso x.StringValue.Contains(\"text\")) == True)")]
+            [TestCase("substringof('text', StringValue) ne true", "x => (((x.StringValue != null) AndAlso x.StringValue.Contains(\"text\")) != True)")]
+            [TestCase("substringof('text', StringValue) eq false", "x => (((x.StringValue != null) AndAlso x.StringValue.Contains(\"text\")) == False)")]
+            [TestCase("substringof('text', StringValue) ne false", "x => (((x.StringValue != null) AndAlso x.StringValue.Contains(\"text\")) != False)")]
             [TestCase("endswith(StringValue, 'text') eq true", "x => (((x.StringValue != null) AndAlso x.StringValue.EndsWith(\"text\")) == True)")]
             [TestCase("endswith(StringValue, 'text') ne true", "x => (((x.StringValue != null) AndAlso x.StringValue.EndsWith(\"text\")) != True)")]
             [TestCase("endswith(StringValue, 'text') eq false", "x => (((x.StringValue != null) AndAlso x.StringValue.EndsWith(\"text\")) == False)")]
@@ -234,9 +234,9 @@ namespace LinqConvertTools.Tests.Parser
             [TestCase("StringValue/Length eq 5 and Children/any(a: a/ChildStringValue eq 'foo')",
                 "x => (((null != x.StringValue) AndAlso (x.StringValue.Length == 5)) AndAlso x.Children.Any(a => (a.ChildStringValue == \"foo\")))")]
             [TestCase("substringof('endIsSpaceX ', StringValue) or substringof('endIsSpaceY ', StringValue)",
-                "x => ((null != x.StringValue) AndAlso (x.StringValue.Contains(\"endIsSpaceX \") OrElse x.StringValue.Contains(\"endIsSpaceY \")))")]
+                "x => (((x.StringValue != null) AndAlso x.StringValue.Contains(\"endIsSpaceX \")) OrElse ((x.StringValue != null) AndAlso x.StringValue.Contains(\"endIsSpaceY \")))")]
             [TestCase("(substringof('endIsSpaceX ', StringValue) or substringof('endIsSpaceY ', StringValue)) or StringValue eq 'other'",
-                "x => (((null != x.StringValue) AndAlso (x.StringValue.Contains(\"endIsSpaceX \") OrElse x.StringValue.Contains(\"endIsSpaceY \"))) OrElse (x.StringValue == \"other\"))")]
+                "x => ((((x.StringValue != null) AndAlso x.StringValue.Contains(\"endIsSpaceX \")) OrElse ((x.StringValue != null) AndAlso x.StringValue.Contains(\"endIsSpaceY \"))) OrElse (x.StringValue == \"other\"))")]
             [TestCase("StringValue eq 'has''escaped''quotes'", "x => (x.StringValue == \"has'escaped'quotes\")")]
             [TestCase("Children/any(a: a/ChildStringValue eq 'foo')", "x => x.Children.Any(a => (a.ChildStringValue == \"foo\"))")]
             [TestCase("Children/all(y: y/Children/all(z: z/GrandChildStringValue eq 'foo'))",
@@ -352,8 +352,8 @@ namespace LinqConvertTools.Tests.Parser
                 Assert.IsEmpty(result);
             }
 
-            [TestCase("substringof('My Name,', Text)", "x => x.StringValue.Contains(\"My Name,\")")]
-            [TestCase("substringof('123456789(ext:1234))', Text)", "x => x.StringValue.Contains(\"123456789(ext:1234))\")")]
+            [TestCase("substringof('My Name,', Text)", "x => ((x.StringValue != null) AndAlso x.StringValue.Contains(\"My Name,\"))")]
+            [TestCase("substringof('123456789(ext:1234))', Text)", "x => ((x.StringValue != null) AndAlso x.StringValue.Contains(\"123456789(ext:1234))\"))")]
             [TestCase("Text eq 'a \"quote\"'", "x => (x.StringValue == \"a \"quote\"\")")]
             [TestCase("Text eq 'a \"quote\" within the text'", "x => (x.StringValue == \"a \"quote\" within the text\")")]
             [TestCase("Text eq 'a 'single quote' within the text'", "x => (x.StringValue == \"a 'single quote' within the text\")")]
@@ -405,10 +405,10 @@ namespace LinqConvertTools.Tests.Parser
             [TestCase("Text ne 1", "x => (x.StringValue != \"1\")")]
             [TestCase("Text/Length eq 1", "x => ((null != x.StringValue) AndAlso (x.StringValue.Length == 1))")]
             [TestCase("Text/Length ne 1", "x => ((null != x.StringValue) AndAlso (x.StringValue.Length != 1))")]
-            [TestCase("substringof('text', Text) eq true", "x => ((null != x.StringValue) AndAlso (x.StringValue.Contains(\"text\") == True))")]
-            [TestCase("substringof('text', Text) ne true", "x => ((null != x.StringValue) AndAlso (x.StringValue.Contains(\"text\") != True))")]
-            [TestCase("substringof('text', Text) eq false", "x => ((null != x.StringValue) AndAlso (x.StringValue.Contains(\"text\") == False))")]
-            [TestCase("substringof('text', Text) ne false", "x => ((null != x.StringValue) AndAlso (x.StringValue.Contains(\"text\") != False))")]
+            [TestCase("substringof('text', Text) eq true", "x => (((x.StringValue != null) AndAlso x.StringValue.Contains(\"text\")) == True)")]
+            [TestCase("substringof('text', Text) ne true", "x => (((x.StringValue != null) AndAlso x.StringValue.Contains(\"text\")) != True)")]
+            [TestCase("substringof('text', Text) eq false", "x => (((x.StringValue != null) AndAlso x.StringValue.Contains(\"text\")) == False)")]
+            [TestCase("substringof('text', Text) ne false", "x => (((x.StringValue != null) AndAlso x.StringValue.Contains(\"text\")) != False)")]
             [TestCase("endswith(Text, 'text') eq true", "x => (((x.StringValue != null) AndAlso x.StringValue.EndsWith(\"text\")) == True)")]
             [TestCase("endswith(Text, 'text') ne true", "x => (((x.StringValue != null) AndAlso x.StringValue.EndsWith(\"text\")) != True)")]
             [TestCase("endswith(Text, 'text') eq false", "x => (((x.StringValue != null) AndAlso x.StringValue.EndsWith(\"text\")) == False)")]
@@ -475,9 +475,9 @@ namespace LinqConvertTools.Tests.Parser
             [TestCase("Text/Length eq 5 and Children/any(a: a/ChildStringValue eq 'foo')",
                 "x => (((null != x.StringValue) AndAlso (x.StringValue.Length == 5)) AndAlso x.AliasChildren.Any(a => (a.ChildStringValue == \"foo\")))")]
             [TestCase("substringof('endIsSpaceX ', Text) or substringof('endIsSpaceY ', Text)",
-                "x => ((null != x.StringValue) AndAlso (x.StringValue.Contains(\"endIsSpaceX \") OrElse x.StringValue.Contains(\"endIsSpaceY \")))")]
+                "x => (((x.StringValue != null) AndAlso x.StringValue.Contains(\"endIsSpaceX \")) OrElse ((x.StringValue != null) AndAlso x.StringValue.Contains(\"endIsSpaceY \")))")]
             [TestCase("(substringof('endIsSpaceX ', Text) or substringof('endIsSpaceY ', Text)) or Text eq 'other'",
-                "x => (((null != x.StringValue) AndAlso (x.StringValue.Contains(\"endIsSpaceX \") OrElse x.StringValue.Contains(\"endIsSpaceY \"))) OrElse (x.StringValue == \"other\"))")]
+                "x => ((((x.StringValue != null) AndAlso x.StringValue.Contains(\"endIsSpaceX \")) OrElse ((x.StringValue != null) AndAlso x.StringValue.Contains(\"endIsSpaceY \"))) OrElse (x.StringValue == \"other\"))")]
             [TestCase("Text eq 'has''escaped''quotes'", "x => (x.StringValue == \"has'escaped'quotes\")")]
             [TestCase("Children/any(a: a/ChildStringValue eq 'foo')", "x => x.AliasChildren.Any(a => (a.ChildStringValue == \"foo\"))")]
             [TestCase("Children/all(y: y/Children/all(z: z/GrandChildStringValue eq 'foo'))",

@@ -30,6 +30,8 @@ namespace LinqConvertTools.IntegrationTests
             new object[] { "title in ('Annual Review', 'Draft Proposal')", false, "B,C" },
             new object[] { "contains(title, 'view')", false, "B" },
             new object[] { "substringof('view', title)", false, "B" },
+            new object[] { "substringof('pen', status) or status eq null", false, "A,C,D" },
+            new object[] { "status eq 'Closed' or substringof('pen', status) or status eq 'Archived'", false, "A,B,D" },
             new object[] { "startswith(title, 'Draft')", false, "C" },
             new object[] { "endswith(title, 'Memo')", false, "D" },
             new object[] { "not startswith(title, 'Draft')", false, "A,B,D" },
