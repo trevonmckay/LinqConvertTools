@@ -94,8 +94,8 @@ namespace LinqConvertTools.Parser
 
         /// <summary>
         /// Gets or sets the deepest a parsed filter may nest, counted in levels of the expression tree it
-        /// produces. A filter nested deeper, or a chain of conditions longer, throws
-        /// <see cref="InvalidOperationException"/>. Code that walks the returned expression, such as a query
+        /// produces. A filter nested deeper, or a chain of conditions longer, throws an
+        /// <see cref="ODataParseException"/> of kind <see cref="ODataParseErrorKind.TooComplex"/>. Code that walks the returned expression, such as a query
         /// provider, typically recurses once per level, so this bounds the stack that code needs.
         /// </summary>
         /// <exception cref="ArgumentOutOfRangeException">The value is less than 1.</exception>
@@ -118,6 +118,7 @@ namespace LinqConvertTools.Parser
         /// Besides the OData grammar, <c>member not in (list)</c> is accepted as shorthand for
         /// <c>not (member in (list))</c>, including inside <c>any</c> and <c>all</c> lambdas.
         /// </remarks>
+        /// <exception cref="ODataParseException">The filter cannot be parsed for <typeparamref name="T"/>.</exception>
         public Expression<Func<T, bool>> Create<T>(string filter, bool ignoreCase = false)
         {
             return Create<T>(filter, CultureInfo.InvariantCulture, ignoreCase);
@@ -135,6 +136,7 @@ namespace LinqConvertTools.Parser
         /// Besides the OData grammar, <c>member not in (list)</c> is accepted as shorthand for
         /// <c>not (member in (list))</c>, including inside <c>any</c> and <c>all</c> lambdas.
         /// </remarks>
+        /// <exception cref="ODataParseException">The filter cannot be parsed for <typeparamref name="T"/>.</exception>
         public Expression<Func<T, bool>> Create<T>(string filter, IFormatProvider formatProvider, bool ignoreCase = false)
         {
             if (string.IsNullOrWhiteSpace(filter))
@@ -142,6 +144,11 @@ namespace LinqConvertTools.Parser
                 return x => true;
             }
 
+            return ParseFailure.Guard(StringConstants.FilterParameter, filter, () => CreateFilter<T>(filter, formatProvider, ignoreCase));
+        }
+
+        private Expression<Func<T, bool>> CreateFilter<T>(string filter, IFormatProvider formatProvider, bool ignoreCase)
+        {
             var parameter = Expression.Parameter(typeof(T), "x");
 
             Expression? expression = CreateExpression<T>(filter, parameter, new List<ParameterExpression>(), null, formatProvider, ignoreCase, 1);
@@ -773,9 +780,9 @@ namespace LinqConvertTools.Parser
             return _memberNameResolver.ResolveMemberPath(parameter, propertyChain);
         }
 
-        private InvalidOperationException DepthExceeded()
+        private MaxDepthExceededException DepthExceeded()
         {
-            return new InvalidOperationException("The filter is nested more than " + _maxDepth.ToString(CultureInfo.InvariantCulture) + " levels deep.");
+            return new MaxDepthExceededException("The filter is nested more than " + _maxDepth.ToString(CultureInfo.InvariantCulture) + " levels deep.");
         }
 
         private Expression? CreateExpression<T>(string filter, ParameterExpression sourceParameter, ICollection<ParameterExpression> lambdaParameters, Type? type, IFormatProvider formatProvider, bool ignoreCase, int depth)

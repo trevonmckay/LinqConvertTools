@@ -96,7 +96,7 @@ namespace LinqConvertTools.Tests.Parser
         {
             ArgumentNullException.ThrowIfNull(_converter);
 
-            Assert.Throws<InvalidOperationException>(() => _converter.Convert<Record>(filter));
+            ParseAssert.Throws<InvalidOperationException>(() => _converter.Convert<Record>(filter));
         }
 
         public class Record

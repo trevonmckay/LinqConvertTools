@@ -52,6 +52,7 @@ namespace LinqConvertTools.Parser
         /// </summary>
         /// <param name="selection">The properties to select.</param>
         /// <returns>An instance of a <see cref="Func{T1,TResult}"/>, or <see langword="null"/> when <paramref name="selection"/> names no properties.</returns>
+        /// <exception cref="ODataParseException">The selection names a member that <typeparamref name="T"/> does not have, or names a member more than once.</exception>
         public Expression<Func<T, object>>? Create(string? selection)
         {
             var fieldNames = (selection ?? string.Empty).Split(',')
@@ -68,12 +69,29 @@ namespace LinqConvertTools.Parser
                 return knownSelection;
             }
 
+            var selector = ParseFailure.Guard(StringConstants.SelectParameter, selection, () => CreateSelector(fieldNames));
+
+            if (Monitor.TryEnter(_knownSelections, 1000))
+            {
+                _knownSelections.Add(key, selector);
+
+                Monitor.Exit(_knownSelections);
+            }
+
+            return selector;
+        }
+
+        private Expression<Func<T, object>> CreateSelector(IEnumerable<string> fieldNames)
+        {
             var elementType = typeof(T);
             var elementMembers = elementType.GetProperties(Flags)
                 .Cast<MemberInfo>()
                 .Concat(elementType.GetFields(Flags))
                 .ToArray();
-            var sourceMembers = fieldNames.ToDictionary(name => name, s => elementMembers.First(m => _nameResolver.ResolveName(m) == s));
+            var sourceMembers = fieldNames.ToDictionary(
+                name => name,
+                name => elementMembers.FirstOrDefault(m => _nameResolver.ResolveName(m) == name)
+                    ?? throw new FormatException(name + " is not recognized as a valid property"));
             var dynamicType = _runtimeTypeProvider.Get(elementType, sourceMembers.Values);
 
             var sourceItem = Expression.Parameter(elementType, "t");
@@ -92,18 +110,9 @@ namespace LinqConvertTools.Parser
 
 
 
-            var selector = Expression.Lambda<Func<T, object>>(
-                                                              Expression.MemberInit(Expression.New(constructorInfo), bindings),
-                                                              sourceItem);
-
-            if (Monitor.TryEnter(_knownSelections, 1000))
-            {
-                _knownSelections.Add(key, selector);
-
-                Monitor.Exit(_knownSelections);
-            }
-
-            return selector;
+            return Expression.Lambda<Func<T, object>>(
+                                                      Expression.MemberInit(Expression.New(constructorInfo), bindings),
+                                                      sourceItem);
         }
 
         [ContractInvariantMethod]

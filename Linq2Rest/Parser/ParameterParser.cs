@@ -85,6 +85,7 @@ namespace LinqConvertTools.Parser
         /// </summary>
         /// <param name="queryParameters"></param>
         /// <returns></returns>
+        /// <exception cref="ODataParseException">A query option cannot be parsed for <typeparamref name="T"/>.</exception>
         public IModelFilter<T> Parse(NameValueCollection queryParameters)
         {
             var orderbyField = queryParameters[StringConstants.OrderByParameter];
@@ -101,9 +102,16 @@ namespace LinqConvertTools.Parser
                 filterExpression,
                 selectFunction,
                 sortDescriptions,
-                string.IsNullOrWhiteSpace(skip) ? -1 : Convert.ToInt32(skip, CultureInfo.InvariantCulture),
-                string.IsNullOrWhiteSpace(top) ? -1 : Convert.ToInt32(top, CultureInfo.InvariantCulture));
+                ReadCount(StringConstants.SkipParameter, skip),
+                ReadCount(StringConstants.TopParameter, top));
             return modelFilter;
+        }
+
+        private static int ReadCount(string queryOption, string? value)
+        {
+            return string.IsNullOrWhiteSpace(value)
+                ? -1
+                : ParseFailure.Guard(queryOption, value, () => Convert.ToInt32(value, CultureInfo.InvariantCulture));
         }
 
         [ContractInvariantMethod]

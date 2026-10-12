@@ -119,7 +119,7 @@ namespace LinqConvertTools.Tests.Parser
         [TestCase("LENGTH(name, 1) eq 5", "LENGTH")]
         public void WrongArgumentCount_IsRejectedNamingTheFunction(string filter, string function)
         {
-            var exception = Assert.Throws<InvalidOperationException>(() => new ODataExpressionConverter().Convert<Row>(filter, false));
+            var exception = ParseAssert.Throws<InvalidOperationException>(() => new ODataExpressionConverter().Convert<Row>(filter, false));
             StringAssert.Contains(function + "()", exception!.Message);
         }
 
@@ -144,7 +144,7 @@ namespace LinqConvertTools.Tests.Parser
         [TestCase("year(name) eq 1", "year", "String")]
         public void WrongArgumentType_IsRejectedNamingTheFunctionAndType(string filter, string function, string typeName)
         {
-            var exception = Assert.Throws<InvalidOperationException>(() => new ODataExpressionConverter().Convert<Row>(filter, false));
+            var exception = ParseAssert.Throws<InvalidOperationException>(() => new ODataExpressionConverter().Convert<Row>(filter, false));
             StringAssert.Contains(function + "()", exception!.Message);
             StringAssert.Contains(typeName, exception.Message);
         }
@@ -177,7 +177,7 @@ namespace LinqConvertTools.Tests.Parser
         [TestCase("name not in ('Alpha') eq")]
         public void ComparisonMissingItsRightSideAfterInList_IsRejected(string filter)
         {
-            Assert.Throws<InvalidOperationException>(() => new ODataExpressionConverter().Convert<Row>(filter, false));
+            ParseAssert.Throws<InvalidOperationException>(() => new ODataExpressionConverter().Convert<Row>(filter, false));
         }
     }
 }

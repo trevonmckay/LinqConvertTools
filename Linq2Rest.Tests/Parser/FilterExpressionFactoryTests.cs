@@ -66,7 +66,7 @@ namespace LinqConvertTools.Tests.Parser
             {
                 ArgumentNullException.ThrowIfNull(_factory);
 
-                Assert.Throws(exceptionType, () => _factory.Create<FakeItem>(filter));
+                ParseAssert.Throws(exceptionType, () => _factory.Create<FakeItem>(filter));
             }
 
             [Test]
@@ -309,7 +309,7 @@ namespace LinqConvertTools.Tests.Parser
             {
                 ArgumentNullException.ThrowIfNull(_factory);
 
-                Assert.Throws(exceptionType, () => _factory.Create<AliasItem>(filter));
+                ParseAssert.Throws(exceptionType, () => _factory.Create<AliasItem>(filter));
             }
 
             [Test]

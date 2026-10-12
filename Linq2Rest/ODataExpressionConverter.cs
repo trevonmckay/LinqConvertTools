@@ -130,10 +130,13 @@ namespace LinqConvertTools
         /// <c>not (member in (list))</c>, including inside <c>any</c> and <c>all</c> lambdas.
         /// </para>
         /// </remarks>
-        /// <exception cref="InvalidOperationException">The filter is not valid, or it nests deeper than <see cref="MaxDepth"/>.</exception>
-        /// <exception cref="FormatException">A literal in the filter cannot be read as the type of the member it is compared with, such as an undefined enum member name.</exception>
-        /// <exception cref="InsufficientExecutionStackException">The filter is nested too deeply to parse on the current thread's stack.</exception>
-        /// <exception cref="System.Text.RegularExpressions.RegexMatchTimeoutException">Tokenizing part of the filter took longer than the parser allows.</exception>
+        /// <exception cref="ODataParseException">
+        /// The filter cannot be parsed for <typeparamref name="T"/>. Its <see cref="ODataParseException.Kind"/> is
+        /// <see cref="ODataParseErrorKind.TooComplex"/> when the filter nests deeper than <see cref="MaxDepth"/>, is
+        /// nested too deeply to parse on the current thread's stack, or takes longer to tokenize than the parser
+        /// allows, and <see cref="ODataParseErrorKind.Invalid"/> otherwise, such as for invalid syntax, an unknown
+        /// member, or a literal that cannot be read as the type of the member it is compared with.
+        /// </exception>
         public Expression<Func<T, bool>> Convert<T>(string filter, bool ignoreCase = false)
         {
             return _parser.Create<T>(filter, ignoreCase);
