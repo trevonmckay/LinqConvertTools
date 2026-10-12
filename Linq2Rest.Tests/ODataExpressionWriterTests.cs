@@ -153,6 +153,29 @@ namespace LinqConvertTools.Tests
         }
 
         [Test]
+        public void WritesNotWithRequiredWhitespace()
+        {
+            var converter = new ODataExpressionConverter();
+            Expression<Func<ChildDto, bool>> expression = x => !x.Name!.Contains("al");
+
+            var serialized = converter.Convert(expression);
+
+            Assert.AreEqual("not (substringof('al', Name))", serialized);
+        }
+
+        [Test]
+        public void NegationRoundTrips()
+        {
+            var converter = new ODataExpressionConverter();
+            var items = new[] { new ChildDto { Name = "Alpha" }, new ChildDto { Name = "Beta" }, new ChildDto { Name = "Gamma" } };
+            Expression<Func<ChildDto, bool>> expression = x => !(x.Name == "Alpha") && !x.Name!.StartsWith("Ga");
+
+            var parsed = converter.Convert<ChildDto>(converter.Convert(expression)!);
+
+            Assert.AreEqual("Beta", string.Join(",", items.AsQueryable().Where(parsed).Select(x => x.Name)));
+        }
+
+        [Test]
         public void ConvertsFilterToExpression()
         {
             const string Filter = "Name eq 'blah'";

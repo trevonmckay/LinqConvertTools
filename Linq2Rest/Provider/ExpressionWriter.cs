@@ -342,7 +342,7 @@ namespace LinqConvertTools.Provider
 
             var operand = unaryExpression.Operand;
 
-            return string.Format(CultureInfo.InvariantCulture, "not({0})", Write(operand, rootParameterName, sourceType));
+            return string.Format(CultureInfo.InvariantCulture, "not ({0})", Write(operand, rootParameterName, sourceType));
         }
 
         private string WriteTrue(Expression expression, ParameterExpression? rootParameterName, Type sourceType)
