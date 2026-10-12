@@ -79,7 +79,7 @@ namespace LinqConvertTools.Parser
             var elementMembers = elementType.GetProperties(Flags)
                 .Cast<MemberInfo>()
                 .Concat(elementType.GetFields(Flags))
-                .Where(QueryableMembers.IsReadableValue)
+                .Where(QueryableMembers.IsQueryable)
                 .ToArray();
             var sourceMembers = new Dictionary<string, MemberInfo>();
             foreach (var name in fieldNames)
