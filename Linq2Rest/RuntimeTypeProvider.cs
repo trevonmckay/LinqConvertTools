@@ -15,6 +15,7 @@ namespace LinqConvertTools
     using System;
     using System.Collections.Concurrent;
     using System.Collections.Generic;
+    using System.Globalization;
     using System.Linq;
     using System.Reflection;
     using System.Reflection.Emit;
@@ -29,6 +30,7 @@ namespace LinqConvertTools
         private static readonly ModuleBuilder ModuleBuilder;
         private static readonly ConcurrentDictionary<string, Type> BuiltTypes = new ConcurrentDictionary<string, Type>();
         private static readonly object BuildLock = new object();
+        private static readonly HashSet<string> DefinedTypeNames = new HashSet<string>(StringComparer.Ordinal);
         private static readonly ConcurrentDictionary<Type, CustomAttributeBuilder[]> TypeAttributeBuilders = new ConcurrentDictionary<Type, CustomAttributeBuilder[]>();
         private static readonly ConcurrentDictionary<MemberInfo, CustomAttributeBuilder[]> PropertyAttributeBuilders = new ConcurrentDictionary<MemberInfo, CustomAttributeBuilder[]>();
         private readonly IMemberNameResolver _nameResolver;
@@ -66,19 +68,26 @@ namespace LinqConvertTools
 
             var dictionary = properties.ToDictionary(f => _nameResolver.ResolveName(f), memberInfo => memberInfo);
 
-            var className = GetTypeKey(sourceType, dictionary);
-            if (BuiltTypes.TryGetValue(className, out var builtType))
+            var typeKey = GetTypeKey(sourceType, dictionary);
+            if (BuiltTypes.TryGetValue(typeKey, out var builtType))
             {
                 return builtType;
             }
 
-            // GetOrAdd can run its factory on several threads at once, and defining the same type name twice in
-            // the module throws, so each type is built under a lock.
+            // Defining a type name twice in the module throws, and a name stays defined even when building the type
+            // fails, so types are built under a lock and every attempt takes a name that was not defined before.
             lock (BuildLock)
             {
-                if (BuiltTypes.TryGetValue(className, out builtType))
+                if (BuiltTypes.TryGetValue(typeKey, out builtType))
                 {
                     return builtType;
+                }
+
+                var baseName = GetTypeName(sourceType, dictionary);
+                var className = baseName;
+                for (var attempt = 2; !DefinedTypeNames.Add(className); attempt++)
+                {
+                    className = baseName + "_" + attempt.ToString(CultureInfo.InvariantCulture);
                 }
 
                 var typeBuilder = ModuleBuilder.DefineType(
@@ -93,7 +102,7 @@ namespace LinqConvertTools
                 }
 
                 builtType = typeBuilder.CreateTypeInfo() ?? throw new InvalidOperationException("Could not create runtime type " + className + ".");
-                BuiltTypes[className] = builtType;
+                BuiltTypes[typeKey] = builtType;
                 return builtType;
             }
         }
@@ -102,9 +111,7 @@ namespace LinqConvertTools
         {
 
 
-            var propertyType = field.Value.MemberType == MemberTypes.Property
-                                ? ((PropertyInfo)field.Value).PropertyType
-                                : ((FieldInfo)field.Value).FieldType;
+            var propertyType = GetValueType(field.Value);
             var fieldBuilder = typeBuilder.DefineField("_" + field.Key, propertyType, FieldAttributes.Private);
 
             var propertyBuilder = typeBuilder.DefineProperty(field.Key, PropertyAttributes.None, propertyType, null);
@@ -202,12 +209,30 @@ namespace LinqConvertTools
             return attributeBuilders;
         }
 
+        /// <summary>
+        /// Identifies a runtime type by everything that shapes it: the full source type, including its namespace
+        /// and generic arguments, and for each property its name, the member it copies attributes from, and its type.
+        /// </summary>
         private static string GetTypeKey(Type sourceType, Dictionary<string, MemberInfo> fields)
         {
+            return fields.Aggregate(
+                sourceType.AssemblyQualifiedName,
+                (current, field) => current
+                    + "|" + field.Key
+                    + ":" + field.Value.DeclaringType?.AssemblyQualifiedName + "." + field.Value.Name
+                    + ":" + GetValueType(field.Value).AssemblyQualifiedName);
+        }
 
-
-
+        private static string GetTypeName(Type sourceType, Dictionary<string, MemberInfo> fields)
+        {
             return fields.Aggregate("LinqConvertTools<>" + sourceType.Name, (current, field) => current + (field.Key + field.Value.MemberType));
+        }
+
+        private static Type GetValueType(MemberInfo member)
+        {
+            return member.MemberType == MemberTypes.Property
+                ? ((PropertyInfo)member).PropertyType
+                : ((FieldInfo)member).FieldType;
         }
     }
 }
