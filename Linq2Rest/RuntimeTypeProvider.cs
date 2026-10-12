@@ -19,18 +19,26 @@ namespace LinqConvertTools
     using System.Linq;
     using System.Reflection;
     using System.Reflection.Emit;
+    using System.Threading;
+    using LinqConvertTools.Parser;
 
     /// <summary>
     /// Defines the RuntimeTypeProvider.
     /// </summary>
     public class RuntimeTypeProvider : IRuntimeTypeProvider
     {
+        /// <summary>
+        /// The default for <see cref="MaxRuntimeTypes"/>.
+        /// </summary>
+        public const int DefaultMaxRuntimeTypes = 4096;
+
         private const MethodAttributes GetSetAttr = MethodAttributes.Final | MethodAttributes.Public;
         private static readonly AssemblyName AssemblyName = new AssemblyName { Name = "Linq2RestTypes" };
         private static readonly ModuleBuilder ModuleBuilder;
         private static readonly ConcurrentDictionary<string, Type> BuiltTypes = new ConcurrentDictionary<string, Type>();
         private static readonly object BuildLock = new object();
         private static readonly HashSet<string> DefinedTypeNames = new HashSet<string>(StringComparer.Ordinal);
+        private static int _maxRuntimeTypes = DefaultMaxRuntimeTypes;
         private static readonly ConcurrentDictionary<Type, CustomAttributeBuilder[]> TypeAttributeBuilders = new ConcurrentDictionary<Type, CustomAttributeBuilder[]>();
         private static readonly ConcurrentDictionary<MemberInfo, CustomAttributeBuilder[]> PropertyAttributeBuilders = new ConcurrentDictionary<MemberInfo, CustomAttributeBuilder[]>();
         private readonly IMemberNameResolver _nameResolver;
@@ -51,6 +59,33 @@ namespace LinqConvertTools
 
             _nameResolver = nameResolver;
         }
+
+        /// <summary>
+        /// Gets or sets the most runtime types the process builds, across all source types. Each distinct
+        /// combination of members a <c>$select</c> names needs its own type, and a type cannot be unloaded once
+        /// built, so this bounds the memory that callers choosing selections can make the process hold. Once the
+        /// limit is reached, a combination that has not been built yet fails, and combinations already built keep
+        /// working. Defaults to <see cref="DefaultMaxRuntimeTypes"/>.
+        /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException">The value is less than 1.</exception>
+        public static int MaxRuntimeTypes
+        {
+            get => Volatile.Read(ref _maxRuntimeTypes);
+            set => Volatile.Write(
+                ref _maxRuntimeTypes,
+                value >= 1 ? value : throw new ArgumentOutOfRangeException(nameof(value), value, "The maximum number of runtime types must be at least 1."));
+        }
+
+        /// <summary>
+        /// Gets the number of runtime types built so far.
+        /// </summary>
+        internal static int BuiltTypeCount => BuiltTypes.Count;
+
+        /// <summary>
+        /// Gets whether this provider names properties with the built-in <see cref="MemberNameResolver"/>, so the
+        /// types it returns depend only on the source type and the members.
+        /// </summary>
+        internal bool UsesDefaultNameResolver => _nameResolver.GetType() == typeof(MemberNameResolver);
 
         /// <summary>
         /// Gets the <see cref="Type"/> matching the provided members.
@@ -81,6 +116,13 @@ namespace LinqConvertTools
                 if (BuiltTypes.TryGetValue(typeKey, out builtType))
                 {
                     return builtType;
+                }
+
+                if (BuiltTypes.Count >= MaxRuntimeTypes)
+                {
+                    throw ParseFailure.MarkLimitExceeded(new InvalidOperationException(
+                        "The selection needs a new runtime type, and the process has already built the maximum of "
+                        + MaxRuntimeTypes.ToString(CultureInfo.InvariantCulture) + "."));
                 }
 
                 var baseName = GetTypeName(sourceType, dictionary);

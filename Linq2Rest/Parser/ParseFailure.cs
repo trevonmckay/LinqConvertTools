@@ -42,14 +42,39 @@ namespace LinqConvertTools.Parser
             }
             catch (Exception exception) when (IsCausedByText(exception))
             {
-                var kind = IsLimit(exception) ? ODataParseErrorKind.TooComplex : ODataParseErrorKind.Invalid;
-                throw new ODataParseException(
-                    "The " + queryOption + " query option could not be parsed. " + exception.Message,
-                    queryOption,
-                    text,
-                    kind,
-                    exception);
+                throw Wrap(queryOption, text, exception);
             }
+        }
+
+        /// <summary>
+        /// Runs <paramref name="run"/>, wrapping only a failure to stay within a parser limit in an
+        /// <see cref="ODataParseException"/> and letting every other failure through.
+        /// </summary>
+        /// <remarks>
+        /// Used around work that runs after the text has been validated, such as building a runtime type for a
+        /// selection, where any failure other than a limit is a server-side fault.
+        /// </remarks>
+        public static TResult GuardLimits<TResult>(string queryOption, string? text, Func<TResult> run)
+        {
+            try
+            {
+                return run();
+            }
+            catch (Exception exception) when (IsLimit(exception))
+            {
+                throw Wrap(queryOption, text, exception);
+            }
+        }
+
+        private static ODataParseException Wrap(string queryOption, string? text, Exception exception)
+        {
+            var kind = IsLimit(exception) ? ODataParseErrorKind.TooComplex : ODataParseErrorKind.Invalid;
+            return new ODataParseException(
+                "The " + queryOption + " query option could not be parsed. " + exception.Message,
+                queryOption,
+                text,
+                kind,
+                exception);
         }
 
         private static bool IsCausedByText(Exception exception)
