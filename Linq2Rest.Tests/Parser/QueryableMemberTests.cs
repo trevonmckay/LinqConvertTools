@@ -70,6 +70,27 @@ namespace LinqConvertTools.Tests.Parser
         }
 
         [Test]
+        public void OverrideOfAMarkedNonPublicPropertyRemainsQueryable()
+        {
+            var filter = new ODataExpressionConverter().Convert<DerivedAccount>("Level eq 2");
+            var sort = new SortExpressionFactory(new MemberNameResolver()).Create<DerivedAccount>("Level desc").Single();
+            var selector = CreateSelectFactory<DerivedAccount>().Create("Level");
+
+            Assert.IsTrue(filter.Compile()(new DerivedAccount(2)));
+            Assert.IsNotNull(sort);
+            Assert.IsNotNull(selector);
+        }
+
+        [Test]
+        public void MarkedFieldIsReadWhenItsFrontingPropertyIsWriteOnly()
+        {
+            var filter = new ODataExpressionConverter().Convert<Credential>("Token eq 'abc'");
+            var credential = new Credential { Token = "abc" };
+
+            Assert.IsTrue(filter.Compile()(credential));
+        }
+
+        [Test]
         public void PublicMembersRemainQueryable()
         {
             var filter = new ODataExpressionConverter().Convert<Account>("Name eq 'a'");
@@ -127,6 +148,42 @@ namespace LinqConvertTools.Tests.Parser
             public override string ToString()
             {
                 return _secret + _code + Hidden + PrivateGetter + ProtectedValue;
+            }
+        }
+
+        public class BaseAccount
+        {
+            [System.Runtime.Serialization.DataMember]
+            protected internal virtual int Level { get; set; }
+        }
+
+        public class DerivedAccount : BaseAccount
+        {
+            public DerivedAccount()
+            {
+            }
+
+            public DerivedAccount(int level)
+            {
+                Level = level;
+            }
+
+            protected internal override int Level { get; set; }
+        }
+
+        public class Credential
+        {
+            [System.Runtime.Serialization.DataMember(Name = "Token")]
+            private string? _token;
+
+            public string? Token
+            {
+                set => _token = value;
+            }
+
+            public override string? ToString()
+            {
+                return _token;
             }
         }
 
