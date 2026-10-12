@@ -13,12 +13,12 @@
 namespace LinqConvertTools.Parser
 {
     using System;
+    using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Diagnostics.Contracts;
     using System.Linq;
     using System.Linq.Expressions;
     using System.Reflection;
-    using System.Threading;
 
     /// <summary>
     /// Defines the SelectExpressionFactory.
@@ -27,7 +27,7 @@ namespace LinqConvertTools.Parser
     public class SelectExpressionFactory<T> : ISelectExpressionFactory<T>
     {
         private const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
-        private readonly IDictionary<string, Expression<Func<T, object>>?> _knownSelections;
+        private readonly ConcurrentDictionary<string, Expression<Func<T, object>>?> _knownSelections;
         private readonly IMemberNameResolver _nameResolver;
         private readonly IRuntimeTypeProvider _runtimeTypeProvider;
 
@@ -41,10 +41,8 @@ namespace LinqConvertTools.Parser
 
             _nameResolver = nameResolver;
             _runtimeTypeProvider = runtimeTypeProvider;
-            _knownSelections = new Dictionary<string, Expression<Func<T, object>>?>
-                                   {
-                                       { string.Empty, null }
-                                   };
+            _knownSelections = new ConcurrentDictionary<string, Expression<Func<T, object>>?>();
+            _knownSelections[string.Empty] = null;
         }
 
         /// <summary>
@@ -63,24 +61,16 @@ namespace LinqConvertTools.Parser
 
             var key = string.Join(",", fieldNames);
 
-            if (_knownSelections.ContainsKey(key))
+            if (_knownSelections.TryGetValue(key, out var knownSelection))
             {
-                var knownSelection = _knownSelections[key];
-
                 return knownSelection;
             }
 
             var sourceMembers = ParseFailure.Guard(StringConstants.SelectParameter, selection, () => ResolveMembers(fieldNames));
             var selector = CreateSelector(sourceMembers);
 
-            if (Monitor.TryEnter(_knownSelections, 1000))
-            {
-                _knownSelections.Add(key, selector);
-
-                Monitor.Exit(_knownSelections);
-            }
-
-            return selector;
+            // Threads that build the same selection at once all return the instance cached first.
+            return _knownSelections.GetOrAdd(key, selector);
         }
 
         private Dictionary<string, MemberInfo> ResolveMembers(IEnumerable<string> fieldNames)
