@@ -56,22 +56,26 @@ namespace LinqConvertTools
             return items.Select(item => predicate(item) ? replacement : item);
         }
 
-        public static Tuple<Type, Expression?> CreateMemberExpression(this IMemberNameResolver memberNameResolver, ParameterExpression parameter, IEnumerable<string> propertyChain, Type parentType, Expression? propertyExpression)
+        /// <summary>
+        /// Reads each name in <paramref name="propertyChain"/> as a member of the previous one, starting from
+        /// <paramref name="instance"/>.
+        /// </summary>
+        /// <returns>The member access, or <c>null</c> when any name is not a member.</returns>
+        public static Expression? ResolveMemberPath(this IMemberNameResolver memberNameResolver, Expression instance, IEnumerable<string> propertyChain)
         {
-            foreach (string propertyName in propertyChain)
+            Expression propertyExpression = instance;
+            foreach (string name in propertyChain)
             {
-                string name = propertyName;
-                MemberInfo? member = memberNameResolver.ResolveAlias(parentType, name);
-                if (member is not null)
+                MemberInfo? member = memberNameResolver.ResolveAlias(propertyExpression.Type, name);
+                if (member is null)
                 {
-                    parentType = GetMemberType(member);
-                    propertyExpression = propertyExpression is null
-                                             ? Expression.MakeMemberAccess(parameter, member)
-                                             : Expression.MakeMemberAccess(propertyExpression, member);
+                    return null;
                 }
+
+                propertyExpression = Expression.MakeMemberAccess(propertyExpression, member);
             }
 
-            return new Tuple<Type, Expression?>(parentType, propertyExpression);
+            return propertyExpression;
         }
 
         public static Tuple<Type, string> GetNameFromAlias(this IMemberNameResolver memberNameResolver, MemberInfo alias, Type sourceType)

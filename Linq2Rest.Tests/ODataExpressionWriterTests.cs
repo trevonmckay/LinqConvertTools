@@ -153,6 +153,58 @@ namespace LinqConvertTools.Tests
         }
 
         [Test]
+        public void WritesNotWithRequiredWhitespace()
+        {
+            var converter = new ODataExpressionConverter();
+            Expression<Func<ChildDto, bool>> expression = x => !x.Name!.Contains("al");
+
+            var serialized = converter.Convert(expression);
+
+            Assert.AreEqual("not (substringof('al', Name))", serialized);
+        }
+
+        [Test]
+        public void RejectsBitwiseComplement()
+        {
+            var converter = new ODataExpressionConverter();
+            Expression<Func<ChildDto, bool>> expression = x => ~x.ID == -6;
+
+            Assert.Throws<InvalidOperationException>(() => converter.Convert(expression));
+        }
+
+        [Test]
+        public void RejectsBitwiseAndOr()
+        {
+            var converter = new ODataExpressionConverter();
+            Expression<Func<ChildDto, bool>> and = x => (x.ID & 4) == 4;
+            Expression<Func<ChildDto, bool>> or = x => (x.ID | 1) == 5;
+
+            Assert.Throws<InvalidOperationException>(() => converter.Convert(and));
+            Assert.Throws<InvalidOperationException>(() => converter.Convert(or));
+        }
+
+        [Test]
+        public void WritesNonShortCircuitBooleanOperatorsAsLogical()
+        {
+            var converter = new ODataExpressionConverter();
+            Expression<Func<ChildDto, bool>> expression = x => (x.ID == 1) | (x.ID == 2);
+
+            Assert.AreEqual("ID eq 1 or ID eq 2", converter.Convert(expression));
+        }
+
+        [Test]
+        public void NegationRoundTrips()
+        {
+            var converter = new ODataExpressionConverter();
+            var items = new[] { new ChildDto { Name = "Alpha" }, new ChildDto { Name = "Beta" }, new ChildDto { Name = "Gamma" } };
+            Expression<Func<ChildDto, bool>> expression = x => !(x.Name == "Alpha") && !x.Name!.StartsWith("Ga");
+
+            var parsed = converter.Convert<ChildDto>(converter.Convert(expression)!);
+
+            Assert.AreEqual("Beta", string.Join(",", items.AsQueryable().Where(parsed).Select(x => x.Name)));
+        }
+
+        [Test]
         public void ConvertsFilterToExpression()
         {
             const string Filter = "Name eq 'blah'";

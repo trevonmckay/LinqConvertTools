@@ -59,6 +59,45 @@ namespace LinqConvertTools.Tests.Parser
         }
 
         [Test]
+        public void WhenConditionChainExceedsTheStackThenThrowsInsufficientExecutionStack()
+        {
+            string filter = Chain("name eq 'z' or ", "name eq 'a'", BeyondSmallStack);
+            var converter = new ODataExpressionConverter { MaxDepth = int.MaxValue };
+
+            Exception? thrown = ConvertOnSmallStack(converter, filter);
+
+            Assert.IsInstanceOf<InsufficientExecutionStackException>(thrown);
+        }
+
+        [Test]
+        public void WhenConditionChainExceedsTheStackAtDefaultMaxDepthThenThrowsInvalidOperation()
+        {
+            string filter = Chain("name eq 'z' or ", "name eq 'a'", BeyondSmallStack);
+            var converter = new ODataExpressionConverter();
+
+            Exception? thrown = ConvertOnSmallStack(converter, filter);
+
+            Assert.IsInstanceOf<InvalidOperationException>(thrown);
+        }
+
+        [Test]
+        public void WhenLambdasNestWithUnknownConditionsThenParsesInLinearTime()
+        {
+            string filter = "name eq 'q'";
+            for (int i = 0; i < 20; i++)
+            {
+                filter = "children/any(a" + i + ": contains(a" + i + "/name, 'x') and " + filter + ")";
+            }
+
+            var converter = new ODataExpressionConverter();
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+
+            converter.Convert<Item>(filter);
+
+            Assert.Less(stopwatch.ElapsedMilliseconds, 5000);
+        }
+
+        [Test]
         public void WhenFilterIsNestedModeratelyThenParses()
         {
             string filter = Nest("name eq 'z' or (", ")", 50);
@@ -162,6 +201,8 @@ namespace LinqConvertTools.Tests.Parser
             public string Name { get; set; } = string.Empty;
 
             public List<string> Tags { get; set; } = new();
+
+            public List<Item> Children { get; set; } = new();
         }
     }
 }
