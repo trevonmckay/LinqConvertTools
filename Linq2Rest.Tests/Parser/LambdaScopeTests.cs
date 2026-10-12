@@ -51,6 +51,8 @@ namespace LinqConvertTools.Tests.Parser
         [TestCase("members/all(m: m/tags/any(t: t eq m/name))", "Empty")]
         [TestCase("members/any(m: m/tags/any(m: m eq 'x'))", "Beta")]
         [TestCase("members/any(m: size gt 3 and m/tags/any(t: t eq 'x'))", "Beta")]
+        [TestCase("members/any(m: (tags/any(t: t eq m/name)))", "Alpha,Beta")]
+        [TestCase("members/any(m: not tags/any(t: t eq m/name))", "Alpha")]
         public void LambdaVariablesAreScopedToTheirLambda(string filter, string expected)
         {
             ArgumentNullException.ThrowIfNull(_converter);
@@ -74,7 +76,29 @@ namespace LinqConvertTools.Tests.Parser
 
         [TestCase("tags/any(t: t eq 'vip') and t eq 'vip'")]
         [TestCase("members/any(m: m/tags/any(t: true) and t eq 'x')")]
+        [TestCase("members/any(m: m/name eq 'x') and m/name eq 'Beta'")]
+        [TestCase("members/any(m: m/tags/any(t: true) and t/name eq 'Alpha')")]
         public void RejectsLambdaVariableOutsideItsLambda(string filter)
+        {
+            ArgumentNullException.ThrowIfNull(_converter);
+
+            Assert.Throws<InvalidOperationException>(() => _converter.Convert<Team>(filter));
+        }
+
+        [TestCase("bogus/name eq 'Alpha'")]
+        [TestCase("members/bogus eq 'x'")]
+        [TestCase("members/any(m: m/bogus eq 'x')")]
+        public void RejectsMemberPathThatDoesNotResolve(string filter)
+        {
+            ArgumentNullException.ThrowIfNull(_converter);
+
+            Assert.Throws<InvalidOperationException>(() => _converter.Convert<Team>(filter));
+        }
+
+        [TestCase("tags/any(t: t eq 'vip' and)")]
+        [TestCase("tags/any(t: size)")]
+        [TestCase("tags/any(t: t)")]
+        public void RejectsLambdaBodyThatIsNotACondition(string filter)
         {
             ArgumentNullException.ThrowIfNull(_converter);
 

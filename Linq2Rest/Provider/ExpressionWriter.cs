@@ -337,10 +337,13 @@ namespace LinqConvertTools.Provider
         private string WriteFalse(Expression expression, ParameterExpression? rootParameterName, Type sourceType)
         {
             var unaryExpression = (UnaryExpression)expression;
-
-
-
             var operand = unaryExpression.Operand;
+
+            // ExpressionType.Not is also the bitwise complement (~) of an integer, which OData has no operator for.
+            if (operand.Type != typeof(bool) && operand.Type != typeof(bool?))
+            {
+                throw new InvalidOperationException("Expression is not recognized or supported: " + expression);
+            }
 
             return string.Format(CultureInfo.InvariantCulture, "not ({0})", Write(operand, rootParameterName, sourceType));
         }

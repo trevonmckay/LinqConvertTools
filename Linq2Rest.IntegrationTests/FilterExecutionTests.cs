@@ -135,6 +135,8 @@ namespace LinqConvertTools.IntegrationTests
             new object[] { "not tags/any(t: priority gt 1)", false, "A,C" },
             new object[] { "tags/all(t: priority gt 1) and not tags/any(u: u/value eq 'legal')", false, "B,C" },
             new object[] { "tags/any(t: keywords/any(k: k eq 'open'))", false, "A" },
+            new object[] { "tags/any(t: (keywords/any(k: k eq 'open')))", false, "A" },
+            new object[] { "tags/any(t: not keywords/any(k: k eq 'open'))", false, "B,D" },
             new object[] { "tags/any(t: keywords/any(k: startswith(t/value, 'fin') and k eq 'priority'))", false, "A" },
             new object[] { "tags/any(t: keywords/any(k: k eq t/value))", false, "" },
             new object[] { "tags/any(t: keywords/any(k: true)) and not keywords/any(k: k eq 'open')", false, "B,D" },

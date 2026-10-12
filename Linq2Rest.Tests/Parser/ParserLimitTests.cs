@@ -70,6 +70,17 @@ namespace LinqConvertTools.Tests.Parser
         }
 
         [Test]
+        public void WhenConditionChainExceedsTheStackAtDefaultMaxDepthThenThrowsInvalidOperation()
+        {
+            string filter = Chain("name eq 'z' or ", "name eq 'a'", BeyondSmallStack);
+            var converter = new ODataExpressionConverter();
+
+            Exception? thrown = ConvertOnSmallStack(converter, filter);
+
+            Assert.IsInstanceOf<InvalidOperationException>(thrown);
+        }
+
+        [Test]
         public void WhenFilterIsNestedModeratelyThenParses()
         {
             string filter = Nest("name eq 'z' or (", ")", 50);

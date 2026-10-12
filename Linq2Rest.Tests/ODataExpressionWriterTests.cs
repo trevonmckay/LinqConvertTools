@@ -164,6 +164,15 @@ namespace LinqConvertTools.Tests
         }
 
         [Test]
+        public void RejectsBitwiseComplement()
+        {
+            var converter = new ODataExpressionConverter();
+            Expression<Func<ChildDto, bool>> expression = x => ~x.ID == -6;
+
+            Assert.Throws<InvalidOperationException>(() => converter.Convert(expression));
+        }
+
+        [Test]
         public void NegationRoundTrips()
         {
             var converter = new ODataExpressionConverter();

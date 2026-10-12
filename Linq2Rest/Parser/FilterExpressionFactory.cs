@@ -144,10 +144,16 @@ namespace LinqConvertTools.Parser
                 throw new InvalidOperationException("Could not create valid expression from: " + filter);
             }
 
+            // A chain of conditions is built in a loop rather than by recursion, so the parser's own depth
+            // check does not bound it. The tree is measured instead: before Reduce, whose walk is not bounded by
+            // the limit, and again on the tree that is returned.
+            if (ExpressionDepth.Exceeds(expression, _maxDepth))
+            {
+                throw DepthExceeded();
+            }
+
             expression = NullSemantics.Reduce(expression);
 
-            // A chain of conditions is built in a loop rather than by recursion, so the parser's own depth
-            // check does not bound it. The finished tree is measured instead.
             if (ExpressionDepth.Exceeds(expression, _maxDepth))
             {
                 throw DepthExceeded();
@@ -749,23 +755,21 @@ namespace LinqConvertTools.Parser
 
         /// <summary>
         /// Resolves <paramref name="propertyToken"/> as a member path, such as <c>Child/Age</c>, from the source or a
-        /// lambda parameter.
+        /// lambda parameter in scope. A path starting with a lambda variable name reads from the innermost variable of
+        /// that name.
         /// </summary>
+        /// <returns>The member access, or <c>null</c> when any segment of the path is not a member.</returns>
         private Expression? GetMemberExpression<T>(string propertyToken, ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters)
         {
-            Type parentType = parameter.Type;
-            Expression? propertyExpression = null;
-
             string[] propertyChain = propertyToken.Split('/');
-            if (propertyChain.Length > 0 && lambdaParameters.LastOrDefault(p => p.Name == propertyChain[0]) is ParameterExpression lambdaParameter)
+            if (lambdaParameters.LastOrDefault(p => p.Name == propertyChain[0]) is ParameterExpression lambdaParameter)
             {
-                parentType = lambdaParameter.Type;
-                propertyExpression = lambdaParameter;
+                return propertyChain.Length == 1
+                    ? lambdaParameter
+                    : _memberNameResolver.ResolveMemberPath(lambdaParameter, propertyChain.Skip(1));
             }
 
-            propertyExpression = _memberNameResolver.CreateMemberExpression(parameter, propertyChain, parentType, propertyExpression).Item2;
-
-            return propertyExpression;
+            return _memberNameResolver.ResolveMemberPath(parameter, propertyChain);
         }
 
         private InvalidOperationException DepthExceeded()
@@ -1045,18 +1049,16 @@ namespace LinqConvertTools.Parser
             try
             {
                 // The lambda body is a condition, so the collection's type gives no type to read its literals as.
-                right = lambdaFilter.GetAnyAllFunctionTokens() != null
-                    ? GetAnyAllFunctionExpression<T>(lambdaFilter, sourceParameter, lambdaParameters, formatProvider, ignoreCase, depth + 1)
-                    : CreateExpression<T>(lambdaFilter, sourceParameter, lambdaParameters, null, formatProvider, ignoreCase, depth + 1);
+                right = CreateExpression<T>(lambdaFilter, sourceParameter, lambdaParameters, null, formatProvider, ignoreCase, depth + 1);
             }
             finally
             {
                 lambdaParameters.Remove(lambdaParameter);
             }
 
-            if (right is null)
+            if (right is null || right.Type != typeof(bool))
             {
-                return null;
+                throw new InvalidOperationException("Could not create expression from: " + filter + ". The lambda body must be a condition.");
             }
 
             MethodInfo anyAllMethod = MethodProvider.GetAnyAllMethod(functionTokens.Operation.Capitalize(), left.Type);

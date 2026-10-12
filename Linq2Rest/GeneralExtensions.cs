@@ -74,6 +74,28 @@ namespace LinqConvertTools
             return new Tuple<Type, Expression?>(parentType, propertyExpression);
         }
 
+        /// <summary>
+        /// Reads each name in <paramref name="propertyChain"/> as a member of the previous one, starting from
+        /// <paramref name="instance"/>.
+        /// </summary>
+        /// <returns>The member access, or <c>null</c> when any name is not a member.</returns>
+        public static Expression? ResolveMemberPath(this IMemberNameResolver memberNameResolver, Expression instance, IEnumerable<string> propertyChain)
+        {
+            Expression propertyExpression = instance;
+            foreach (string name in propertyChain)
+            {
+                MemberInfo? member = memberNameResolver.ResolveAlias(propertyExpression.Type, name);
+                if (member is null)
+                {
+                    return null;
+                }
+
+                propertyExpression = Expression.MakeMemberAccess(propertyExpression, member);
+            }
+
+            return propertyExpression;
+        }
+
         public static Tuple<Type, string> GetNameFromAlias(this IMemberNameResolver memberNameResolver, MemberInfo alias, Type sourceType)
         {
             var source = sourceType.GetMembers()
