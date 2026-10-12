@@ -59,6 +59,17 @@ namespace LinqConvertTools.Tests.Parser
         }
 
         [Test]
+        public void WhenConditionChainExceedsTheStackThenThrowsInsufficientExecutionStack()
+        {
+            string filter = Chain("name eq 'z' or ", "name eq 'a'", BeyondSmallStack);
+            var converter = new ODataExpressionConverter { MaxDepth = int.MaxValue };
+
+            Exception? thrown = ConvertOnSmallStack(converter, filter);
+
+            Assert.IsInstanceOf<InsufficientExecutionStackException>(thrown);
+        }
+
+        [Test]
         public void WhenFilterIsNestedModeratelyThenParses()
         {
             string filter = Nest("name eq 'z' or (", ")", 50);

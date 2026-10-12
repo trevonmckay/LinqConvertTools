@@ -4,6 +4,7 @@ namespace LinqConvertTools.Parser
     using System.Collections.Generic;
     using System.Linq;
     using System.Linq.Expressions;
+    using System.Runtime.CompilerServices;
 
     /// <summary>
     /// Builds conditions with OData's null semantics (OData 4.01 URL conventions, 5.1.1). A canonical function or an
@@ -451,6 +452,14 @@ namespace LinqConvertTools.Parser
 
         private sealed class ConditionReducer : ExpressionVisitor
         {
+            public override Expression? Visit(Expression? node)
+            {
+                // A chain of conditions is built in a loop, so the finished tree can be deeper than the stack allows.
+                RuntimeHelpers.EnsureSufficientExecutionStack();
+
+                return base.Visit(node);
+            }
+
             protected override Expression VisitExtension(Expression node)
             {
                 return node is Condition condition ? Visit(condition.WhenTrue) : base.VisitExtension(node);
