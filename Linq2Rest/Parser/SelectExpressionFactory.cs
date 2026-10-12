@@ -27,11 +27,6 @@ namespace LinqConvertTools.Parser
     /// <typeparam name="T">The <see cref="Type"/> of object to project.</typeparam>
     public class SelectExpressionFactory<T> : ISelectExpressionFactory<T>
     {
-        /// <summary>
-        /// The most selections one cache holds. A selection seen after a cache is full is still built, but not cached.
-        /// </summary>
-        internal const int MaxCachedSelections = RuntimeTypeProvider.DefaultMaxRuntimeTypes;
-
         private const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
 
         /// <summary>
@@ -61,13 +56,13 @@ namespace LinqConvertTools.Parser
         /// </summary>
         /// <param name="selection">The properties to select.</param>
         /// <returns>An instance of a <see cref="Func{T1,TResult}"/>, or <see langword="null"/> when <paramref name="selection"/> names no properties.</returns>
-        /// <exception cref="ODataParseException">The selection names a member that <typeparamref name="T"/> does not have, names a member more than once, or needs a runtime type beyond <see cref="RuntimeTypeProvider.MaxRuntimeTypes"/>.</exception>
+        /// <exception cref="ODataParseException">The selection names a member that <typeparamref name="T"/> does not have, names a member more than once, or needs a runtime type beyond <see cref="RuntimeTypeProvider.MaxRuntimeTypes"/> or <see cref="RuntimeTypeProvider.MaxRuntimeTypesPerSourceType"/>.</exception>
         public Expression<Func<T, object>>? Create(string? selection)
         {
             var fieldNames = (selection ?? string.Empty).Split(',')
                 .Where(x => !string.IsNullOrWhiteSpace(x))
                 .Select(x => x.Trim())
-                .OrderBy(x => x, StringComparer.Ordinal)
+                .OrderBy(x => x, StringComparer.InvariantCulture)
                 .ToArray();
 
             if (fieldNames.Length == 0)
@@ -83,9 +78,10 @@ namespace LinqConvertTools.Parser
 
             var sourceMembers = ParseFailure.Guard(StringConstants.SelectParameter, selection, () => ResolveMembers(fieldNames));
 
-            return _knownSelections.GetOrBuild(
-                key,
-                () => ParseFailure.GuardLimits(StringConstants.SelectParameter, selection, () => CreateSelector(sourceMembers)));
+            return ParseFailure.GuardLimits(
+                StringConstants.SelectParameter,
+                selection,
+                () => _knownSelections.GetOrBuild(key, () => CreateSelector(sourceMembers)));
         }
 
         private static bool UsesBuiltInServices(IMemberNameResolver nameResolver, IRuntimeTypeProvider runtimeTypeProvider)
@@ -156,20 +152,22 @@ namespace LinqConvertTools.Parser
 
         /// <summary>
         /// Holds the selectors built for each selection, building each one once however many threads ask for it at
-        /// the same time, and holding at most <see cref="MaxCachedSelections"/>.
+        /// the same time. It stops adding selections once it holds about
+        /// <see cref="RuntimeTypeProvider.MaxRuntimeTypesPerSourceType"/>, the most runtime types one source type can
+        /// have; threads adding at the same moment can take it a few past that.
         /// </summary>
         private sealed class SelectionCache
         {
-            private readonly ConcurrentDictionary<string, Lazy<Expression<Func<T, object>>>> _entries =
-                new ConcurrentDictionary<string, Lazy<Expression<Func<T, object>>>>(StringComparer.Ordinal);
+            private readonly ConcurrentDictionary<string, Entry> _entries =
+                new ConcurrentDictionary<string, Entry>(StringComparer.Ordinal);
 
             private int _count;
 
             public bool TryGet(string key, out Expression<Func<T, object>>? selector)
             {
-                if (_entries.TryGetValue(key, out var entry) && entry.IsValueCreated)
+                if (_entries.TryGetValue(key, out var entry) && entry.Selector.IsValueCreated)
                 {
-                    selector = entry.Value;
+                    selector = entry.Selector.Value;
                     return true;
                 }
 
@@ -181,37 +179,71 @@ namespace LinqConvertTools.Parser
             /// Returns the selector cached for <paramref name="key"/>, building it with <paramref name="build"/> when
             /// there is none. A build that fails is not cached, so the next request builds again.
             /// </summary>
+            /// <remarks>
+            /// A failed <see cref="Lazy{T}"/> rethrows one stored exception to every thread waiting on it. Only the
+            /// thread that ran the failed build rethrows it; a waiting thread removes the failed entry and builds
+            /// again, so every caller gets an exception of its own.
+            /// </remarks>
             public Expression<Func<T, object>> GetOrBuild(string key, Func<Expression<Func<T, object>>> build)
             {
-                if (!_entries.TryGetValue(key, out var entry))
+                while (true)
                 {
-                    if (Volatile.Read(ref _count) >= MaxCachedSelections)
+                    if (!_entries.TryGetValue(key, out var entry))
                     {
-                        return build();
+                        if (Volatile.Read(ref _count) >= RuntimeTypeProvider.MaxRuntimeTypesPerSourceType)
+                        {
+                            return build();
+                        }
+
+                        var created = new Entry(build);
+                        entry = _entries.GetOrAdd(key, created);
+                        if (ReferenceEquals(entry, created))
+                        {
+                            Interlocked.Increment(ref _count);
+                        }
                     }
 
-                    var created = new Lazy<Expression<Func<T, object>>>(build, LazyThreadSafetyMode.ExecutionAndPublication);
-                    entry = _entries.GetOrAdd(key, created);
-                    if (ReferenceEquals(entry, created))
+                    try
                     {
-                        Interlocked.Increment(ref _count);
+                        return entry.Selector.Value;
+                    }
+                    catch
+                    {
+                        Remove(key, entry);
+                        if (entry.WasBuiltOnCurrentThread)
+                        {
+                            throw;
+                        }
                     }
                 }
+            }
 
-                try
+            private void Remove(string key, Entry entry)
+            {
+                if (((ICollection<KeyValuePair<string, Entry>>)_entries).Remove(new KeyValuePair<string, Entry>(key, entry)))
                 {
-                    return entry.Value;
+                    Interlocked.Decrement(ref _count);
                 }
-                catch
-                {
-                    if (((ICollection<KeyValuePair<string, Lazy<Expression<Func<T, object>>>>>)_entries).Remove(
-                            new KeyValuePair<string, Lazy<Expression<Func<T, object>>>>(key, entry)))
-                    {
-                        Interlocked.Decrement(ref _count);
-                    }
+            }
 
-                    throw;
+            private sealed class Entry
+            {
+                private int _builderThreadId;
+
+                public Entry(Func<Expression<Func<T, object>>> build)
+                {
+                    Selector = new Lazy<Expression<Func<T, object>>>(
+                        () =>
+                        {
+                            Volatile.Write(ref _builderThreadId, Environment.CurrentManagedThreadId);
+                            return build();
+                        },
+                        LazyThreadSafetyMode.ExecutionAndPublication);
                 }
+
+                public Lazy<Expression<Func<T, object>>> Selector { get; }
+
+                public bool WasBuiltOnCurrentThread => Volatile.Read(ref _builderThreadId) == Environment.CurrentManagedThreadId;
             }
         }
     }

@@ -42,6 +42,26 @@ namespace LinqConvertTools.Tests.Parser
             Assert.AreSame(a.GetType(), b.GetType());
         }
 
+        [Test]
+        public void AttributesWithArrayArgumentsAndNamedFieldsAreCopied()
+        {
+            var selected = Select(new Tagged { Id = 7 }, "Id");
+
+            var tags = (TagsAttribute)selected.GetType().GetProperty("Id")!.GetCustomAttributes(typeof(TagsAttribute), false).Single();
+            CollectionAssert.AreEqual(new[] { "a", "b" }, tags.Values);
+            CollectionAssert.AreEqual(new[] { 1, 2 }, tags.Numbers);
+            Assert.AreEqual("note", tags.Note);
+            Assert.AreEqual(7, selected.GetType().GetProperty("Id")!.GetValue(selected));
+        }
+
+        [Test]
+        public void SelectedPropertiesKeepTheirCultureOrder()
+        {
+            var selected = Select(new Cased(), "Beta,alpha");
+
+            CollectionAssert.AreEqual(new[] { "alpha", "Beta" }, selected.GetType().GetProperties().Select(p => p.Name).ToArray());
+        }
+
         private static object Select<T>(T item, string selection)
         {
             var resolver = new MemberNameResolver();
@@ -52,6 +72,38 @@ namespace LinqConvertTools.Tests.Parser
         private static string? ContractName(Type type)
         {
             return type.GetCustomAttributes(typeof(DataContractAttribute), false).OfType<DataContractAttribute>().Single().Name;
+        }
+
+        [AttributeUsage(AttributeTargets.Property)]
+        public sealed class TagsAttribute : Attribute
+        {
+            public TagsAttribute(params string[] values)
+            {
+                Values = values;
+            }
+
+            public string[] Values { get; }
+
+            public int[]? Numbers { get; set; }
+
+#pragma warning disable CA1051
+            public string? Note;
+#pragma warning restore CA1051
+        }
+
+        public class Tagged
+        {
+            [Tags("a", "b", Numbers = new[] { 1, 2 }, Note = "note")]
+            public int Id { get; set; }
+        }
+
+        public class Cased
+        {
+            [DataMember(Name = "alpha")]
+            public int First { get; set; }
+
+            [DataMember(Name = "Beta")]
+            public int Second { get; set; }
         }
 
         public class Wrapper<TValue>

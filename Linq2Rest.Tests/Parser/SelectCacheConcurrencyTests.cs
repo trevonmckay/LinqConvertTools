@@ -115,7 +115,7 @@ namespace LinqConvertTools.Tests.Parser
             var original = RuntimeTypeProvider.MaxRuntimeTypes;
             try
             {
-                RuntimeTypeProvider.MaxRuntimeTypes = RuntimeTypeProvider.BuiltTypeCount;
+                RuntimeTypeProvider.MaxRuntimeTypes = RuntimeTypeProvider.DefinedTypeCount;
 
                 var exception = Assert.Throws<ODataParseException>(() => factory.Create("X,Y"))!;
 
