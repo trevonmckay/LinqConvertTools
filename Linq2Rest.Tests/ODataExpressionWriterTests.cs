@@ -169,7 +169,7 @@ namespace LinqConvertTools.Tests
         {
             const string Filter = "(length(Name) add 2) eq 7";
             var converter = new ODataExpressionConverter();
-            Expression<Func<ChildDto, bool>> expression = x => x.Name!.Length + (1 + 1) == 7;
+            Expression<Func<ChildDto, bool>> expression = x => null != x.Name && x.Name.Length + (1 + 1) == 7;
 
             var converted = converter.Convert<ChildDto>(Filter);
 

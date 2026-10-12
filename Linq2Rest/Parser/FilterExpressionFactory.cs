@@ -144,6 +144,8 @@ namespace LinqConvertTools.Parser
                 throw new InvalidOperationException("Could not create valid expression from: " + filter);
             }
 
+            expression = NullSemantics.Reduce(expression);
+
             // A chain of conditions is built in a loop rather than by recursion, so the parser's own depth
             // check does not bound it. The finished tree is measured instead.
             if (ExpressionDepth.Exceeds(expression, _maxDepth))
@@ -170,25 +172,33 @@ namespace LinqConvertTools.Parser
             return left == null ? GetRightOperation(token, right) : GetNullSafeLeftRightOperation(token, left, right, ignoreCase);
         }
 
+        /// <summary>
+        /// Builds a comparison or combination with OData's null semantics (see <see cref="NullSemantics"/>), so a
+        /// function of null, such as <c>trim(Name)</c> when <c>Name</c> is null, is null rather than throwing. A
+        /// comparison is also false, rather than throwing, when the nested object its left side reads a member of is
+        /// null.
+        /// </summary>
         private Expression GetNullSafeLeftRightOperation(string token, Expression left, Expression right, bool ignoreCase)
         {
             if (token.IsBinaryCombinationOperation())
             {
                 left = GetNullSafeCondition(left);
                 right = GetNullSafeCondition(right);
+                return NullSemantics.Combine(left, right, !token.IsOrOperation()) ?? GetLeftRightOperation(token, left, right, ignoreCase);
             }
 
-            Expression binaryExpression = GetLeftRightOperation(token, left, right, ignoreCase);
-            if (left is MemberExpression memberExpression && memberExpression.Expression?.NodeType == ExpressionType.MemberAccess && !memberExpression.Expression.Type.IsValueType)
+            string operation = token.ToUpperInvariant();
+            Expression operationExpression = operation switch
             {
-                return Expression.AndAlso(Expression.NotEqual(_nullConstantExpression, memberExpression.Expression), binaryExpression);
-            }
-            else if (left is MethodCallExpression methodCallExpression && methodCallExpression.Object?.NodeType == ExpressionType.MemberAccess)
-            {
-                return Expression.AndAlso(Expression.NotEqual(_nullConstantExpression, methodCallExpression.Object), binaryExpression);
-            }
+                "IN" => NullSemantics.In(left, right, () => GetLeftRightOperation(token, left, right, ignoreCase)),
+                "EQ" or "NE" => NullSemantics.Equal(left, right, operation == "EQ")
+                    ?? NullSemantics.Compare(operation, left, right, () => GetLeftRightOperation(token, left, right, ignoreCase)),
+                _ => NullSemantics.Compare(operation, left, right, () => GetLeftRightOperation(token, left, right, ignoreCase)),
+            } ?? GetLeftRightOperation(token, left, right, ignoreCase);
 
-            return binaryExpression;
+            return GetNestedObject(left) is Expression nestedObject
+                ? Expression.AndAlso(Expression.NotEqual(_nullConstantExpression, nestedObject), operationExpression)
+                : operationExpression;
         }
 
         /// <summary>
@@ -197,9 +207,21 @@ namespace LinqConvertTools.Parser
         /// </summary>
         private static Expression GetNullSafeCondition(Expression condition)
         {
-            return condition is MemberExpression memberExpression && memberExpression.Expression?.NodeType == ExpressionType.MemberAccess && !memberExpression.Expression.Type.IsValueType
-                ? Expression.AndAlso(Expression.NotEqual(_nullConstantExpression, memberExpression.Expression), condition)
+            return GetNestedObject(condition) is Expression nestedObject
+                ? Expression.AndAlso(Expression.NotEqual(_nullConstantExpression, nestedObject), condition)
                 : condition;
+        }
+
+        /// <summary>
+        /// Gets the nested object that <paramref name="operand"/> reads a member of, such as <c>x.Child</c> in
+        /// <c>x.Child.Name</c>. The length of a string is not a member of a nested object; it is a function, which
+        /// <see cref="NullSemantics"/> makes null when the string is.
+        /// </summary>
+        private static Expression? GetNestedObject(Expression operand)
+        {
+            return operand is MemberExpression { Expression: { NodeType: ExpressionType.MemberAccess } instance } && !instance.Type.IsValueType && instance.Type != typeof(string)
+                ? instance
+                : null;
         }
 
         private Expression GetCaseAwareLeftRightOperation(BinaryExpression binaryExpression, bool ignoreCase)
@@ -418,7 +440,7 @@ namespace LinqConvertTools.Parser
             switch (token.ToUpperInvariant())
             {
                 case "NOT":
-                    result = right.Type == typeof(bool) ? Expression.Not(GetNullSafeCondition(right)) : null;
+                    result = right.Type == typeof(bool) ? NullSemantics.Not(right) ?? Expression.Not(GetNullSafeCondition(right)) : null;
                     break;
             }
 
@@ -430,58 +452,86 @@ namespace LinqConvertTools.Parser
             return result;
         }
 
-        /// <remarks>
-        /// <paramref name="instance"/> and the elements of <paramref name="parameters"/> are null when the filter omits a function argument.
-        /// <see cref="Expression.Call(Expression, MethodInfo, Expression[])"/> rejects a missing argument with an <see cref="ArgumentException"/>.
-        /// </remarks>
-        private Expression? GetCaseAwareFunction(Expression? instance, MethodInfo method, Expression?[] parameters, bool ignoreCase)
+        private MethodCallExpression GetCaseAwareFunction(Expression instance, MethodInfo method, Expression[] parameters, bool ignoreCase)
         {
-            Expression? innerInstance = ignoreCase ? Expression.Call(instance, _toUpperMethod) : instance;
-            Expression?[] innerParameters = ignoreCase ? parameters.Select(x => (Expression?)Expression.Call(x, _toUpperMethod)).ToArray() : parameters;
+            Expression innerInstance = ignoreCase ? Expression.Call(instance, _toUpperMethod) : instance;
+            Expression[] innerParameters = ignoreCase ? parameters.Select(x => (Expression)Expression.Call(x, _toUpperMethod)).ToArray() : parameters;
 
             return Expression.Call(innerInstance, method, innerParameters);
         }
 
         /// <summary>
         /// Builds a boolean string predicate (<c>contains</c>, <c>endswith</c>, <c>startswith</c>, <c>substringof</c>)
-        /// guarded so that it is false, rather than throwing, when <paramref name="member"/> is null. A null
-        /// <paramref name="member"/> or <paramref name="argument"/> means the filter omitted a required argument, so the
-        /// function cannot be built and <c>null</c> is returned, which the caller reports as an invalid expression.
+        /// that is unknown, rather than throwing, when <paramref name="member"/> or <paramref name="argument"/> is null
+        /// at any depth. A null <paramref name="member"/> or <paramref name="argument"/> means an argument did not
+        /// parse, so <c>null</c> is returned, which the caller reports as an invalid expression.
         /// </summary>
-        private Expression? GuardedStringPredicate(Expression? member, MethodInfo method, Expression? argument, bool ignoreCase)
+        /// <exception cref="InvalidOperationException"><paramref name="member"/> or <paramref name="argument"/> is not a string.</exception>
+        private Expression? GuardedStringPredicate(string function, Expression? member, MethodInfo method, Expression? argument, bool ignoreCase)
         {
-            if (member is null || argument is null)
-            {
-                return null;
-            }
-
-            return Expression.AndAlso(Expression.NotEqual(member, _nullConstantExpression), GetCaseAwareFunction(member, method, new[] { argument }, ignoreCase));
+            return member is null || argument is null
+                ? null
+                : NullSemantics.Predicate(GetCaseAwareFunction(StringOperand(function, member), method, new[] { StringOperand(function, argument) }, ignoreCase));
         }
 
+        /// <summary>
+        /// Checks that a string function's operand is a string. A <c>null</c> literal is typed as a string, so the
+        /// function is built and is null.
+        /// </summary>
+        /// <exception cref="InvalidOperationException"><paramref name="operand"/> is not a string.</exception>
+        private static Expression StringOperand(string function, Expression operand)
+        {
+            if (operand.Type == typeof(string))
+            {
+                return operand;
+            }
+
+            return operand is ConstantExpression { Value: null }
+                ? Expression.Constant(null, typeof(string))
+                : throw new InvalidOperationException(function + "() requires a String value, not " + GetTypeName(operand.Type) + ".");
+        }
+
+        /// <exception cref="InvalidOperationException"><paramref name="operand"/> is not a <see cref="double"/> or <see cref="decimal"/>.</exception>
+        private static MethodCallExpression GetRoundingFunction(string function, Expression operand, MethodInfo doubleMethod, MethodInfo decimalMethod)
+        {
+            return operand.Type == typeof(double) ? Expression.Call(doubleMethod, operand)
+                : operand.Type == typeof(decimal) ? Expression.Call(decimalMethod, operand)
+                : throw new InvalidOperationException(function + "() requires a Double or Decimal value, not " + GetTypeName(operand.Type) + ".");
+        }
+
+        private static string GetTypeName(Type type)
+        {
+            Type? underlyingType = Nullable.GetUnderlyingType(type);
+            return underlyingType is null ? type.Name : underlyingType.Name + "?";
+        }
+
+        /// <exception cref="InvalidOperationException">An operand is not of the type the function requires.</exception>
         private Expression? GetFunction(string function, Expression left, Expression? right, ParameterExpression sourceParameter, ICollection<ParameterExpression> lambdaParameters, bool ignoreCase)
         {
             switch (function.ToUpperInvariant())
             {
                 case "SUBSTRINGOF":
-                    return GuardedStringPredicate(right, MethodProvider.ContainsMethod, left, ignoreCase);
+                    return GuardedStringPredicate(function, right, MethodProvider.ContainsMethod, left, ignoreCase);
                 case "CONTAINS":
-                    return GuardedStringPredicate(left, MethodProvider.ContainsMethod, right, ignoreCase);
+                    return GuardedStringPredicate(function, left, MethodProvider.ContainsMethod, right, ignoreCase);
                 case "ENDSWITH":
-                    return GuardedStringPredicate(left, MethodProvider.EndsWithMethod, right, ignoreCase);
+                    return GuardedStringPredicate(function, left, MethodProvider.EndsWithMethod, right, ignoreCase);
                 case "STARTSWITH":
-                    return GuardedStringPredicate(left, MethodProvider.StartsWithMethod, right, ignoreCase);
+                    return GuardedStringPredicate(function, left, MethodProvider.StartsWithMethod, right, ignoreCase);
                 case "LENGTH":
-                    return Expression.Property(left, MethodProvider.LengthProperty);
+                    return Expression.Property(StringOperand(function, left), MethodProvider.LengthProperty);
                 case "INDEXOF":
-                    return GetCaseAwareFunction(left, MethodProvider.IndexOfMethod, new[] { right }, ignoreCase);
+                    return right is null ? null : GetCaseAwareFunction(StringOperand(function, left), MethodProvider.IndexOfMethod, new[] { StringOperand(function, right) }, ignoreCase);
                 case "SUBSTRING":
-                    return Expression.Call(left, MethodProvider.SubstringMethod, new[] { right });
+                    return right is null ? null
+                        : right.Type == typeof(int) ? Expression.Call(StringOperand(function, left), MethodProvider.SubstringMethod, right)
+                        : throw new InvalidOperationException(function + "() requires an Int32 start position, not " + GetTypeName(right.Type) + ".");
                 case "TOLOWER":
-                    return Expression.Call(left, _toLowerMethod);
+                    return Expression.Call(StringOperand(function, left), _toLowerMethod);
                 case "TOUPPER":
-                    return Expression.Call(left, _toUpperMethod);
+                    return Expression.Call(StringOperand(function, left), _toUpperMethod);
                 case "TRIM":
-                    return Expression.Call(left, MethodProvider.TrimMethod);
+                    return Expression.Call(StringOperand(function, left), MethodProvider.TrimMethod);
                 case "HOUR":
                 case "MINUTE":
                 case "SECOND":
@@ -490,11 +540,11 @@ namespace LinqConvertTools.Parser
                 case "YEAR":
                     return GetDatePart(left, function);
                 case "ROUND":
-                    return Expression.Call(left.Type == typeof(double) ? MethodProvider.DoubleRoundMethod : MethodProvider.DecimalRoundMethod, left);
+                    return GetRoundingFunction(function, left, MethodProvider.DoubleRoundMethod, MethodProvider.DecimalRoundMethod);
                 case "FLOOR":
-                    return Expression.Call(left.Type == typeof(double) ? MethodProvider.DoubleFloorMethod : MethodProvider.DecimalFloorMethod, left);
+                    return GetRoundingFunction(function, left, MethodProvider.DoubleFloorMethod, MethodProvider.DecimalFloorMethod);
                 case "CEILING":
-                    return Expression.Call(left.Type == typeof(double) ? MethodProvider.DoubleCeilingMethod : MethodProvider.DecimalCeilingMethod, left);
+                    return GetRoundingFunction(function, left, MethodProvider.DoubleCeilingMethod, MethodProvider.DecimalCeilingMethod);
                 case "ANY":
                 case "ALL":
                     {
@@ -672,6 +722,13 @@ namespace LinqConvertTools.Parser
                 return null;
             }
 
+            // A literal compared with a condition, such as true in true eq Name in ('a'), is read as a Boolean, not as
+            // the type of a member inside the condition.
+            if (IsCondition(set.Left) || IsCondition(set.Right))
+            {
+                return typeof(bool);
+            }
+
             if (set.Left.IsFunction())
             {
                 var functionName = set.Left.GetFunctionName();
@@ -690,6 +747,16 @@ namespace LinqConvertTools.Parser
             var type = GetExpressionType<T>(set.Left.GetArithmeticToken(), parameter, lambdaParameters, depth + 1);
 
             return type ?? GetExpressionType<T>(set.Right.GetArithmeticToken(), parameter, lambdaParameters, depth + 1);
+        }
+
+        /// <summary>
+        /// Determines whether <paramref name="operand"/> is a condition built from operators, such as
+        /// <c>Name in ('a')</c> or <c>(Age gt 1)</c>, rather than a member, function, literal or arithmetic.
+        /// </summary>
+        private static bool IsCondition(string operand)
+        {
+            return !string.IsNullOrWhiteSpace(operand)
+                && operand.StripEnclosingParentheses().GetTokens().Any(token => !string.IsNullOrWhiteSpace(token.Operation));
         }
 
         private Expression? GetPropertyExpression<T>(string propertyToken, ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters, int depth)
@@ -1022,9 +1089,29 @@ namespace LinqConvertTools.Parser
             return GetFunction(functionTokens.Operation, left, right, sourceParameter, lambdaParameters, ignoreCase);
         }
 
+        /// <summary>
+        /// Reads <paramref name="filter"/> as a call to a function: a known function by its arguments, which must
+        /// match its arity, or else any other call by its last top-level comma.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">A known function is called with the wrong number of arguments or an empty one.</exception>
+        private static TokenSet? GetFunctionTokens(string filter)
+        {
+            if (filter.GetFunctionArguments() is not var (name, arguments) || name.GetFunctionArgumentCount() is not int count)
+            {
+                return filter.GetFunctionTokens();
+            }
+
+            if (arguments.Count != count || arguments.Any(string.IsNullOrWhiteSpace))
+            {
+                throw new InvalidOperationException(name + "() requires " + count.ToString(CultureInfo.InvariantCulture) + (count == 1 ? " argument." : " arguments."));
+            }
+
+            return new FunctionTokenSet { Operation = name, Left = arguments[0], Right = count > 1 ? arguments[1] : string.Empty };
+        }
+
         private Expression? GetFunctionExpression<T>(string filter, ParameterExpression sourceParameter, ICollection<ParameterExpression> lambdaParameters, Type? type, IFormatProvider formatProvider, bool ignoreCase, int depth)
         {
-            var functionTokens = filter.GetFunctionTokens();
+            var functionTokens = GetFunctionTokens(filter);
             if (functionTokens is null)
             {
                 return null;

@@ -47,12 +47,19 @@ namespace LinqConvertTools.Tests.Parser
         }
 
         [Test]
-        [TestCase("substringof('A', countryCode) ne true")]
-        [TestCase("substringof('A', countryCode) eq false")]
-        public void NegatedSubstringof_IncludesNullMemberRow(string filter)
+        public void SubstringofNeTrue_IncludesNullMemberRow()
         {
-            // A null member contains nothing, so "does not contain 'A'" is true for it, consistent with contains/startswith/endswith.
-            Assert.AreEqual("GB,none", Match(filter));
+            // substringof of a null member is null, and null ne true is true: null is equal to nothing but itself.
+            Assert.AreEqual("GB,none", Match("substringof('A', countryCode) ne true"));
+        }
+
+        [Test]
+        [TestCase("substringof('A', countryCode) eq false")]
+        [TestCase("not substringof('A', countryCode)")]
+        public void NegatedSubstringof_ExcludesNullMemberRow(string filter)
+        {
+            // substringof of a null member is null: null eq false is false, and not null is null, which no row matches.
+            Assert.AreEqual("GB", Match(filter));
         }
     }
 }
