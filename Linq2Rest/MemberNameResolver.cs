@@ -57,6 +57,7 @@ namespace LinqConvertTools
         private static MemberInfo? ResolveAliasInternal(Type type, string alias)
         {
             var member = GetMembers(type)
+                .Where(QueryableMembers.IsReadableValue)
                 .Select(
                     x =>
                     {
