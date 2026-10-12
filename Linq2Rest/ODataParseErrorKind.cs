@@ -17,6 +17,12 @@ namespace LinqConvertTools
         /// than the calling thread has, or takes longer to tokenize than a regular expression match allows.
         /// The same text can be accepted with a higher limit, or on a thread with a larger stack.
         /// </summary>
+        /// <remarks>
+        /// The stack and time limits also depend on the server: a thread with a small stack, or a regular expression
+        /// match slowed by CPU contention or a long garbage collection pause, can exceed them for ordinary text. A
+        /// caller that cannot rule that out may report this kind as a retryable server condition rather than as a
+        /// client error.
+        /// </remarks>
         TooComplex = 1,
     }
 }

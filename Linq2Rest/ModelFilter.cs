@@ -26,7 +26,7 @@ namespace LinqConvertTools
         private readonly IEnumerable<SortDescription<T>> _sortDescriptions;
         private readonly int _top;
 
-        public ModelFilter(Expression<Func<T, bool>> filterExpression, Expression<Func<T, object>>? selectExpression, IEnumerable<SortDescription<T>> sortDescriptions, int skip, int top)
+        public ModelFilter(Expression<Func<T, bool>> filterExpression, Expression<Func<T, object>>? selectExpression, IEnumerable<SortDescription<T>>? sortDescriptions, int skip, int top)
         {
             _skip = skip;
             _top = top;

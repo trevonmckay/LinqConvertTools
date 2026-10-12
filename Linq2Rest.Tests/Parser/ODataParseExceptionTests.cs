@@ -218,7 +218,6 @@ namespace LinqConvertTools.Tests.Parser
 
         [TestCase(typeof(InsufficientExecutionStackException))]
         [TestCase(typeof(RegexMatchTimeoutException))]
-        [TestCase(typeof(MaxDepthExceededException))]
         public void LimitFailureIsTooComplex(Type failureType)
         {
             var failure = (Exception)Activator.CreateInstance(failureType)!;
@@ -326,6 +325,48 @@ namespace LinqConvertTools.Tests.Parser
         }
 
         [Test]
+        public void ParameterParserTreatsANullSortAsNoSort()
+        {
+            var parser = new ParameterParser<FakeItem>(
+                new FilterExpressionFactory(new MemberNameResolver(), Enumerable.Empty<LinqConvertTools.Parser.Readers.IValueExpressionFactory>()),
+                new NullSortFactory(),
+                CreateSelectFactory());
+            var parameters = new NameValueCollection { { "$orderby", "IntValue" } };
+
+            var filter = parser.Parse(parameters);
+
+            CollectionAssert.IsEmpty(filter.SortDescriptions);
+        }
+
+        [Test]
+        public void LimitMarkedFailureIsTooComplexAndKeepsItsType()
+        {
+            var failure = ParseFailure.MarkLimitExceeded(new InvalidOperationException("too deep"));
+
+            var exception = Assert.Throws<ODataParseException>(() => Guard(failure))!;
+
+            Assert.AreSame(failure, exception.InnerException);
+            Assert.AreEqual(typeof(InvalidOperationException), exception.InnerException!.GetType());
+            Assert.AreEqual(ODataParseErrorKind.TooComplex, exception.Kind);
+        }
+
+        [Test]
+        public void DepthFailureSurvivesBinarySerialization()
+        {
+            var converter = new ODataExpressionConverter { MaxDepth = 3 };
+            var original = ParseAssert.ThrowsTooDeep(() => converter.Convert<FakeItem>("not not not not IntValue eq 1"));
+
+            var copy = RoundTrip(original);
+
+            Assert.AreEqual(original.Message, copy.Message);
+            Assert.AreEqual("$filter", copy.QueryOption);
+            Assert.AreEqual(original.Text, copy.Text);
+            Assert.AreEqual(ODataParseErrorKind.TooComplex, copy.Kind);
+            Assert.AreEqual(typeof(InvalidOperationException), copy.InnerException!.GetType());
+            Assert.AreEqual(original.InnerException!.Message, copy.InnerException.Message);
+        }
+
+        [Test]
         public void SerializationKeepsQueryOptionTextAndKind()
         {
             var original = new ODataParseException("message", "$orderby", "Bogus", ODataParseErrorKind.TooComplex, new FormatException("inner"));
@@ -378,6 +419,25 @@ namespace LinqConvertTools.Tests.Parser
             public System.Linq.Expressions.Expression<Func<T, bool>> Create<T>(string filter, IFormatProvider formatProvider, bool ignoreCase = false)
             {
                 throw new InvalidOperationException("Could not create expression from: " + filter);
+            }
+        }
+
+        private static ODataParseException RoundTrip(ODataParseException exception)
+        {
+#pragma warning disable SYSLIB0011
+            var formatter = new System.Runtime.Serialization.Formatters.Binary.BinaryFormatter();
+            using var stream = new MemoryStream();
+            formatter.Serialize(stream, exception);
+            stream.Position = 0;
+            return (ODataParseException)formatter.Deserialize(stream);
+#pragma warning restore SYSLIB0011
+        }
+
+        private sealed class NullSortFactory : ISortExpressionFactory
+        {
+            public IEnumerable<SortDescription<T>> Create<T>(string filter)
+            {
+                return null!;
             }
         }
 

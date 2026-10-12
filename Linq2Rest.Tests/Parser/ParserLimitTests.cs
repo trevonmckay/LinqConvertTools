@@ -77,7 +77,7 @@ namespace LinqConvertTools.Tests.Parser
 
             Exception? thrown = ConvertOnSmallStack(converter, filter);
 
-            ParseAssert.IsWrapped<MaxDepthExceededException>(thrown, ODataParseErrorKind.TooComplex);
+            ParseAssert.IsWrapped<InvalidOperationException>(thrown, ODataParseErrorKind.TooComplex);
         }
 
         [Test]

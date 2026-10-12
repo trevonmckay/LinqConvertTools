@@ -780,9 +780,9 @@ namespace LinqConvertTools.Parser
             return _memberNameResolver.ResolveMemberPath(parameter, propertyChain);
         }
 
-        private MaxDepthExceededException DepthExceeded()
+        private InvalidOperationException DepthExceeded()
         {
-            return new MaxDepthExceededException("The filter is nested more than " + _maxDepth.ToString(CultureInfo.InvariantCulture) + " levels deep.");
+            return ParseFailure.MarkLimitExceeded(new InvalidOperationException("The filter is nested more than " + _maxDepth.ToString(CultureInfo.InvariantCulture) + " levels deep."));
         }
 
         private Expression? CreateExpression<T>(string filter, ParameterExpression sourceParameter, ICollection<ParameterExpression> lambdaParameters, Type? type, IFormatProvider formatProvider, bool ignoreCase, int depth)

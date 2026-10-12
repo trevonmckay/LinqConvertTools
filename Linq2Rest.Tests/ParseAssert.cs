@@ -1,4 +1,3 @@
-using LinqConvertTools.Parser;
 using NUnit.Framework;
 
 namespace LinqConvertTools.Tests
@@ -23,7 +22,7 @@ namespace LinqConvertTools.Tests
 
         public static ODataParseException ThrowsTooDeep(TestDelegate code)
         {
-            return Throws<MaxDepthExceededException>(code, ODataParseErrorKind.TooComplex);
+            return Throws<InvalidOperationException>(code, ODataParseErrorKind.TooComplex);
         }
 
         public static void IsWrapped<TInner>(Exception? thrown, ODataParseErrorKind kind)

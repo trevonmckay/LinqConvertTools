@@ -9,6 +9,20 @@ namespace LinqConvertTools.Parser
     /// </summary>
     internal static class ParseFailure
     {
+        private const string LimitExceededKey = "LinqConvertTools.ParseLimitExceeded";
+
+        /// <summary>
+        /// Marks <paramref name="exception"/> as a failure to stay within a parser limit, so it is reported as
+        /// <see cref="ODataParseErrorKind.TooComplex"/>. The mark is kept in <see cref="Exception.Data"/>, so the
+        /// exception keeps its public type and survives serialization.
+        /// </summary>
+        public static TException MarkLimitExceeded<TException>(TException exception)
+            where TException : Exception
+        {
+            exception.Data[LimitExceededKey] = true;
+            return exception;
+        }
+
         /// <summary>
         /// Runs <paramref name="parse"/>, wrapping any failure caused by <paramref name="text"/> in an
         /// <see cref="ODataParseException"/>.
@@ -61,8 +75,8 @@ namespace LinqConvertTools.Parser
 
         private static bool IsLimit(Exception exception)
         {
-            return exception is MaxDepthExceededException
-                or InsufficientExecutionStackException
+            return exception.Data[LimitExceededKey] is true
+                || exception is InsufficientExecutionStackException
                 or RegexMatchTimeoutException;
         }
     }
