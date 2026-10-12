@@ -57,6 +57,7 @@ namespace LinqConvertTools
         private static MemberInfo? ResolveAliasInternal(Type type, string alias)
         {
             var member = GetMembers(type)
+                .Where(QueryableMembers.IsQueryable)
                 .Select(
                     x =>
                     {
@@ -121,7 +122,9 @@ namespace LinqConvertTools
 #endif
                 .FirstOrDefault(x => string.Equals(x.Name, field.Name.Replace("_", string.Empty), StringComparison.OrdinalIgnoreCase));
 
-            return correspondingProperty ?? field;
+            return correspondingProperty != null && QueryableMembers.IsQueryable(correspondingProperty)
+                ? correspondingProperty
+                : field;
         }
 
         private static IEnumerable<MemberInfo> GetMembers(Type type)

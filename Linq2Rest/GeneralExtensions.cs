@@ -170,7 +170,7 @@ namespace LinqConvertTools
             return (IOrderedQueryable<T>)orderbyMethod.Invoke(null, new object[] { source, keySelector });
         }
 
-        private static Type GetMemberType(MemberInfo member)
+        internal static Type GetMemberType(this MemberInfo member)
         {
 
 
