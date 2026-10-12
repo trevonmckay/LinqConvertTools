@@ -58,7 +58,8 @@ namespace LinqConvertTools.Parser
             var fieldNames = (selection ?? string.Empty).Split(',')
                 .Where(x => !string.IsNullOrWhiteSpace(x))
                 .Select(x => x.Trim())
-                .OrderBy(x => x);
+                .OrderBy(x => x)
+                .ToArray();
 
             var key = string.Join(",", fieldNames);
 
@@ -69,7 +70,8 @@ namespace LinqConvertTools.Parser
                 return knownSelection;
             }
 
-            var selector = ParseFailure.Guard(StringConstants.SelectParameter, selection, () => CreateSelector(fieldNames));
+            var sourceMembers = ParseFailure.Guard(StringConstants.SelectParameter, selection, () => ResolveMembers(fieldNames));
+            var selector = CreateSelector(sourceMembers);
 
             if (Monitor.TryEnter(_knownSelections, 1000))
             {
@@ -81,17 +83,33 @@ namespace LinqConvertTools.Parser
             return selector;
         }
 
-        private Expression<Func<T, object>> CreateSelector(IEnumerable<string> fieldNames)
+        private Dictionary<string, MemberInfo> ResolveMembers(IEnumerable<string> fieldNames)
         {
             var elementType = typeof(T);
             var elementMembers = elementType.GetProperties(Flags)
                 .Cast<MemberInfo>()
                 .Concat(elementType.GetFields(Flags))
                 .ToArray();
-            var sourceMembers = fieldNames.ToDictionary(
-                name => name,
-                name => elementMembers.FirstOrDefault(m => _nameResolver.ResolveName(m) == name)
-                    ?? throw new FormatException(name + " is not recognized as a valid property"));
+            var sourceMembers = new Dictionary<string, MemberInfo>();
+            foreach (var name in fieldNames)
+            {
+                if (sourceMembers.ContainsKey(name))
+                {
+                    throw new FormatException(name + " is selected more than once");
+                }
+
+                sourceMembers.Add(
+                    name,
+                    elementMembers.FirstOrDefault(m => _nameResolver.ResolveName(m) == name)
+                        ?? throw new FormatException(name + " is not recognized as a valid property"));
+            }
+
+            return sourceMembers;
+        }
+
+        private Expression<Func<T, object>> CreateSelector(IDictionary<string, MemberInfo> sourceMembers)
+        {
+            var elementType = typeof(T);
             var dynamicType = _runtimeTypeProvider.Get(elementType, sourceMembers.Values);
 
             var sourceItem = Expression.Parameter(elementType, "t");

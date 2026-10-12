@@ -58,7 +58,7 @@ namespace LinqConvertTools.Parser
             return (from sortToken in sortTokens
                     select sortToken.Split(new[] { " " }, StringSplitOptions.RemoveEmptyEntries)
                         into sort
-                    where sort.Length > 0
+                    where sort.Length > 0 && !string.IsNullOrWhiteSpace(sort[0])
                     let property = GetPropertyExpression<T>(sort[0], parameterExpression)
                     let direction = sort.ElementAtOrDefault(1) == "desc" ? SortDirection.Descending : SortDirection.Ascending
                     select new SortDescription<T>(property, direction)).ToArray();

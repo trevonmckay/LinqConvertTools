@@ -94,9 +94,9 @@ namespace LinqConvertTools.Parser
             var skip = queryParameters[StringConstants.SkipParameter];
             var top = queryParameters[StringConstants.TopParameter];
 
-            var filterExpression = _filterExpressionFactory.Create<T>(filter);
-            var sortDescriptions = _sortExpressionFactory.Create<T>(orderbyField);
-            var selectFunction = _selectExpressionFactory.Create(selects);
+            var filterExpression = Guard(_filterExpressionFactory, typeof(FilterExpressionFactory), StringConstants.FilterParameter, filter, () => _filterExpressionFactory.Create<T>(filter));
+            var sortDescriptions = Guard(_sortExpressionFactory, typeof(SortExpressionFactory), StringConstants.OrderByParameter, orderbyField, () => _sortExpressionFactory.Create<T>(orderbyField).ToArray());
+            var selectFunction = Guard(_selectExpressionFactory, typeof(SelectExpressionFactory<T>), StringConstants.SelectParameter, selects, () => _selectExpressionFactory.Create(selects));
 
             var modelFilter = new ModelFilter<T>(
                 filterExpression,
@@ -105,6 +105,13 @@ namespace LinqConvertTools.Parser
                 ReadCount(StringConstants.SkipParameter, skip),
                 ReadCount(StringConstants.TopParameter, top));
             return modelFilter;
+        }
+
+        private static TResult Guard<TResult>(object factory, Type builtInType, string queryOption, string? text, Func<TResult> create)
+        {
+            // The built-in factories wrap their own input failures and leave server-side failures, such as building
+            // the runtime type for a selection, unwrapped. A factory supplied by the caller is wrapped here.
+            return factory.GetType() == builtInType ? create() : ParseFailure.Guard(queryOption, text, create);
         }
 
         private static int ReadCount(string queryOption, string? value)

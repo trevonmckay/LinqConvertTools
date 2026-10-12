@@ -1041,7 +1041,9 @@ namespace LinqConvertTools.Parser
                 return null;
             }
 
-            var elementType = MethodProvider.GetIEnumerableImpl(left.Type).GetGenericArguments()[0];
+            var collectionType = MethodProvider.GetIEnumerableImpl(left.Type)
+                ?? throw new InvalidOperationException("Could not create expression from: " + filter + ". " + functionTokens.Left + " is not a collection.");
+            var elementType = collectionType.GetGenericArguments()[0];
             var separatorIndex = functionTokens.Right.IndexOf(':');
             if (separatorIndex < 0)
             {

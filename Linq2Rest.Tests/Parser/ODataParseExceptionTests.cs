@@ -47,6 +47,16 @@ namespace LinqConvertTools.Tests.Parser
             Assert.AreEqual("$filter", exception.QueryOption);
         }
 
+        [TestCase("IntValue/any(x: x eq 1)")]
+        [TestCase("DoubleValue/all(x: x gt 1)")]
+        [TestCase("Duration/any()")]
+        public void AnyOrAllOnAMemberThatIsNotACollectionIsInvalid(string filter)
+        {
+            var exception = ParseAssert.Throws<InvalidOperationException>(() => new ODataExpressionConverter().Convert<FakeItem>(filter));
+
+            StringAssert.Contains("is not a collection", exception.Message);
+        }
+
         [TestCase(null)]
         [TestCase("")]
         [TestCase("   ")]
@@ -72,6 +82,9 @@ namespace LinqConvertTools.Tests.Parser
         [TestCase(" , IntValue", new[] { "x => x.IntValue" })]
         [TestCase("IntValue,,Child/Attributes desc", new[] { "x => x.IntValue", "x => x.Child.Attributes" })]
         [TestCase("IntValue, ,DoubleValue", new[] { "x => x.IntValue", "x => x.DoubleValue" })]
+        [TestCase("IntValue,\t", new[] { "x => x.IntValue" })]
+        [TestCase("IntValue,\r\n", new[] { "x => x.IntValue" })]
+        [TestCase("IntValue, ,DoubleValue", new[] { "x => x.IntValue", "x => x.DoubleValue" })]
         public void OrderBySkipsBlankEntries(string orderBy, string[] expected)
         {
             var factory = new SortExpressionFactory(new MemberNameResolver());
@@ -106,9 +119,52 @@ namespace LinqConvertTools.Tests.Parser
         {
             var factory = CreateSelectFactory();
 
-            var exception = ParseAssert.Throws<ArgumentException>(() => factory.Create("DoubleValue,DoubleValue"));
+            var exception = ParseAssert.Throws<FormatException>(() => factory.Create("DoubleValue, DoubleValue"));
 
             Assert.AreEqual("$select", exception.QueryOption);
+            StringAssert.Contains("DoubleValue is selected more than once", exception.Message);
+        }
+
+        [Test]
+        public void ConcurrentFirstUseOfASelectionSucceedsOnEveryThread()
+        {
+            var fields = new[] { "A", "B", "C", "D", "E", "F", "G", "H" };
+            const int threads = 8;
+
+            for (int combination = 1; combination < 40; combination++)
+            {
+                var selection = string.Join(",", fields.Where((_, i) => (combination & (1 << i)) != 0));
+                var barrier = new Barrier(threads);
+                var failures = new System.Collections.Concurrent.ConcurrentBag<Exception>();
+                var workers = Enumerable.Range(0, threads)
+                    .Select(_ => new Thread(() =>
+                    {
+                        var resolver = new MemberNameResolver();
+                        var factory = new SelectExpressionFactory<Wide>(resolver, new RuntimeTypeProvider(resolver));
+                        barrier.SignalAndWait();
+                        try
+                        {
+                            factory.Create(selection);
+                        }
+                        catch (Exception ex)
+                        {
+                            failures.Add(ex);
+                        }
+                    }))
+                    .ToArray();
+
+                foreach (var worker in workers)
+                {
+                    worker.Start();
+                }
+
+                foreach (var worker in workers)
+                {
+                    worker.Join();
+                }
+
+                CollectionAssert.IsEmpty(failures, selection);
+            }
         }
 
         [Test]
@@ -195,6 +251,12 @@ namespace LinqConvertTools.Tests.Parser
         [TestCase(typeof(ArgumentNullException))]
         [TestCase(typeof(ArgumentOutOfRangeException))]
         [TestCase(typeof(NotImplementedException))]
+        [TestCase(typeof(TypeLoadException))]
+        [TestCase(typeof(MissingMethodException))]
+        [TestCase(typeof(PlatformNotSupportedException))]
+        [TestCase(typeof(BadImageFormatException))]
+        [TestCase(typeof(FileLoadException))]
+        [TestCase(typeof(FileNotFoundException))]
         public void DefectIsNotWrapped(Type failureType)
         {
             var failure = (Exception)Activator.CreateInstance(failureType)!;
@@ -212,6 +274,45 @@ namespace LinqConvertTools.Tests.Parser
             var thrown = Assert.Catch(() => Guard(failure));
 
             Assert.AreSame(failure, thrown);
+        }
+
+        [Test]
+        public void TypeInitializationFailureIsNotWrapped()
+        {
+            var failure = new TypeInitializationException("LinqConvertTools.RuntimeTypeProvider", null);
+
+            var thrown = Assert.Catch(() => Guard(failure));
+
+            Assert.AreSame(failure, thrown);
+        }
+
+        [Test]
+        public void ParameterParserWrapsAnInjectedFilterFactory()
+        {
+            var parser = new ParameterParser<FakeItem>(
+                new ThrowingFilterFactory(),
+                new SortExpressionFactory(new MemberNameResolver()),
+                CreateSelectFactory());
+            var parameters = new NameValueCollection { { "$filter", "anything" } };
+
+            var exception = ParseAssert.Throws<InvalidOperationException>(() => parser.Parse(parameters));
+
+            Assert.AreEqual("$filter", exception.QueryOption);
+            Assert.AreEqual("anything", exception.Text);
+        }
+
+        [Test]
+        public void ParameterParserParsesAnInjectedLazySortInFull()
+        {
+            var parser = new ParameterParser<FakeItem>(
+                new FilterExpressionFactory(new MemberNameResolver(), Enumerable.Empty<LinqConvertTools.Parser.Readers.IValueExpressionFactory>()),
+                new LazyThrowingSortFactory(),
+                CreateSelectFactory());
+            var parameters = new NameValueCollection { { "$orderby", "Bogus" } };
+
+            var exception = ParseAssert.Throws<FormatException>(() => parser.Parse(parameters));
+
+            Assert.AreEqual("$orderby", exception.QueryOption);
         }
 
         [Test]
@@ -265,6 +366,51 @@ namespace LinqConvertTools.Tests.Parser
             {
                 throw new NullReferenceException();
             }
+        }
+
+        private sealed class ThrowingFilterFactory : IFilterExpressionFactory
+        {
+            public System.Linq.Expressions.Expression<Func<T, bool>> Create<T>(string filter, bool ignoreCase = false)
+            {
+                throw new InvalidOperationException("Could not create expression from: " + filter);
+            }
+
+            public System.Linq.Expressions.Expression<Func<T, bool>> Create<T>(string filter, IFormatProvider formatProvider, bool ignoreCase = false)
+            {
+                throw new InvalidOperationException("Could not create expression from: " + filter);
+            }
+        }
+
+        private sealed class LazyThrowingSortFactory : ISortExpressionFactory
+        {
+            public IEnumerable<SortDescription<T>> Create<T>(string filter)
+            {
+                if (filter.Length > 0)
+                {
+                    throw new FormatException(filter + " is not recognized as a valid property");
+                }
+
+                yield break;
+            }
+        }
+
+        public class Wide
+        {
+            public int A { get; set; }
+
+            public int B { get; set; }
+
+            public int C { get; set; }
+
+            public int D { get; set; }
+
+            public int E { get; set; }
+
+            public int F { get; set; }
+
+            public int G { get; set; }
+
+            public int H { get; set; }
         }
 
         private sealed class DeserializedParseException : ODataParseException

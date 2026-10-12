@@ -28,6 +28,7 @@ namespace LinqConvertTools
         private static readonly AssemblyName AssemblyName = new AssemblyName { Name = "Linq2RestTypes" };
         private static readonly ModuleBuilder ModuleBuilder;
         private static readonly ConcurrentDictionary<string, Type> BuiltTypes = new ConcurrentDictionary<string, Type>();
+        private static readonly object BuildLock = new object();
         private static readonly ConcurrentDictionary<Type, CustomAttributeBuilder[]> TypeAttributeBuilders = new ConcurrentDictionary<Type, CustomAttributeBuilder[]>();
         private static readonly ConcurrentDictionary<MemberInfo, CustomAttributeBuilder[]> PropertyAttributeBuilders = new ConcurrentDictionary<MemberInfo, CustomAttributeBuilder[]>();
         private readonly IMemberNameResolver _nameResolver;
@@ -66,25 +67,35 @@ namespace LinqConvertTools
             var dictionary = properties.ToDictionary(f => _nameResolver.ResolveName(f), memberInfo => memberInfo);
 
             var className = GetTypeKey(sourceType, dictionary);
-            return BuiltTypes.GetOrAdd(
-                className,
-                s =>
+            if (BuiltTypes.TryGetValue(className, out var builtType))
+            {
+                return builtType;
+            }
+
+            // GetOrAdd can run its factory on several threads at once, and defining the same type name twice in
+            // the module throws, so each type is built under a lock.
+            lock (BuildLock)
+            {
+                if (BuiltTypes.TryGetValue(className, out builtType))
                 {
-                    var typeBuilder = ModuleBuilder.DefineType(
-                        className,
-                        TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Serializable);
+                    return builtType;
+                }
 
+                var typeBuilder = ModuleBuilder.DefineType(
+                    className,
+                    TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Serializable);
 
+                SetAttributes(typeBuilder, sourceType);
 
-                    SetAttributes(typeBuilder, sourceType);
+                foreach (var field in dictionary)
+                {
+                    CreateProperty(typeBuilder, field);
+                }
 
-                    foreach (var field in dictionary)
-                    {
-                        CreateProperty(typeBuilder, field);
-                    }
-
-                    return typeBuilder.CreateTypeInfo() ?? throw new InvalidOperationException("Could not create runtime type " + className + ".");
-                });
+                builtType = typeBuilder.CreateTypeInfo() ?? throw new InvalidOperationException("Could not create runtime type " + className + ".");
+                BuiltTypes[className] = builtType;
+                return builtType;
+            }
         }
 
         private static void CreateProperty(TypeBuilder typeBuilder, KeyValuePair<string, MemberInfo> field)

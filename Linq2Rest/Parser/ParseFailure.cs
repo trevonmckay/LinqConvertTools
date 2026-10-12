@@ -1,6 +1,7 @@
 namespace LinqConvertTools.Parser
 {
     using System;
+    using System.IO;
     using System.Text.RegularExpressions;
 
     /// <summary>
@@ -16,7 +17,8 @@ namespace LinqConvertTools.Parser
         /// The parser builds expressions with <see cref="System.Linq.Expressions.Expression"/> factory methods,
         /// which reject input the parser did not validate first with <see cref="ArgumentException"/> or
         /// <see cref="InvalidOperationException"/>. Those types cannot be told apart from the parser's own, so
-        /// every failure is wrapped except the types that only a defect produces.
+        /// every failure is wrapped except the types that only a defect or a broken runtime environment produces,
+        /// which must surface as server errors rather than as bad input.
         /// </remarks>
         public static TResult Guard<TResult>(string queryOption, string? text, Func<TResult> parse)
         {
@@ -47,7 +49,14 @@ namespace LinqConvertTools.Parser
                 or ObjectDisposedException
                 or NotImplementedException
                 or OutOfMemoryException
-                or AccessViolationException);
+                or AccessViolationException
+                or TypeInitializationException
+                or TypeLoadException
+                or MissingMemberException
+                or PlatformNotSupportedException
+                or BadImageFormatException
+                or FileLoadException
+                or FileNotFoundException);
         }
 
         private static bool IsLimit(Exception exception)
