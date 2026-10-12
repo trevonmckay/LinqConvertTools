@@ -27,7 +27,7 @@ namespace LinqConvertTools.Tests.Parser
         {
             var factory = new SortExpressionFactory(new MemberNameResolver());
 
-            Assert.Throws<FormatException>(() => factory.Create<FakeItem>(orderBy).ToArray());
+            ParseAssert.Throws<FormatException>(() => factory.Create<FakeItem>(orderBy).ToArray());
         }
     }
 }

@@ -47,7 +47,7 @@ namespace LinqConvertTools.Tests
                                      { "$filter", filter }
                                  };
 
-            Assert.Throws<FormatException>(() => _source.Filter(parameters));
+            ParseAssert.Throws<FormatException>(() => _source.Filter(parameters));
         }
 
         [TestCase("DoubleValues")]
@@ -62,7 +62,7 @@ namespace LinqConvertTools.Tests
                                      { "$orderby", sorting }
                                  };
 
-            Assert.Throws<FormatException>(() => _source.Filter(parameters));
+            ParseAssert.Throws<FormatException>(() => _source.Filter(parameters));
         }
 
         [TestCase("DoubleValues")]
@@ -77,7 +77,7 @@ namespace LinqConvertTools.Tests
                                      { "$top", top }
                                  };
 
-            Assert.Throws<FormatException>(() => _source.Filter(parameters));
+            ParseAssert.Throws<FormatException>(() => _source.Filter(parameters));
         }
 
         [TestCase("DoubleValues")]
@@ -92,7 +92,7 @@ namespace LinqConvertTools.Tests
                                      { "$skip", top }
                                  };
 
-            Assert.Throws<FormatException>(() => _source.Filter(parameters));
+            ParseAssert.Throws<FormatException>(() => _source.Filter(parameters));
         }
 
         [Test]

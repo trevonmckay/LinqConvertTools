@@ -53,7 +53,7 @@ namespace LinqConvertTools.Tests.Parser
         {
             ArgumentNullException.ThrowIfNull(_converter);
 
-            Assert.Throws<FormatException>(() => _converter.Convert<User>(filter));
+            ParseAssert.Throws<FormatException>(() => _converter.Convert<User>(filter));
         }
     }
 }

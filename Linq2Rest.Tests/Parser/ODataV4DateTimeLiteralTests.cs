@@ -58,7 +58,7 @@ namespace LinqConvertTools.Tests.Parser
         {
             ArgumentNullException.ThrowIfNull(_converter);
 
-            Assert.Throws<FormatException>(() => _converter.Convert<IHasDateTimeOffset>(filter));
+            ParseAssert.Throws<FormatException>(() => _converter.Convert<IHasDateTimeOffset>(filter));
         }
 
         [TestCase("Moment eq 2026-10-01T00:00:00Z", DateTimeKind.Utc)]

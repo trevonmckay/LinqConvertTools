@@ -105,7 +105,7 @@ namespace LinqConvertTools.Tests.Parser
         {
             ArgumentNullException.ThrowIfNull(_converter);
 
-            Assert.Throws<FormatException>(() => _converter.Convert<Record>(filter));
+            ParseAssert.Throws<FormatException>(() => _converter.Convert<Record>(filter));
         }
 
         [TestCase("IsActive eq 12")]
@@ -115,7 +115,7 @@ namespace LinqConvertTools.Tests.Parser
         {
             ArgumentNullException.ThrowIfNull(_converter);
 
-            var exception = Assert.Throws<InvalidOperationException>(() => _converter.Convert<Record>(filter));
+            var exception = ParseAssert.Throws<InvalidOperationException>(() => _converter.Convert<Record>(filter));
             StringAssert.Contains("as boolean", exception!.Message);
         }
 
@@ -182,7 +182,7 @@ namespace LinqConvertTools.Tests.Parser
         {
             ArgumentNullException.ThrowIfNull(_converter);
 
-            Assert.Throws<InvalidOperationException>(() => _converter.Convert<Record>(filter));
+            ParseAssert.Throws<InvalidOperationException>(() => _converter.Convert<Record>(filter));
         }
 
         [TestCase("Status in ()", "")]
@@ -218,7 +218,7 @@ namespace LinqConvertTools.Tests.Parser
         {
             ArgumentNullException.ThrowIfNull(_converter);
 
-            Assert.Throws<FormatException>(() => _converter.Convert<Record>(filter));
+            ParseAssert.Throws<FormatException>(() => _converter.Convert<Record>(filter));
         }
 
         [Test]
@@ -298,9 +298,9 @@ namespace LinqConvertTools.Tests.Parser
             ArgumentNullException.ThrowIfNull(_records);
             var converter = new ODataExpressionConverter(Array.Empty<IValueWriter>(), Array.Empty<IValueExpressionFactory>(), null, StringCaseFolding.CurrentCulture, enumNamesOnly: true);
 
-            Assert.Throws<FormatException>(() => converter.Convert<Record>("Kind eq '1'"));
-            Assert.Throws<FormatException>(() => converter.Convert<Record>("Kind eq 'Nope'"));
-            Assert.Throws<FormatException>(() => converter.Convert<Record>("Kind eq 'Alpha,Beta'"));
+            ParseAssert.Throws<FormatException>(() => converter.Convert<Record>("Kind eq '1'"));
+            ParseAssert.Throws<FormatException>(() => converter.Convert<Record>("Kind eq 'Nope'"));
+            ParseAssert.Throws<FormatException>(() => converter.Convert<Record>("Kind eq 'Alpha,Beta'"));
             Assert.DoesNotThrow(() => converter.Convert<Record>("Kind eq 'Alpha'"));
         }
 
@@ -335,7 +335,7 @@ namespace LinqConvertTools.Tests.Parser
         {
             ArgumentNullException.ThrowIfNull(_converter);
 
-            Assert.Throws<FormatException>(() => _converter.Convert<Record>("Kind eq System.DayOfWeek'Beta'"));
+            ParseAssert.Throws<FormatException>(() => _converter.Convert<Record>("Kind eq System.DayOfWeek'Beta'"));
         }
 
         [TestCase(200, "1")]
@@ -348,7 +348,7 @@ namespace LinqConvertTools.Tests.Parser
 
             if (expectedIds is null)
             {
-                Assert.Throws<InvalidOperationException>(() => _converter.Convert<Record>(filter));
+                ParseAssert.ThrowsTooDeep(() => _converter.Convert<Record>(filter));
             }
             else
             {
@@ -362,7 +362,7 @@ namespace LinqConvertTools.Tests.Parser
             ArgumentNullException.ThrowIfNull(_converter);
             var filter = string.Concat(Enumerable.Repeat("1 add ", 4000)) + "1 eq 5";
 
-            Assert.Throws<InvalidOperationException>(() => _converter.Convert<Record>(filter));
+            ParseAssert.ThrowsTooDeep(() => _converter.Convert<Record>(filter));
         }
 
         [TestCase("IsActive eq yes", new[] { 1, 3 })]

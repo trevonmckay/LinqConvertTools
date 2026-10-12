@@ -25,7 +25,7 @@ namespace LinqConvertTools.Parser
         /// </summary>
         /// <param name="filter">The string representation of the sort descriptions.</param>
         /// <typeparam name="T">The <see cref="Type"/> of item to sort.</typeparam>
-        /// <returns>An <see cref="IEnumerable{T}"/> if the passed sort descriptions are valid, otherwise null.</returns>
+        /// <returns>The sort descriptions, or <see langword="null"/> for no sort.</returns>
         IEnumerable<SortDescription<T>> Create<T>(string filter);
     }
 }

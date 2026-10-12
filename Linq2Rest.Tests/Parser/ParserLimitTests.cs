@@ -44,7 +44,7 @@ namespace LinqConvertTools.Tests.Parser
 
             Exception? thrown = ConvertOnSmallStack(converter, filter);
 
-            Assert.IsInstanceOf<InsufficientExecutionStackException>(thrown);
+            ParseAssert.IsWrapped<InsufficientExecutionStackException>(thrown, ODataParseErrorKind.TooComplex);
         }
 
         [Test]
@@ -55,7 +55,7 @@ namespace LinqConvertTools.Tests.Parser
 
             Exception? thrown = ConvertOnSmallStack(converter, filter);
 
-            Assert.IsInstanceOf<InsufficientExecutionStackException>(thrown);
+            ParseAssert.IsWrapped<InsufficientExecutionStackException>(thrown, ODataParseErrorKind.TooComplex);
         }
 
         [Test]
@@ -66,7 +66,7 @@ namespace LinqConvertTools.Tests.Parser
 
             Exception? thrown = ConvertOnSmallStack(converter, filter);
 
-            Assert.IsInstanceOf<InsufficientExecutionStackException>(thrown);
+            ParseAssert.IsWrapped<InsufficientExecutionStackException>(thrown, ODataParseErrorKind.TooComplex);
         }
 
         [Test]
@@ -77,7 +77,7 @@ namespace LinqConvertTools.Tests.Parser
 
             Exception? thrown = ConvertOnSmallStack(converter, filter);
 
-            Assert.IsInstanceOf<InvalidOperationException>(thrown);
+            ParseAssert.IsWrapped<InvalidOperationException>(thrown, ODataParseErrorKind.TooComplex);
         }
 
         [Test]
@@ -115,7 +115,7 @@ namespace LinqConvertTools.Tests.Parser
             string filter = Nest(open, close, FilterExpressionFactory.DefaultMaxDepth + 1);
             var converter = new ODataExpressionConverter();
 
-            Assert.Throws<InvalidOperationException>(() => converter.Convert<Item>(filter));
+            ParseAssert.ThrowsTooDeep(() => converter.Convert<Item>(filter));
         }
 
         [Test]
@@ -124,7 +124,7 @@ namespace LinqConvertTools.Tests.Parser
             string filter = Chain("name eq 'z' or ", "name eq 'a'", FilterExpressionFactory.DefaultMaxDepth);
             var converter = new ODataExpressionConverter();
 
-            Assert.Throws<InvalidOperationException>(() => converter.Convert<Item>(filter));
+            ParseAssert.ThrowsTooDeep(() => converter.Convert<Item>(filter));
         }
 
         [Test]
@@ -146,7 +146,7 @@ namespace LinqConvertTools.Tests.Parser
             var shallow = converter.Convert<Item>(Nest("not ", "", 2));
 
             Assert.IsNotNull(shallow);
-            Assert.Throws<InvalidOperationException>(() => converter.Convert<Item>(Nest("not ", "", 20)));
+            ParseAssert.ThrowsTooDeep(() => converter.Convert<Item>(Nest("not ", "", 20)));
         }
 
         [TestCase(0)]

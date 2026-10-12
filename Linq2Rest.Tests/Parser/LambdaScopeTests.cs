@@ -88,7 +88,7 @@ namespace LinqConvertTools.Tests.Parser
         {
             ArgumentNullException.ThrowIfNull(_converter);
 
-            Assert.Throws<InvalidOperationException>(() => _converter.Convert<Team>(filter));
+            ParseAssert.Throws<InvalidOperationException>(() => _converter.Convert<Team>(filter));
         }
 
         [TestCase("bogus/name eq 'Alpha'")]
@@ -100,7 +100,7 @@ namespace LinqConvertTools.Tests.Parser
         {
             ArgumentNullException.ThrowIfNull(_converter);
 
-            Assert.Throws<InvalidOperationException>(() => _converter.Convert<Team>(filter));
+            ParseAssert.Throws<InvalidOperationException>(() => _converter.Convert<Team>(filter));
         }
 
         [TestCase("tags/any(t: t eq 'vip' and)")]
@@ -110,7 +110,7 @@ namespace LinqConvertTools.Tests.Parser
         {
             ArgumentNullException.ThrowIfNull(_converter);
 
-            Assert.Throws<InvalidOperationException>(() => _converter.Convert<Team>(filter));
+            ParseAssert.Throws<InvalidOperationException>(() => _converter.Convert<Team>(filter));
         }
 
         public class Team

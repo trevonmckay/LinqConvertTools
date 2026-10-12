@@ -85,6 +85,7 @@ namespace LinqConvertTools.Parser
         /// </summary>
         /// <param name="queryParameters"></param>
         /// <returns></returns>
+        /// <exception cref="ODataParseException">A query option cannot be parsed for <typeparamref name="T"/>.</exception>
         public IModelFilter<T> Parse(NameValueCollection queryParameters)
         {
             var orderbyField = queryParameters[StringConstants.OrderByParameter];
@@ -93,17 +94,37 @@ namespace LinqConvertTools.Parser
             var skip = queryParameters[StringConstants.SkipParameter];
             var top = queryParameters[StringConstants.TopParameter];
 
-            var filterExpression = _filterExpressionFactory.Create<T>(filter);
-            var sortDescriptions = _sortExpressionFactory.Create<T>(orderbyField);
-            var selectFunction = _selectExpressionFactory.Create(selects);
+            var filterExpression = Guard(_filterExpressionFactory is FilterExpressionFactory, StringConstants.FilterParameter, filter, () => _filterExpressionFactory.Create<T>(filter));
+            var sortDescriptions = Guard(_sortExpressionFactory is SortExpressionFactory, StringConstants.OrderByParameter, orderbyField, () => Materialize(_sortExpressionFactory.Create<T>(orderbyField)));
+            var selectFunction = Guard(_selectExpressionFactory is SelectExpressionFactory<T>, StringConstants.SelectParameter, selects, () => _selectExpressionFactory.Create(selects));
 
             var modelFilter = new ModelFilter<T>(
                 filterExpression,
                 selectFunction,
                 sortDescriptions,
-                string.IsNullOrWhiteSpace(skip) ? -1 : Convert.ToInt32(skip, CultureInfo.InvariantCulture),
-                string.IsNullOrWhiteSpace(top) ? -1 : Convert.ToInt32(top, CultureInfo.InvariantCulture));
+                ReadCount(StringConstants.SkipParameter, skip),
+                ReadCount(StringConstants.TopParameter, top));
             return modelFilter;
+        }
+
+        private static TResult Guard<TResult>(bool isBuiltIn, string queryOption, string? text, Func<TResult> create)
+        {
+            // The built-in factories wrap their own input failures and leave server-side failures, such as building
+            // the runtime type for a selection, unwrapped. A factory supplied by the caller is wrapped here.
+            return isBuiltIn ? create() : ParseFailure.Guard(queryOption, text, create);
+        }
+
+        private static IEnumerable<SortDescription<T>>? Materialize(IEnumerable<SortDescription<T>>? descriptions)
+        {
+            // A sort factory may return a lazy sequence or null; null means no sort.
+            return descriptions is null or SortDescription<T>[] ? descriptions : descriptions.ToArray();
+        }
+
+        private static int ReadCount(string queryOption, string? value)
+        {
+            return string.IsNullOrWhiteSpace(value)
+                ? -1
+                : ParseFailure.Guard(queryOption, value, () => Convert.ToInt32(value, CultureInfo.InvariantCulture));
         }
 
         [ContractInvariantMethod]

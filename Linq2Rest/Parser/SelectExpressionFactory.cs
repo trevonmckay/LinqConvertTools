@@ -52,12 +52,14 @@ namespace LinqConvertTools.Parser
         /// </summary>
         /// <param name="selection">The properties to select.</param>
         /// <returns>An instance of a <see cref="Func{T1,TResult}"/>, or <see langword="null"/> when <paramref name="selection"/> names no properties.</returns>
+        /// <exception cref="ODataParseException">The selection names a member that <typeparamref name="T"/> does not have, or names a member more than once.</exception>
         public Expression<Func<T, object>>? Create(string? selection)
         {
             var fieldNames = (selection ?? string.Empty).Split(',')
                 .Where(x => !string.IsNullOrWhiteSpace(x))
                 .Select(x => x.Trim())
-                .OrderBy(x => x);
+                .OrderBy(x => x)
+                .ToArray();
 
             var key = string.Join(",", fieldNames);
 
@@ -68,12 +70,46 @@ namespace LinqConvertTools.Parser
                 return knownSelection;
             }
 
+            var sourceMembers = ParseFailure.Guard(StringConstants.SelectParameter, selection, () => ResolveMembers(fieldNames));
+            var selector = CreateSelector(sourceMembers);
+
+            if (Monitor.TryEnter(_knownSelections, 1000))
+            {
+                _knownSelections.Add(key, selector);
+
+                Monitor.Exit(_knownSelections);
+            }
+
+            return selector;
+        }
+
+        private Dictionary<string, MemberInfo> ResolveMembers(IEnumerable<string> fieldNames)
+        {
             var elementType = typeof(T);
             var elementMembers = elementType.GetProperties(Flags)
                 .Cast<MemberInfo>()
                 .Concat(elementType.GetFields(Flags))
                 .ToArray();
-            var sourceMembers = fieldNames.ToDictionary(name => name, s => elementMembers.First(m => _nameResolver.ResolveName(m) == s));
+            var sourceMembers = new Dictionary<string, MemberInfo>();
+            foreach (var name in fieldNames)
+            {
+                if (sourceMembers.ContainsKey(name))
+                {
+                    throw new FormatException(name + " is selected more than once");
+                }
+
+                sourceMembers.Add(
+                    name,
+                    elementMembers.FirstOrDefault(m => _nameResolver.ResolveName(m) == name)
+                        ?? throw new FormatException(name + " is not recognized as a valid property"));
+            }
+
+            return sourceMembers;
+        }
+
+        private Expression<Func<T, object>> CreateSelector(IDictionary<string, MemberInfo> sourceMembers)
+        {
+            var elementType = typeof(T);
             var dynamicType = _runtimeTypeProvider.Get(elementType, sourceMembers.Values);
 
             var sourceItem = Expression.Parameter(elementType, "t");
@@ -92,18 +128,9 @@ namespace LinqConvertTools.Parser
 
 
 
-            var selector = Expression.Lambda<Func<T, object>>(
-                                                              Expression.MemberInit(Expression.New(constructorInfo), bindings),
-                                                              sourceItem);
-
-            if (Monitor.TryEnter(_knownSelections, 1000))
-            {
-                _knownSelections.Add(key, selector);
-
-                Monitor.Exit(_knownSelections);
-            }
-
-            return selector;
+            return Expression.Lambda<Func<T, object>>(
+                                                      Expression.MemberInit(Expression.New(constructorInfo), bindings),
+                                                      sourceItem);
         }
 
         [ContractInvariantMethod]

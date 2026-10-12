@@ -90,7 +90,7 @@ namespace LinqConvertTools.Tests.Parser
         [TestCase("countryCode not eq 'GB'")]
         public void NotWithoutAFollowingInList_IsRejected(string filter)
         {
-            Assert.Throws<InvalidOperationException>(() => new ODataExpressionConverter().Convert<Row>(filter, false));
+            ParseAssert.Throws<InvalidOperationException>(() => new ODataExpressionConverter().Convert<Row>(filter, false));
         }
     }
 }

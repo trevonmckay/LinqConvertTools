@@ -206,7 +206,8 @@ namespace LinqConvertTools
 
         public static MethodInfo GetAnyAllMethod(string name, Type collectionType)
         {
-            var implementationType = GetIEnumerableImpl(collectionType);
+            var implementationType = GetIEnumerableImpl(collectionType)
+                ?? throw new InvalidOperationException(collectionType.Name + " is not a collection.");
 
             var elemType = implementationType.GetGenericArguments()[0];
             var predType = typeof(Func<,>).MakeGenericType(elemType, typeof(bool));
@@ -221,7 +222,7 @@ namespace LinqConvertTools
             return allMethod;
         }
 
-        public static Type GetIEnumerableImpl(Type type)
+        public static Type? GetIEnumerableImpl(Type type)
         {
             // Get IEnumerable implementation. Either type is IEnumerable<T> for some T, 
             // or it implements IEnumerable<T> for some T. We need to find the interface.
@@ -232,9 +233,7 @@ namespace LinqConvertTools
 
             Type[] interfaces = type.FindInterfaces((m, o) => IsIEnumerable(m), null);
 
-            Type t = interfaces[0];
-
-            return t;
+            return interfaces.FirstOrDefault();
         }
 
         private static MethodBase GetGenericMethod(Type type, string name, Type[] typeArgs, Type[] argTypes, BindingFlags flags)

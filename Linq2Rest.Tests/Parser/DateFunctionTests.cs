@@ -84,7 +84,7 @@ namespace LinqConvertTools.Tests.Parser
         {
             ArgumentNullException.ThrowIfNull(_converter);
 
-            Assert.Throws<InvalidOperationException>(() => _converter.Convert<Event>(filter));
+            ParseAssert.Throws<InvalidOperationException>(() => _converter.Convert<Event>(filter));
         }
 
         [Test]
