@@ -53,6 +53,10 @@ namespace LinqConvertTools.Tests.Parser
         [TestCase("members/any(m: size gt 3 and m/tags/any(t: t eq 'x'))", "Beta")]
         [TestCase("members/any(m: (tags/any(t: t eq m/name)))", "Alpha,Beta")]
         [TestCase("members/any(m: not tags/any(t: t eq m/name))", "Alpha")]
+        [TestCase("$it/name eq 'Alpha'", "Alpha")]
+        [TestCase("members/any(m: m/name eq 'gold' and $it/name eq 'Beta')", "Beta")]
+        [TestCase("members/any(m: m/tags/any(t: $it/tags/any(r: r eq t)))", "Alpha")]
+        [TestCase("members/any(m: 'Beta' eq $it/name)", "Beta")]
         public void LambdaVariablesAreScopedToTheirLambda(string filter, string expected)
         {
             ArgumentNullException.ThrowIfNull(_converter);
@@ -78,6 +82,8 @@ namespace LinqConvertTools.Tests.Parser
         [TestCase("members/any(m: m/tags/any(t: true) and t eq 'x')")]
         [TestCase("members/any(m: m/name eq 'x') and m/name eq 'Beta'")]
         [TestCase("members/any(m: m/tags/any(t: true) and t/name eq 'Alpha')")]
+        [TestCase("members/any(m: true) and name eq m/name")]
+        [TestCase("members/any(m: m/tags/any(t: true) and m/name eq t/name)")]
         public void RejectsLambdaVariableOutsideItsLambda(string filter)
         {
             ArgumentNullException.ThrowIfNull(_converter);
@@ -88,6 +94,8 @@ namespace LinqConvertTools.Tests.Parser
         [TestCase("bogus/name eq 'Alpha'")]
         [TestCase("members/bogus eq 'x'")]
         [TestCase("members/any(m: m/bogus eq 'x')")]
+        [TestCase("name eq bogus/name")]
+        [TestCase("contains(name, $it/bogus)")]
         public void RejectsMemberPathThatDoesNotResolve(string filter)
         {
             ArgumentNullException.ThrowIfNull(_converter);

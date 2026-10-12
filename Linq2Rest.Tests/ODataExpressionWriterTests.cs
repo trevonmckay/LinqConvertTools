@@ -173,6 +173,26 @@ namespace LinqConvertTools.Tests
         }
 
         [Test]
+        public void RejectsBitwiseAndOr()
+        {
+            var converter = new ODataExpressionConverter();
+            Expression<Func<ChildDto, bool>> and = x => (x.ID & 4) == 4;
+            Expression<Func<ChildDto, bool>> or = x => (x.ID | 1) == 5;
+
+            Assert.Throws<InvalidOperationException>(() => converter.Convert(and));
+            Assert.Throws<InvalidOperationException>(() => converter.Convert(or));
+        }
+
+        [Test]
+        public void WritesNonShortCircuitBooleanOperatorsAsLogical()
+        {
+            var converter = new ODataExpressionConverter();
+            Expression<Func<ChildDto, bool>> expression = x => (x.ID == 1) | (x.ID == 2);
+
+            Assert.AreEqual("ID eq 1 or ID eq 2", converter.Convert(expression));
+        }
+
+        [Test]
         public void NegationRoundTrips()
         {
             var converter = new ODataExpressionConverter();

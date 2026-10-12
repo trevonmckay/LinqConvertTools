@@ -27,8 +27,14 @@ namespace LinqConvertTools.Parser
     /// </summary>
     public class FilterExpressionFactory : IFilterExpressionFactory
     {
+        private const string ItQualifier = "$it";
+
         private static readonly char[] LiteralCharacters = { '\'', '"', '(', ')' };
         private static readonly Regex NegateRx = new(@"^-[^\d]*", RegexOptions.Compiled, ParserRegex.MatchTimeout);
+
+        // Two or more identifier segments separated by '/', such as child/name or $it/name.
+        private static readonly Regex MemberPathRx = new(@"^\$?[A-Za-z_][\w.]*(/\$?[A-Za-z_][\w.]*)+$", RegexOptions.Compiled, ParserRegex.MatchTimeout);
+
         private static readonly Expression _nullConstantExpression = Expression.Constant(null, typeof(object));
 
         /// <summary>
@@ -145,19 +151,13 @@ namespace LinqConvertTools.Parser
             }
 
             // A chain of conditions is built in a loop rather than by recursion, so the parser's own depth
-            // check does not bound it. The tree is measured instead: before Reduce, whose walk is not bounded by
-            // the limit, and again on the tree that is returned.
+            // check does not bound it. The tree is measured instead, as it will be once reduced, before Reduce walks it.
             if (ExpressionDepth.Exceeds(expression, _maxDepth))
             {
                 throw DepthExceeded();
             }
 
             expression = NullSemantics.Reduce(expression);
-
-            if (ExpressionDepth.Exceeds(expression, _maxDepth))
-            {
-                throw DepthExceeded();
-            }
 
             return Expression.Lambda<Func<T, bool>>(expression, parameter);
         }
@@ -756,17 +756,18 @@ namespace LinqConvertTools.Parser
         /// <summary>
         /// Resolves <paramref name="propertyToken"/> as a member path, such as <c>Child/Age</c>, from the source or a
         /// lambda parameter in scope. A path starting with a lambda variable name reads from the innermost variable of
-        /// that name.
+        /// that name, and one starting with <c>$it</c> reads from the source item.
         /// </summary>
         /// <returns>The member access, or <c>null</c> when any segment of the path is not a member.</returns>
         private Expression? GetMemberExpression<T>(string propertyToken, ParameterExpression parameter, ICollection<ParameterExpression> lambdaParameters)
         {
             string[] propertyChain = propertyToken.Split('/');
-            if (lambdaParameters.LastOrDefault(p => p.Name == propertyChain[0]) is ParameterExpression lambdaParameter)
+            ParameterExpression? root = propertyChain[0] == ItQualifier
+                ? parameter
+                : lambdaParameters.LastOrDefault(p => p.Name == propertyChain[0]);
+            if (root is not null)
             {
-                return propertyChain.Length == 1
-                    ? lambdaParameter
-                    : _memberNameResolver.ResolveMemberPath(lambdaParameter, propertyChain.Skip(1));
+                return _memberNameResolver.ResolveMemberPath(root, propertyChain.Skip(1));
             }
 
             return _memberNameResolver.ResolveMemberPath(parameter, propertyChain);
@@ -865,8 +866,15 @@ namespace LinqConvertTools.Parser
             }
 
             Expression? expression = GetAnyAllFunctionExpression<T>(filter, sourceParameter, lambdaParameters, formatProvider, ignoreCase, depth)
-                ?? GetMemberExpression<T>(filter, sourceParameter, lambdaParameters)
-                ?? GetArithmeticExpression<T>(filter, sourceParameter, lambdaParameters, type, formatProvider, ignoreCase, depth)
+                ?? GetMemberExpression<T>(filter, sourceParameter, lambdaParameters);
+
+            // An unquoted literal is read as text, which a path must not fall back to.
+            if (expression is null && MemberPathRx.IsMatch(filter))
+            {
+                throw new InvalidOperationException("Could not create expression from: " + filter + ". It is not a member of " + typeof(T).Name + " or of a lambda variable in scope.");
+            }
+
+            expression ??= GetArithmeticExpression<T>(filter, sourceParameter, lambdaParameters, type, formatProvider, ignoreCase, depth)
                 ?? GetFunctionExpression<T>(filter, sourceParameter, lambdaParameters, type, formatProvider, ignoreCase, depth)
                 ?? GetParameterExpression(filter, type, formatProvider)
                 ?? GetBooleanExpression(filter, formatProvider);

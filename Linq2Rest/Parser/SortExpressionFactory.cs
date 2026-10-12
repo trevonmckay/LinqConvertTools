@@ -61,19 +61,10 @@ namespace LinqConvertTools.Parser
 
         private Expression GetPropertyExpression<T>(string propertyToken, ParameterExpression parameter)
         {
-            var parentType = typeof(T);
+            var propertyExpression = _nameResolver.ResolveMemberPath(parameter, propertyToken.Split('/'))
+                ?? throw new FormatException(propertyToken + " is not recognized as a valid property");
 
-            var propertyChain = propertyToken.Split('/');
-            var result = _nameResolver.CreateMemberExpression(parameter, propertyChain, parentType, null);
-            var propertyExpression = result.Item2;
-            parentType = result.Item1;
-
-            if (propertyExpression == null)
-            {
-                throw new FormatException(propertyToken + " is not recognized as a valid property");
-            }
-
-            var funcType = typeof(Func<,>).MakeGenericType(typeof(T), parentType);
+            var funcType = typeof(Func<,>).MakeGenericType(typeof(T), propertyExpression.Type);
 
             return Expression.Lambda(funcType, propertyExpression, parameter);
         }

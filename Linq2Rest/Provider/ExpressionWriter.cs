@@ -192,7 +192,7 @@ namespace LinqConvertTools.Provider
 
         private static string GetOperation(Expression expression)
         {
-
+            RejectBitwise(expression);
 
             switch (expression.NodeType)
             {
@@ -231,6 +231,21 @@ namespace LinqConvertTools.Provider
             }
 
             return string.Empty;
+        }
+
+        /// <summary>
+        /// <see cref="ExpressionType.And"/>, <see cref="ExpressionType.Or"/> and <see cref="ExpressionType.Not"/> on an
+        /// integer are the bitwise operators <c>&amp;</c>, <c>|</c> and <c>~</c>, which OData has no operators for.
+        /// </summary>
+        private static void RejectBitwise(Expression expression)
+        {
+            bool isLogicalCandidate = expression.NodeType == ExpressionType.And
+                || expression.NodeType == ExpressionType.Or
+                || expression.NodeType == ExpressionType.Not;
+            if (isLogicalCandidate && expression.Type != typeof(bool) && expression.Type != typeof(bool?))
+            {
+                throw new InvalidOperationException("Expression is not recognized or supported: " + expression);
+            }
         }
 
         private static ParameterExpression? GetRootParameterName(Expression expression)
@@ -339,11 +354,7 @@ namespace LinqConvertTools.Provider
             var unaryExpression = (UnaryExpression)expression;
             var operand = unaryExpression.Operand;
 
-            // ExpressionType.Not is also the bitwise complement (~) of an integer, which OData has no operator for.
-            if (operand.Type != typeof(bool) && operand.Type != typeof(bool?))
-            {
-                throw new InvalidOperationException("Expression is not recognized or supported: " + expression);
-            }
+            RejectBitwise(expression);
 
             return string.Format(CultureInfo.InvariantCulture, "not ({0})", Write(operand, rootParameterName, sourceType));
         }

@@ -56,24 +56,6 @@ namespace LinqConvertTools
             return items.Select(item => predicate(item) ? replacement : item);
         }
 
-        public static Tuple<Type, Expression?> CreateMemberExpression(this IMemberNameResolver memberNameResolver, ParameterExpression parameter, IEnumerable<string> propertyChain, Type parentType, Expression? propertyExpression)
-        {
-            foreach (string propertyName in propertyChain)
-            {
-                string name = propertyName;
-                MemberInfo? member = memberNameResolver.ResolveAlias(parentType, name);
-                if (member is not null)
-                {
-                    parentType = GetMemberType(member);
-                    propertyExpression = propertyExpression is null
-                                             ? Expression.MakeMemberAccess(parameter, member)
-                                             : Expression.MakeMemberAccess(propertyExpression, member);
-                }
-            }
-
-            return new Tuple<Type, Expression?>(parentType, propertyExpression);
-        }
-
         /// <summary>
         /// Reads each name in <paramref name="propertyChain"/> as a member of the previous one, starting from
         /// <paramref name="instance"/>.

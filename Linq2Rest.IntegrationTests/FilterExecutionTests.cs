@@ -139,6 +139,9 @@ namespace LinqConvertTools.IntegrationTests
             new object[] { "tags/any(t: not keywords/any(k: k eq 'open'))", false, "B,D" },
             new object[] { "tags/any(t: keywords/any(k: startswith(t/value, 'fin') and k eq 'priority'))", false, "A" },
             new object[] { "tags/any(t: keywords/any(k: k eq t/value))", false, "" },
+            new object[] { "tags/any(t: keywords/any(k: k eq t/value or t/value eq 'legal'))", false, "D" },
+            new object[] { "tags/any(t: keywords/any(k: startswith(k, 'pri') and $it/title eq 'Quarterly Report'))", false, "A" },
+            new object[] { "tags/any(t: 'Annual Review' eq $it/title)", false, "B" },
             new object[] { "tags/any(t: keywords/any(k: true)) and not keywords/any(k: k eq 'open')", false, "B,D" },
 
             // OData null semantics, with Status null on C: a function or arithmetic given null returns null; eq and ne

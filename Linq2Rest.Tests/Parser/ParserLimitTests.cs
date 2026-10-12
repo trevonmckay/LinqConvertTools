@@ -81,6 +81,23 @@ namespace LinqConvertTools.Tests.Parser
         }
 
         [Test]
+        public void WhenLambdasNestWithUnknownConditionsThenParsesInLinearTime()
+        {
+            string filter = "name eq 'q'";
+            for (int i = 0; i < 20; i++)
+            {
+                filter = "children/any(a" + i + ": contains(a" + i + "/name, 'x') and " + filter + ")";
+            }
+
+            var converter = new ODataExpressionConverter();
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+
+            converter.Convert<Item>(filter);
+
+            Assert.Less(stopwatch.ElapsedMilliseconds, 5000);
+        }
+
+        [Test]
         public void WhenFilterIsNestedModeratelyThenParses()
         {
             string filter = Nest("name eq 'z' or (", ")", 50);
@@ -184,6 +201,8 @@ namespace LinqConvertTools.Tests.Parser
             public string Name { get; set; } = string.Empty;
 
             public List<string> Tags { get; set; } = new();
+
+            public List<Item> Children { get; set; } = new();
         }
     }
 }

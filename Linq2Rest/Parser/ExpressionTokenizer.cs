@@ -21,7 +21,7 @@ namespace LinqConvertTools.Parser
     internal static class ExpressionTokenizer
     {
         private static readonly Regex FunctionRx = new Regex(@"^([^\(\)]+)\((.+)\)$", RegexOptions.Compiled, ParserRegex.MatchTimeout);
-        private static readonly Regex AnyAllFunctionRx = new Regex(@"^(([0-9a-zA-Z_]+/)+)(any|all)\((.*)\)$", RegexOptions.Compiled, ParserRegex.MatchTimeout);
+        private static readonly Regex AnyAllFunctionRx = new Regex(@"^((?:\$it/)?([0-9a-zA-Z_]+/)+)(any|all)\((.*)\)$", RegexOptions.Compiled, ParserRegex.MatchTimeout);
         /// <summary>
         /// Splits a filter into its conditions and the and/or combiners between them.
         /// </summary>
