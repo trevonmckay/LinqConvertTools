@@ -506,7 +506,7 @@ namespace LinqConvertTools.Parser
         }
 
         /// <exception cref="InvalidOperationException">An operand is not of the type the function requires.</exception>
-        private Expression? GetFunction(string function, Expression left, Expression? right, ParameterExpression sourceParameter, ICollection<ParameterExpression> lambdaParameters, bool ignoreCase)
+        private Expression? GetFunction(string function, Expression left, Expression? right, bool ignoreCase)
         {
             switch (function.ToUpperInvariant())
             {
@@ -545,16 +545,6 @@ namespace LinqConvertTools.Parser
                     return GetRoundingFunction(function, left, MethodProvider.DoubleFloorMethod, MethodProvider.DecimalFloorMethod);
                 case "CEILING":
                     return GetRoundingFunction(function, left, MethodProvider.DoubleCeilingMethod, MethodProvider.DecimalCeilingMethod);
-                case "ANY":
-                case "ALL":
-                    {
-                        return CreateAnyAllExpression(
-                                                      left,
-                                                      right,
-                                                      sourceParameter,
-                                                      lambdaParameters,
-                                                      MethodProvider.GetAnyAllMethod(function.Capitalize(), left.Type));
-                    }
                 default:
                     return null;
             }
@@ -596,33 +586,6 @@ namespace LinqConvertTools.Parser
             {
                 left = Expression.Convert(left, right.Type);
             }
-        }
-
-        private static Expression CreateAnyAllExpression(
-            Expression left,
-            Expression? right,
-            ParameterExpression sourceParameter,
-            IEnumerable<ParameterExpression> lambdaParameters,
-            MethodInfo anyAllMethod)
-        {
-            Type genericFunc = typeof(Func<,>)
-                .MakeGenericType(
-                                 MethodProvider.GetIEnumerableImpl(left.Type).GetGenericArguments()[0],
-                                 typeof(bool));
-
-            var filteredParameters = new ParameterVisitor()
-                .GetParameters(right)
-                .Where(p => p.Name != sourceParameter.Name)
-                .ToArray();
-            if (!filteredParameters.Any())
-            {
-                filteredParameters = lambdaParameters.ToArray();
-            }
-
-            return Expression.Call(
-                                   anyAllMethod,
-                                   left,
-                                   Expression.Lambda(genericFunc, right, filteredParameters));
         }
 
         /// <summary>
@@ -794,10 +757,8 @@ namespace LinqConvertTools.Parser
             Expression? propertyExpression = null;
 
             string[] propertyChain = propertyToken.Split('/');
-            if (propertyChain.Length > 0 && lambdaParameters.Any(p => p.Name == propertyChain[0]))
+            if (propertyChain.Length > 0 && lambdaParameters.LastOrDefault(p => p.Name == propertyChain[0]) is ParameterExpression lambdaParameter)
             {
-                ParameterExpression lambdaParameter = lambdaParameters.First(p => p.Name == propertyChain[0]);
-
                 parentType = lambdaParameter.Type;
                 propertyExpression = lambdaParameter;
             }
@@ -1037,7 +998,7 @@ namespace LinqConvertTools.Parser
                     : GetLeftRightOperation(arithmeticToken.Operation, leftExpression, rightExpression, ignoreCase);
         }
 
-        private Expression? GetAnyAllFunctionExpression<T>(string filter, ParameterExpression sourceParameter, ICollection<ParameterExpression> lambdaParameters, IFormatProvider formatProvider, bool ignoreCase, int depth)
+        private MethodCallExpression? GetAnyAllFunctionExpression<T>(string filter, ParameterExpression sourceParameter, ICollection<ParameterExpression> lambdaParameters, IFormatProvider formatProvider, bool ignoreCase, int depth)
         {
             TokenSet? functionTokens = filter.GetAnyAllFunctionTokens();
             if (functionTokens is null)
@@ -1074,19 +1035,33 @@ namespace LinqConvertTools.Parser
                 throw new InvalidOperationException("Could not create expression from: " + filter + ". Expected a lambda of the form " + functionTokens.Operation + "(x: <expression>).");
             }
 
-            // Create a new ParameterExpression from the lambda parameter and add to a collection to pass around
+            // The variable is in scope only inside the lambda body; unqualified members in the body still belong to the source item.
             var parameterName = functionTokens.Right.Substring(0, separatorIndex).Trim();
             var lambdaParameter = Expression.Parameter(elementType, parameterName);
-            lambdaParameters.Add(lambdaParameter);
             var lambdaFilter = functionTokens.Right.Substring(separatorIndex + 1).Trim();
 
-            // The lambda body is a condition, so the collection's type gives no type to read its literals as.
-            var isLambdaAnyAllFunction = lambdaFilter.GetAnyAllFunctionTokens() != null;
-            var right = isLambdaAnyAllFunction
-                ? GetAnyAllFunctionExpression<T>(lambdaFilter, lambdaParameter, lambdaParameters, formatProvider, ignoreCase, depth + 1)
-                : CreateExpression<T>(lambdaFilter, sourceParameter, lambdaParameters, null, formatProvider, ignoreCase, depth + 1);
+            Expression? right;
+            lambdaParameters.Add(lambdaParameter);
+            try
+            {
+                // The lambda body is a condition, so the collection's type gives no type to read its literals as.
+                right = lambdaFilter.GetAnyAllFunctionTokens() != null
+                    ? GetAnyAllFunctionExpression<T>(lambdaFilter, sourceParameter, lambdaParameters, formatProvider, ignoreCase, depth + 1)
+                    : CreateExpression<T>(lambdaFilter, sourceParameter, lambdaParameters, null, formatProvider, ignoreCase, depth + 1);
+            }
+            finally
+            {
+                lambdaParameters.Remove(lambdaParameter);
+            }
 
-            return GetFunction(functionTokens.Operation, left, right, sourceParameter, lambdaParameters, ignoreCase);
+            if (right is null)
+            {
+                return null;
+            }
+
+            MethodInfo anyAllMethod = MethodProvider.GetAnyAllMethod(functionTokens.Operation.Capitalize(), left.Type);
+            Type predicateType = typeof(Func<,>).MakeGenericType(elementType, typeof(bool));
+            return Expression.Call(anyAllMethod, left, Expression.Lambda(predicateType, right, lambdaParameter));
         }
 
         /// <summary>
@@ -1140,59 +1115,7 @@ namespace LinqConvertTools.Parser
                                 ignoreCase,
                                 depth + 1);
 
-            return GetFunction(functionTokens.Operation, left, right, sourceParameter, lambdaParameters, ignoreCase);
-        }
-
-        /// <summary>
-        /// Used to get the ParameterExpressions used in an Expression so that Expression.Call will have the correct number of parameters supplied.
-        /// </summary>
-        private sealed class ParameterVisitor : ExpressionVisitor
-        {
-            private static readonly string[] AnyAllMethodNames = { "Any", "All" };
-            private List<ParameterExpression> _parameters = new List<ParameterExpression>();
-
-            public IEnumerable<ParameterExpression> GetParameters(Expression? expr)
-            {
-                _parameters = new List<ParameterExpression>();
-                Visit(expr);
-                return _parameters;
-            }
-
-            public override Expression? Visit(Expression? node)
-            {
-                // Runs on a partly built tree, before the depth of the whole filter is known.
-                RuntimeHelpers.EnsureSufficientExecutionStack();
-
-                if (node is not null && node.NodeType == ExpressionType.Call && AnyAllMethodNames.Contains(((MethodCallExpression)node).Method.Name))
-                {
-                    // Skip the second parameter of the Any/All as this has already been covered
-                    return base.Visit(((MethodCallExpression)node).Arguments.First());
-                }
-
-                return base.Visit(node);
-            }
-
-            protected override Expression VisitBinary(BinaryExpression node)
-            {
-                if (node.NodeType == ExpressionType.AndAlso)
-                {
-                    Visit(node.Left);
-                    Visit(node.Right);
-                    return node;
-                }
-
-                return base.VisitBinary(node);
-            }
-
-            protected override Expression VisitParameter(ParameterExpression node)
-            {
-                if (!_parameters.Contains(node))
-                {
-                    _parameters.Add(node);
-                }
-
-                return base.VisitParameter(node);
-            }
+            return GetFunction(functionTokens.Operation, left, right, ignoreCase);
         }
     }
 }

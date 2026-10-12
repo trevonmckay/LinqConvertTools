@@ -127,6 +127,18 @@ namespace LinqConvertTools.IntegrationTests
             new object[] { "tags/any(t: t/value in ('email') eq false)", false, "A,D" },
             new object[] { "status in keywords eq false", true, "C,D" },
 
+            // A lambda variable is in scope only inside its own lambda; an unqualified member inside any lambda is a member of the document.
+            new object[] { "tags/any(t: t/value eq 'email') and tags/any(t: priority gt 1)", false, "B" },
+            new object[] { "tags/any(t: priority gt 1) and tags/any(t: t/value eq 'email')", false, "B" },
+            new object[] { "tags/any(t: true) and not keywords/any(u: u eq 'archived')", false, "A,B" },
+            new object[] { "tags/any(t: t/value eq 'legal') or keywords/any(t: t eq 'draft')", false, "C,D" },
+            new object[] { "not tags/any(t: priority gt 1)", false, "A,C" },
+            new object[] { "tags/all(t: priority gt 1) and not tags/any(u: u/value eq 'legal')", false, "B,C" },
+            new object[] { "tags/any(t: keywords/any(k: k eq 'open'))", false, "A" },
+            new object[] { "tags/any(t: keywords/any(k: startswith(t/value, 'fin') and k eq 'priority'))", false, "A" },
+            new object[] { "tags/any(t: keywords/any(k: k eq t/value))", false, "" },
+            new object[] { "tags/any(t: keywords/any(k: true)) and not keywords/any(k: k eq 'open')", false, "B,D" },
+
             // OData null semantics, with Status null on C: a function or arithmetic given null returns null; eq and ne
             // treat null as a value (null ne 'x' is true, null eq null is true); gt/ge/lt/le with null are false; and
             // a null condition is unknown under not/and/or. A row is returned only when the filter is true.
